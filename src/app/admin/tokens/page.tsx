@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { formatRupiahFull } from "@/lib/utils";
 
+export const dynamic = 'force-dynamic';
+
 // ============================================================
 // SUPERADMIN DASHBOARD: MINT TOKEN
 // ============================================================
