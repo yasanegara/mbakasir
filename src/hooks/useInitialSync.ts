@@ -31,7 +31,10 @@ export function useInitialSync() {
         // Pengecekan sederhana: Jika dexie belum terisi tenant, lakukan full hit API.
         // Untuk optimasi ke depan: gunakan timestamps sync terakhir.
         if (tenantCount > 0) {
-          if (mounted) setHasSynced(true);
+          if (mounted) {
+             setHasSynced(true);
+             setIsSyncing(false); // Sembunyikan spinner seketika (Stale-while-revalidate)
+          }
         }
 
         if (navigator.onLine) {

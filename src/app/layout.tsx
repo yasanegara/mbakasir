@@ -4,13 +4,13 @@ import { ThemeProvider, ToastProvider, AuthProvider } from "@/contexts/AppProvid
 
 export const metadata: Metadata = {
   title: {
-    default: "Mbakasir Intelligence Pro",
-    template: "%s | Mbakasir",
+    default: "MbaKasir Kasir Cerdas",
+    template: "%s | MbaKasir",
   },
   description:
     "SaaS POS & ERP Mikro dengan arsitektur Local-First. Toko bisa jualan tanpa internet, data sync otomatis ke cloud.",
   keywords: ["POS", "kasir", "UMKM", "ERP", "Indonesia", "offline", "local-first"],
-  authors: [{ name: "Mbakasir" }],
+  authors: [{ name: "MbaKasir" }],
   manifest: "/manifest.json",
 };
 

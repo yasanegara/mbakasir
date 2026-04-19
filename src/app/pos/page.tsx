@@ -10,6 +10,20 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { formatRupiah, formatRupiahFull, generateInvoiceNo, generateUUID } from "@/lib/utils";
 
+function getSuggestedAmounts(total: number): number[] {
+  if (total <= 0) return [];
+  const suggestions = new Set<number>();
+  suggestions.add(total); // Uang pas
+  
+  const steps = [5000, 10000, 20000, 50000, 100000];
+  for (const step of steps) {
+    const rounded = Math.ceil(total / step) * step;
+    if (rounded >= total) suggestions.add(rounded);
+  }
+
+  return Array.from(suggestions).sort((a, b) => a - b).slice(0, 4);
+}
+
 // ============================================================
 // HALAMAN KASIR (POS)
 // CTO & Lead UI/UX: 100% Offline, Real-time Dexie.js
@@ -21,12 +35,24 @@ export default function POSPage() {
   const { isSyncing, hasSynced, error } = useInitialSync();
 
   // 1. Data dari IndexedDB (Reactive via Dexie)
-  const products = useLiveQuery(() => getDb().products.where("isActive").equals(1).toArray()) || [];
+  const products = useLiveQuery(async () => {
+    const all = await getDb().products.toArray();
+    return all.filter((p) => p.isActive === true);
+  }) || [];
   
+  const shifts = useLiveQuery(async () => {
+    if (!user) return [];
+    return await getDb().shifts.where("userId").equals(user.sub).toArray();
+  }, [user]);
+  const activeShift = shifts?.find((s) => !s.closedAt);
+
   // 2. State Keranjang & Checkout
   const [cart, setCart] = useState<{ product: LocalProduct; qty: number }[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "QRIS">("CASH");
   const [paidAmount, setPaidAmount] = useState(0);
+  const [openingCash, setOpeningCash] = useState(0);
+  const [showShiftSummary, setShowShiftSummary] = useState(false);
+  const [includeInventory, setIncludeInventory] = useState(false);
 
   // Kalkulasi total
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
@@ -70,6 +96,48 @@ export default function POSPage() {
     );
   };
 
+
+  // ─── Handler Shift ──────────────────────────────────────────
+
+  const handleStartShift = async () => {
+    if (!user || user.role === "SUPERADMIN") return;
+    try {
+      const shiftLocalId = generateUUID();
+      const newShift: LocalShift = {
+        localId: shiftLocalId,
+        tenantId: user.tenantId || "",
+        userId: user.sub,
+        openingCash,
+        totalSales: 0,
+        totalVoid: 0,
+        startedAt: Date.now(),
+        syncStatus: "PENDING",
+      };
+      await getDb().shifts.put(newShift);
+      await enqueueSyncOp("shifts", shiftLocalId, "CREATE", newShift);
+      toast("Shift dimulai! Selamat bertugas.", "success");
+    } catch (err) {
+      toast("Gagal membuka shift", "error");
+    }
+  };
+
+  const confirmCloseShift = async () => {
+    if (!activeShift) return;
+    try {
+      const closed = {
+        ...activeShift,
+        closedAt: Date.now(),
+        syncStatus: "PENDING" as const,
+      };
+      await getDb().shifts.put(closed);
+      await enqueueSyncOp("shifts", closed.localId, "UPDATE", closed);
+      setShowShiftSummary(false);
+      toast("Shift berhasil ditutup.", "info");
+    } catch (err) {
+      toast("Gagal tutup shift", "error");
+    }
+  };
+
   // ─── Handler Checkout (The Core Engine) ────────────────────
 
   const handleCheckout = async () => {
@@ -107,6 +175,7 @@ export default function POSPage() {
         localId: saleLocalId,
         tenantId: user.tenantId,
         userId: user.sub,
+        shiftLocalId: activeShift?.localId,
         invoiceNo: generateInvoiceNo(),
         status: "COMPLETED",
         paymentMethod,
@@ -122,10 +191,17 @@ export default function POSPage() {
       };
 
       // 3. Simpan ke IndexedDB (Transaksi lokal, super cepat)
-      await db.transaction('rw', [db.sales, db.saleItems, db.products, db.rawMaterials, db.billOfMaterials, db.syncQueue], async () => {
+      await db.transaction('rw', [db.sales, db.saleItems, db.products, db.rawMaterials, db.billOfMaterials, db.shifts, db.syncQueue], async () => {
         // A. Insert Sale Header & Items
         await db.sales.put(sale);
         await db.saleItems.bulkPut(saleItems);
+
+        // Update totalSales di Shift
+        if (activeShift) {
+           const updatedShift: LocalShift = { ...activeShift, totalSales: activeShift.totalSales + subtotal, syncStatus: "PENDING" };
+           await db.shifts.put(updatedShift);
+           await enqueueSyncOp("shifts", activeShift.localId, "UPDATE", updatedShift);
+        }
 
         // B. Update Stok Produk (Local)
         for (const item of cart) {
@@ -187,6 +263,36 @@ export default function POSPage() {
     );
   }
 
+  // Verifikasi Shift (Abaikan jika SUPERADMIN karena biasanya test run)
+  if (shifts !== undefined && !activeShift && user && user.role !== "SUPERADMIN") {
+    return (
+      <DashboardLayout title="Buka Shift">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "70vh" }}>
+          <div className="card" style={{ width: "100%", maxWidth: "400px", textAlign: "center" }}>
+            <div style={{ fontSize: "40px", marginBottom: "16px" }}>👋</div>
+            <h2 style={{ marginBottom: "8px", fontSize: "20px", fontWeight: 700 }}>Hai, {user.name.split(" ")[0]}!</h2>
+            <p style={{ color: "hsl(var(--text-secondary))", marginBottom: "24px", fontSize: "14px" }}>
+              Silakan masukkan total uang modal awal di laci kasir untuk memulai shift.
+            </p>
+            <CurrencyInput
+              label="Modal Awal (Opsional)"
+              value={openingCash}
+              onChange={setOpeningCash}
+              autoFocus
+            />
+            <button 
+              className="btn btn-primary btn-block btn-lg" 
+              style={{ marginTop: "24px" }}
+              onClick={handleStartShift}
+            >
+              Mulai Bertugas
+            </button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title="Kasir (POS)">
       <div className="pos-grid">
@@ -235,8 +341,13 @@ export default function POSPage() {
 
         {/* KANAN: Keranjang (Cart) */}
         <div className="pos-cart">
-          <div style={{ padding: "20px", borderBottom: "1px solid hsl(var(--border))" }}>
+          <div style={{ padding: "20px", borderBottom: "1px solid hsl(var(--border))", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ fontSize: "18px" }}>Keranjang</h2>
+            {activeShift && (
+               <button className="btn btn-sm btn-ghost" style={{ color: "hsl(var(--error))", fontSize: "12px", border: "1px solid hsl(var(--error) / 0.2)" }} onClick={() => setShowShiftSummary(true)}>
+                  Tutup Shift
+               </button>
+            )}
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -296,9 +407,23 @@ export default function POSPage() {
                     onChange={setPaidAmount}
                     autoFocus
                   />
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px", fontSize: "14px" }}>
+                  {subtotal > 0 && (
+                     <div style={{ display: "flex", gap: "8px", marginTop: "12px", overflowX: "auto", paddingBottom: "4px" }}>
+                        {getSuggestedAmounts(subtotal).map((amt) => (
+                           <button
+                              key={amt}
+                              className="btn btn-sm btn-ghost"
+                              onClick={() => setPaidAmount(amt)}
+                              style={{ flexShrink: 0, fontSize: "12px" }}
+                           >
+                              {amt === subtotal ? "Uang Pas" : formatRupiah(amt)}
+                           </button>
+                        ))}
+                     </div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", fontSize: "14px" }}>
                     <span style={{ color: "hsl(var(--text-secondary))" }}>Kembalian:</span>
-                    <span style={{ fontWeight: 600, color: changeAmount > 0 ? "hsl(var(--warning))" : "inherit" }}>
+                    <span style={{ fontWeight: 600, color: changeAmount > 0 ? "hsl(var(--success))" : "inherit" }}>
                       {formatRupiahFull(changeAmount)}
                     </span>
                   </div>
@@ -315,6 +440,93 @@ export default function POSPage() {
           </div>
         </div>
       </div>
+
+      {/* SHIFT SUMMARY MODAL */}
+      {showShiftSummary && activeShift && user && (
+        <div className="lock-screen" style={{ zIndex: 9999 }}>
+          <div className="card" id="print-area" style={{ width: "100%", maxWidth: "420px", background: "white", color: "black" }}>
+            <div style={{ textAlign: "center", marginBottom: "24px", borderBottom: "2px dashed #ccc", paddingBottom: "16px" }}>
+              <h2 style={{ fontSize: "20px", fontWeight: 800, color: "black" }}>MbaKasir</h2>
+              <h3 style={{ fontSize: "16px", color: "#444" }}>Ringkasan Sesi Kasir</h3>
+            </div>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "14px", color: "#333", marginBottom: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Kasir Bertugas:</span>
+                <span style={{ fontWeight: 600 }}>{user.name}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Waktu Buka:</span>
+                <span style={{ fontWeight: 600 }}>{new Date(activeShift.startedAt).toLocaleString("id-ID")}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Waktu Tutup:</span>
+                <span style={{ fontWeight: 600 }}>{new Date().toLocaleString("id-ID")}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: "8px" }}>
+                <span>Modal Awal (Tunai):</span>
+                <span style={{ fontWeight: 600 }}>{formatRupiahFull(activeShift.openingCash)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Total Penjualan:</span>
+                <span style={{ fontWeight: 600 }}>{formatRupiahFull(activeShift.totalSales)}</span>
+              </div>
+            </div>
+
+            <div style={{ background: "#f5f5f5", padding: "12px", borderRadius: "8px", border: "1px solid #ddd", marginBottom: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "15px", fontWeight: 700, color: "black" }}>
+                <span>Total Uang Laci Seharusnya:</span>
+                <span>{formatRupiahFull(Number(activeShift.openingCash) + Number(activeShift.totalSales))}</span>
+              </div>
+            </div>
+
+            {/* Optional Inventory Summary */}
+            {includeInventory && (
+              <div style={{ marginBottom: "24px", borderTop: "1px solid #eee", paddingTop: "16px" }}>
+                <h4 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "10px", color: "black" }}>Sisa Stok Produk:</h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {products.map(p => (
+                    <div key={p.localId} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#444" }}>
+                      <span>{p.name}</span>
+                      <span style={{ fontWeight: 600 }}>{p.stock} {p.unit}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="no-print" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#666", marginBottom: "10px", cursor: "pointer" }}>
+                <input 
+                  type="checkbox" 
+                  checked={includeInventory} 
+                  onChange={(e) => setIncludeInventory(e.target.checked)}
+                />
+                Lampirkan Rekap Stok Produk
+              </label>
+              <button 
+                className="btn" 
+                style={{ background: "#111", color: "white" }} 
+                onClick={() => window.print()}
+              >
+                🖨️ Cetak Rekap (Print)
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={confirmCloseShift}
+              >
+                Akhiri & Tutup Shift
+              </button>
+              <button 
+                className="btn btn-ghost" 
+                onClick={() => setShowShiftSummary(false)}
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

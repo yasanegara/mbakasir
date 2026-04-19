@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AppProviders";
+import { useAuth, useTheme } from "@/contexts/AppProviders";
 import { formatDate } from "@/lib/utils";
 
 // ============================================================
@@ -15,6 +15,7 @@ interface HeaderProps {
 
 export default function Header({ title, onMenuClick }: HeaderProps) {
   const { user } = useAuth();
+  const { mode, toggleMode } = useTheme();
   const [isOnline, setIsOnline] = useState(true);
   const [now, setNow] = useState(new Date());
   const [syncCount, setSyncCount] = useState(0);
@@ -121,6 +122,16 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
             month: "short",
           })}
         </span>
+
+        {/* Toggle Mode */}
+        <button
+          onClick={toggleMode}
+          className="btn btn-ghost btn-icon btn-sm"
+          title={`Ganti ke mode ${mode === "dark" ? "Terang" : "Gelap"}`}
+          style={{ padding: "6px", fontSize: "16px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", height: "30px", width: "30px", lineHeight: 1 }}
+        >
+          {mode === "dark" ? "🌙" : "☀️"}
+        </button>
 
         {/* Pending sync badge */}
         {syncCount > 0 && (

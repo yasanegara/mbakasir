@@ -62,9 +62,9 @@ export default function LoginPage() {
           }}>
             💳
           </div>
-          <h1 style={{ fontSize: "24px" }}>Mbakasir</h1>
+          <h1 style={{ fontSize: "24px" }}>MbaKasir</h1>
           <p style={{ color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
-            Intelligence Pro — Login
+            Kasir Cerdas — Login
           </p>
         </div>
 

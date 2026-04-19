@@ -99,7 +99,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, mode, toggleTheme, toggleMode } = useTheme();
 
   const visibleNav = ALL_NAV.filter(
     (item) => user && item.roles.includes(user.role)
@@ -159,7 +159,7 @@ export default function Sidebar({
                   lineHeight: 1.2,
                 }}
               >
-                Mbakasir
+                MbaKasir
               </div>
               <div
                 style={{
@@ -170,7 +170,7 @@ export default function Sidebar({
                   textTransform: "uppercase",
                 }}
               >
-                Intelligence Pro
+                Kasir Cerdas
               </div>
             </div>
           )}
@@ -276,7 +276,8 @@ export default function Sidebar({
             gap: "4px",
           }}
         >
-          {/* Theme toggle */}
+
+          {/* Theme toggle (Pro/Chic) */}
           <button
             onClick={toggleTheme}
             className="nav-item"
@@ -284,11 +285,11 @@ export default function Sidebar({
             style={isCollapsed ? { justifyContent: "center", padding: "10px" } : {}}
           >
             <span style={{ fontSize: "18px", flexShrink: 0 }}>
-              {theme === "pro" ? "🌸" : "🔵"}
+              {theme === "pro" ? "🔵" : "🌸"}
             </span>
             {!isCollapsed && (
               <span>
-                Tema: {theme === "pro" ? "Pro" : "Chic"}
+                Aksen: {theme === "pro" ? "Pro" : "Chic"}
               </span>
             )}
           </button>

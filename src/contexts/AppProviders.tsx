@@ -14,42 +14,56 @@ import {
 // ============================================================
 
 type Theme = "pro" | "chic";
+type Mode = "dark" | "light";
 
 interface ThemeContextValue {
   theme: Theme;
+  mode: Mode;
   toggleTheme: () => void;
-  setTheme: (t: Theme) => void;
+  toggleMode: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "pro",
+  mode: "dark",
   toggleTheme: () => {},
-  setTheme: () => {},
+  toggleMode: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("pro");
+  const [mode, setModeState] = useState<Mode>("dark");
 
   useEffect(() => {
-    const saved = localStorage.getItem("mbakasir_theme") as Theme | null;
-    if (saved === "pro" || saved === "chic") {
-      setThemeState(saved);
-      document.documentElement.setAttribute("data-theme", saved === "chic" ? "chic" : "");
+    const savedTheme = localStorage.getItem("mbakasir_theme") as Theme | null;
+    if (savedTheme === "pro" || savedTheme === "chic") {
+      setThemeState(savedTheme);
+      document.documentElement.setAttribute("data-theme", savedTheme === "chic" ? "chic" : "");
+    }
+    
+    const savedMode = localStorage.getItem("mbakasir_mode") as Mode | null;
+    if (savedMode === "dark" || savedMode === "light") {
+      setModeState(savedMode);
+      document.documentElement.setAttribute("data-mode", savedMode === "light" ? "light" : "");
     }
   }, []);
 
-  const setTheme = useCallback((t: Theme) => {
-    setThemeState(t);
-    localStorage.setItem("mbakasir_theme", t);
-    document.documentElement.setAttribute("data-theme", t === "chic" ? "chic" : "");
-  }, []);
-
   const toggleTheme = useCallback(() => {
-    setTheme(theme === "pro" ? "chic" : "pro");
-  }, [theme, setTheme]);
+    const newTheme = theme === "pro" ? "chic" : "pro";
+    setThemeState(newTheme);
+    localStorage.setItem("mbakasir_theme", newTheme);
+    document.documentElement.setAttribute("data-theme", newTheme === "chic" ? "chic" : "");
+  }, [theme]);
+
+  const toggleMode = useCallback(() => {
+    const newMode = mode === "dark" ? "light" : "dark";
+    setModeState(newMode);
+    localStorage.setItem("mbakasir_mode", newMode);
+    document.documentElement.setAttribute("data-mode", newMode === "light" ? "light" : "");
+  }, [mode]);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, mode, toggleTheme, toggleMode }}>
       {children}
     </ThemeContext.Provider>
   );
