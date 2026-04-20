@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-// @ts-expect-error: TS compiler cache sync issue
 import AgentRegisterFormClient from "./AgentRegisterFormClient";
 
 export default async function RegisterAgentWithTokenPage(props: { params: Promise<{ token: string }> }) {
@@ -8,7 +7,6 @@ export default async function RegisterAgentWithTokenPage(props: { params: Promis
   const { token } = params;
 
   // Validasi token
-  // @ts-expect-error: TS Server cache issue
   const linkData = await prisma.agentRegistrationLink.findUnique({
     where: { token },
   });

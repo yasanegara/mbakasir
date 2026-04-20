@@ -58,7 +58,6 @@ export async function POST(req: NextRequest) {
       // Tambah usage tenant
       await tx.tenant.update({
         where: { id: tenant.id },
-        // @ts-expect-error: TS cache
         data: { tokenUsed: { increment: tokenCost } }
       });
 
@@ -115,7 +114,6 @@ export async function POST(req: NextRequest) {
 
       // Update Purchase Request jika reqId disertakan
       if (parsed.reqId) {
-        // @ts-expect-error: TS Server cache issues
         await tx.tokenPurchaseRequest.update({
           where: { id: parsed.reqId },
           data: { status: "APPROVED" }

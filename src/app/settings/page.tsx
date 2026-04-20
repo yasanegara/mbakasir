@@ -94,7 +94,6 @@ export default async function SettingsPage() {
   if (session.role === "AGENT" && session.agentId) {
     const agentData = await prisma.agent.findUnique({
       where: { id: session.agentId },
-      // @ts-expect-error: TS cache bug for newly generated fields
       select: { tokenResalePrice: true, whatsappNumber: true, bankDetails: true },
     });
 
@@ -104,11 +103,8 @@ export default async function SettingsPage() {
       <DashboardLayout title="Pengaturan Agen">
         <div style={{ display: "grid", gap: "24px" }}>
           <AgentSettingsClient
-            // @ts-expect-error: TS cache bug for newly generated fields
             initialResalePrice={Number(agentData.tokenResalePrice) || 0}
-            // @ts-expect-error: TS cache bug for newly generated fields
             initialWhatsappNumber={agentData.whatsappNumber || ""}
-            // @ts-expect-error: TS cache bug for newly generated fields
             initialBankDetails={agentData.bankDetails || ""}
             tokenName={tokenConfig.tokenName}
             tokenSymbol={tokenConfig.tokenSymbol}

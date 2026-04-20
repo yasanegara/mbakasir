@@ -14,7 +14,6 @@ export async function POST(
   const { id } = await params;
 
   try {
-    // @ts-expect-error: TS Server caching issues
     await prisma.tokenPurchaseRequest.update({
       where: {
         id,

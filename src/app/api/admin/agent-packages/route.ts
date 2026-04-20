@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
-    // @ts-expect-error
     const packages = await prisma.agentPackage.findMany({
       orderBy: { price: "asc" },
     });
@@ -23,7 +22,6 @@ export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
     
-    // @ts-expect-error
     const pkg = await prisma.agentPackage.create({
       data: {
         name: data.name,

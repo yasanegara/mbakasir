@@ -28,7 +28,6 @@ export default async function DashboardPage() {
       where: { id: session.agentId },
       select: { tokenBalance: true }
     });
-    // @ts-expect-error: TS Server caching issues
     const reqs = await prisma.tokenPurchaseRequest.findMany({
       where: { agentId: session.agentId, status: "PENDING" },
       orderBy: { createdAt: "desc" },

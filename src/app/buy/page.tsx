@@ -34,7 +34,6 @@ export default async function BuyPage() {
   }
 
   const { agent } = tenant;
-  // @ts-expect-error: TS cache bug for newly generated fields
   const tokenPrice = Number(agent.tokenResalePrice) || 0;
 
   // hitung harga historis terakhir 
@@ -64,10 +63,8 @@ export default async function BuyPage() {
             tokenPrice={tokenPrice}
             tokenSymbol={tokenConfig.tokenSymbol}
             agentName={agent.name}
-            // @ts-expect-error: TS cache bug for newly generated fields
             agentPhone={agent.whatsappNumber || ""}
             tenantName={tenant.name}
-            // @ts-expect-error: TS cache bug for newly generated fields
             agentBankDetails={agent.bankDetails || ""}
             lastPurchasePrice={lastPurchasePrice}
           />

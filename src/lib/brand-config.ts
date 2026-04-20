@@ -22,7 +22,6 @@ const DEFAULT_BRAND: BrandConfigSnapshot = {
 
 export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
   try {
-    // @ts-expect-error: Prisma model cache may lag behind schema
     const config = await prisma.brandConfig.findUnique({
       where: { id: "default" },
     });
@@ -46,7 +45,6 @@ export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
 export async function upsertBrandConfig(
   data: Partial<BrandConfigSnapshot>
 ): Promise<BrandConfigSnapshot> {
-  // @ts-expect-error: Prisma model cache may lag behind schema
   const config = await prisma.brandConfig.upsert({
     where: { id: "default" },
     update: {

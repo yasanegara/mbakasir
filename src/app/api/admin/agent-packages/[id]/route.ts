@@ -14,7 +14,6 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    // @ts-expect-error
     await prisma.agentPackage.delete({
       where: { id },
     });
@@ -46,7 +45,6 @@ export async function PATCH(
     if (data.price !== undefined) updateData.price = Number(data.price);
     if (data.description !== undefined) updateData.description = data.description;
 
-    // @ts-expect-error Pisma dynamically updates allowed fields
     const updated = await prisma.agentPackage.update({
       where: { id },
       data: updateData

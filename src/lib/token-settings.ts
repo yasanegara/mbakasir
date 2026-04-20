@@ -92,7 +92,6 @@ export function normalizeTokenConfig(
     tokenSymbol: config.tokenSymbol,
     pricePerToken: Number(config.pricePerToken),
     currencyCode: config.currencyCode,
-    // @ts-expect-error: hppRatio may be new field not yet in generated client
     hppRatio: typeof (config as any).hppRatio === "number" ? (config as any).hppRatio : 40,
     notes: config.notes,
     conversions:

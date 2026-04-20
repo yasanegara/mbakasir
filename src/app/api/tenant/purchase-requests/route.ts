@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
     if (!tenant) throw new Error("Tenant tidak valid");
 
     // Simpan history request agar Agent bisa memantau
-    // @ts-expect-error: TS Server cache issues on newly generated schema
     const newRequest = await prisma.tokenPurchaseRequest.create({
       data: {
         tenantId: session.tenantId,

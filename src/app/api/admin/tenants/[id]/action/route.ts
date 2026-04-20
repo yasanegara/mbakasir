@@ -17,7 +17,6 @@ export async function PATCH(
     const { action, status } = await req.json();
 
     if (action === "CHANGE_STATUS") {
-      // @ts-expect-error
       await prisma.tenant.update({
         where: { id },
         data: { status }

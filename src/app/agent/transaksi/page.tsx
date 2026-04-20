@@ -33,7 +33,6 @@ export default async function TransaksiAgenPage() {
   });
 
   // Ambil notifikasi request pembelian
-  // @ts-expect-error: TS Server caching issues
   const requests = await prisma.tokenPurchaseRequest.findMany({
     where: { agentId: session.agentId, status: "PENDING" },
     orderBy: { createdAt: "desc" },

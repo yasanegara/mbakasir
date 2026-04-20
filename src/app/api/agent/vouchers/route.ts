@@ -15,7 +15,6 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // @ts-expect-error: TS Language Server IDE cache does not detect newly generated agentVoucher yet
     const vouchers = await prisma.agentVoucher.findMany({
       where: { agentId: session.agentId },
       orderBy: { createdAt: "desc" },
@@ -36,7 +35,6 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     const parsed = voucherSchema.parse(data);
 
-    // @ts-expect-error: TS Language Server IDE cache does not detect newly generated agentVoucher yet
     const voucher = await prisma.agentVoucher.create({
       data: {
         agentId: session.agentId,

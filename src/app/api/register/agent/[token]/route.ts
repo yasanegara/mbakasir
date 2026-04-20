@@ -21,7 +21,6 @@ export async function POST(
     const { token } = await params;
     
     // Cek token valid
-    // @ts-expect-error: Prisma Server Caching
     const linkData = await prisma.agentRegistrationLink.findUnique({
       where: { token }
     });
@@ -66,7 +65,6 @@ export async function POST(
 
       const created = await tx.agent.create({ data: payload });
 
-      // @ts-expect-error: Prisma Schema cache
       await tx.agentRegistrationLink.update({
         where: { id: linkData.id },
         data: {

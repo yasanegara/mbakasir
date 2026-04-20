@@ -10,7 +10,6 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // @ts-expect-error
     const links = await prisma.agentRegistrationLink.findMany({
       where: { superAdminId: session.sub },
       orderBy: { createdAt: "desc" },
@@ -36,7 +35,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Cek apakah custom slug ini sudah ada
-    // @ts-expect-error
     const existing = await prisma.agentRegistrationLink.findUnique({
       where: { token }
     });
@@ -45,7 +43,6 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Slug atau custom link ini sudah dipakai, coba yang lain" }, { status: 400 });
     }
 
-    // @ts-expect-error
     const link = await prisma.agentRegistrationLink.create({
       data: {
         superAdminId: session.sub,

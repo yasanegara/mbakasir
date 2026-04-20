@@ -14,7 +14,6 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    // @ts-expect-error: TS Language Server IDE cache does not detect newly generated agentVoucher yet
     await prisma.agentVoucher.delete({
       where: {
         id,
