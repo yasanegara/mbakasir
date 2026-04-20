@@ -34,9 +34,30 @@ Manajemen Pusat MbaKasir`;
   // 1. Logika Pengiriman WhatsApp
   if (data.tenantPhone) {
     console.log(`\n[GATEWAY WA] Mengirim pesan ke ${data.tenantPhone}...`);
-    console.log(message);
-    // TODO: Implementasi Fonnte / Watzap
-    // await fetch("https://api.fonnte.com/send", { ... })
+    
+    if (process.env.FONNTE_TOKEN) {
+      try {
+        const formData = new FormData();
+        formData.append("target", data.tenantPhone);
+        formData.append("message", message);
+        formData.append("delay", "2"); // 2 seconds delay to avoid ban
+
+        const res = await fetch("https://api.fonnte.com/send", {
+          method: "POST",
+          headers: {
+            "Authorization": process.env.FONNTE_TOKEN,
+          },
+          body: formData,
+        });
+        const resData = await res.json();
+        console.log("[GATEWAY WA] Response:", resData);
+      } catch (err) {
+        console.error("[GATEWAY WA] Gagal menghubungi server WA:", err);
+      }
+    } else {
+      console.log("[GATEWAY WA] (Simulasi) Pesan yang akan dikirim:\n", message);
+      console.log("[GATEWAY WA] Perhatian: FONNTE_TOKEN belum di-set di .env");
+    }
   } else {
     console.warn(`[GATEWAY WA] Toko ${data.tenantName} tidak memiliki nomor telepon.`);
   }
