@@ -115,75 +115,63 @@ export default async function SettingsPage() {
     );
   }
 
-  if (session.role !== "SUPERADMIN") {
-    return (
-      <DashboardLayout title="Pengaturan">
-        <div style={{ display: "grid", gap: "24px" }}>
-          <section className="card">
-            <h2 style={{ fontSize: "20px" }}>Pengaturan Umum</h2>
-            <p style={{ marginTop: "8px", color: "hsl(var(--text-secondary))" }}>
-              Halaman pengaturan lanjutan untuk role <strong>{session.role}</strong> belum dibuka.
-            </p>
-          </section>
-
-          <section className="card">
-            <h2 style={{ fontSize: "18px" }}>Ringkasan Token Saat Ini</h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "16px",
-                marginTop: "18px",
-              }}
-            >
-              <div className="stat-card">
-                <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-                  Nama Token
-                </span>
-                <span className="stat-value" style={{ fontSize: "24px" }}>
-                  {tokenConfig.tokenSymbol}
-                </span>
-                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                  {tokenConfig.tokenName}
-                </span>
-              </div>
-
-              <div className="stat-card">
-                <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-                  Harga per Token
-                </span>
-                <span className="stat-value" style={{ fontSize: "24px" }}>
-                  {formatRupiahFull(tokenConfig.pricePerToken)}
-                </span>
-                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                  {tokenConfig.currencyCode}
-                </span>
-              </div>
-
-              <div className="stat-card">
-                <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-                  Rule Konversi Aktif
-                </span>
-                <span className="stat-value" style={{ fontSize: "24px" }}>
-                  {tokenConfig.conversions.filter((conversion) => conversion.isActive).length}
-                </span>
-                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                  total {tokenConfig.conversions.length} aturan
-                </span>
-              </div>
-            </div>
-          </section>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  // Fallback for other roles
   return (
     <DashboardLayout title="Pengaturan">
       <div style={{ display: "grid", gap: "24px" }}>
-        <TokenSettingsClient initialConfig={tokenConfig} />
-        <AgentPackageManager tokenSymbol={tokenConfig.tokenSymbol} />
+        <section className="card">
+          <h2 style={{ fontSize: "20px" }}>Pengaturan Umum</h2>
+          <p style={{ marginTop: "8px", color: "hsl(var(--text-secondary))" }}>
+            Halaman pengaturan lanjutan untuk role <strong>{session.role}</strong> belum dibuka.
+          </p>
+        </section>
+
+        <section className="card">
+          <h2 style={{ fontSize: "18px" }}>Ringkasan Token Saat Ini</h2>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "16px",
+              marginTop: "18px",
+            }}
+          >
+            <div className="stat-card">
+              <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
+                Nama Token
+              </span>
+              <span className="stat-value" style={{ fontSize: "24px" }}>
+                {tokenConfig.tokenSymbol}
+              </span>
+              <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
+                {tokenConfig.tokenName}
+              </span>
+            </div>
+
+            <div className="stat-card">
+              <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
+                Harga per Token
+              </span>
+              <span className="stat-value" style={{ fontSize: "24px" }}>
+                {formatRupiahFull(tokenConfig.pricePerToken)}
+              </span>
+              <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
+                {tokenConfig.currencyCode}
+              </span>
+            </div>
+
+            <div className="stat-card">
+              <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
+                Rule Konversi Aktif
+              </span>
+              <span className="stat-value" style={{ fontSize: "24px" }}>
+                {tokenConfig.conversions.filter((conversion) => conversion.isActive).length}
+              </span>
+              <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
+                total {tokenConfig.conversions.length} aturan
+              </span>
+            </div>
+          </div>
+        </section>
       </div>
     </DashboardLayout>
   );

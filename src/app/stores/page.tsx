@@ -20,7 +20,7 @@ interface AgentTenantRow {
   businessType: string | null;
   address: string | null;
   phone: string | null;
-  status: "ACTIVE" | "LOCKED" | "SUSPENDED";
+  status: "ACTIVE" | "LOCKED" | "SUSPENDED" | "DORMANT";
   premiumUntil: Date | null;
   tokenUsed: number;
   createdAt: Date;
@@ -114,6 +114,10 @@ export default async function AgentStoresPage() {
         acc.suspended += 1;
       }
 
+      if (licenseState.kind === "DORMANT") {
+        acc.dormant += 1;
+      }
+
       if (licenseState.kind === "NEVER_ACTIVATED") {
         acc.neverActivated += 1;
       }
@@ -133,6 +137,7 @@ export default async function AgentStoresPage() {
       active: 0,
       locked: 0,
       suspended: 0,
+      dormant: 0,
       neverActivated: 0,
       needsAttention: 0,
       tokensUsed: 0,
@@ -199,7 +204,7 @@ export default async function AgentStoresPage() {
             </span>
             <span className="stat-value">{totals.needsAttention}</span>
             <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-              {totals.locked} terkunci, {totals.suspended} suspend
+              {totals.locked} terkunci, {totals.dormant} dorman, {totals.suspended} suspend
             </span>
           </div>
 
@@ -330,11 +335,15 @@ export default async function AgentStoresPage() {
 }
 
 function getLicenseState(tenant: AgentTenantRow) {
-  const isSuspended = tenant.status === "SUSPENDED";
-
-  if (isSuspended) {
+  if (tenant.status === "SUSPENDED") {
     return {
       kind: "SUSPENDED" as const,
+    };
+  }
+
+  if (tenant.status === "DORMANT") {
+    return {
+      kind: "DORMANT" as const,
     };
   }
 
@@ -344,7 +353,7 @@ function getLicenseState(tenant: AgentTenantRow) {
     };
   }
 
-  if (tenant.status === "LOCKED") {
+  if (tenant.status === "LOCKED" || tenant.premiumUntil.getTime() < Date.now()) {
     return {
       kind: "LOCKED" as const,
     };

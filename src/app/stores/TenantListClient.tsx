@@ -10,7 +10,7 @@ interface AgentTenantRow {
   businessType: string | null;
   address: string | null;
   phone: string | null;
-  status: "ACTIVE" | "LOCKED" | "SUSPENDED";
+  status: "ACTIVE" | "LOCKED" | "SUSPENDED" | "DORMANT";
   premiumUntil: Date | null;
   tokenUsed: number;
   createdAt: Date;
@@ -23,7 +23,7 @@ interface AgentTenantRow {
 }
 
 interface LicenseState {
-  kind: "ACTIVE" | "LOCKED" | "SUSPENDED" | "NEVER_ACTIVATED";
+  kind: "ACTIVE" | "LOCKED" | "SUSPENDED" | "DORMANT" | "NEVER_ACTIVATED";
   badgeClass: string;
   label: string;
   helper: string;
@@ -172,6 +172,20 @@ function getLicenseState(tenant: AgentTenantRow): LicenseState {
         : "Belum ada masa aktif",
       accentColor: "hsl(var(--error))",
       actionLabel: "Cek Lisensi",
+    };
+  }
+
+  if (tenant.status === "DORMANT") {
+    return {
+      kind: "DORMANT",
+      badgeClass: "badge-warning",
+      label: "Dorman",
+      helper: "Toko sedang tidak aktif dan perlu follow-up dari agen",
+      expiryNote: tenant.premiumUntil
+        ? `Lisensi terakhir tercatat sampai ${formatDateShort(tenant.premiumUntil)}`
+        : "Belum ada masa aktif",
+      accentColor: "hsl(var(--warning))",
+      actionLabel: "Tindak Lanjuti",
     };
   }
 

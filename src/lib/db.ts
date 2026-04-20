@@ -21,7 +21,7 @@ export interface LocalTenant {
   address?: string;
   phone?: string;
   logoUrl?: string;
-  status: "ACTIVE" | "LOCKED" | "SUSPENDED";
+  status: "ACTIVE" | "LOCKED" | "SUSPENDED" | "DORMANT";
   premiumUntil?: number; // Unix timestamp (ms)
   syncStatus: "PENDING" | "SYNCED" | "CONFLICT";
   updatedAt: number;

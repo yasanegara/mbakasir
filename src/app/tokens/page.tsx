@@ -13,7 +13,7 @@ import {
 interface AgentTenant {
   id: string;
   name: string;
-  status: "ACTIVE" | "LOCKED" | "SUSPENDED";
+  status: "ACTIVE" | "LOCKED" | "SUSPENDED" | "DORMANT";
   premiumUntil: string | null;
   addonsCostPerMonth: number;
 }
@@ -141,6 +141,26 @@ export default function AgentTokensPage() {
     }
   };
 
+  function getTenantStatusBadge(tenant: AgentTenant) {
+    if (tenant.status === "SUSPENDED") {
+      return { className: "badge-error", label: "Suspend" };
+    }
+
+    if (tenant.status === "DORMANT") {
+      return { className: "badge-warning", label: "Dorman" };
+    }
+
+    if (!tenant.premiumUntil) {
+      return { className: "badge-warning", label: "Belum aktif" };
+    }
+
+    if (tenant.status === "LOCKED" || new Date(tenant.premiumUntil) < new Date()) {
+      return { className: "badge-warning", label: "Kedaluwarsa" };
+    }
+
+    return { className: "badge-success", label: "Aktif" };
+  }
+
   return (
     <DashboardLayout title="Manajemen Lisensi (Agen)">
       <div className="stat-card" style={{ marginBottom: "24px", maxWidth: "400px" }}>
@@ -181,7 +201,12 @@ export default function AgentTokensPage() {
                  <tr><td colSpan={4} style={{ padding: "20px", textAlign: "center", color: "hsl(var(--text-muted))" }}>Belum ada toko yang didaftarkan.</td></tr>
               ) : (
                  tenants.map((t) => {
-                   const isExpired = !t.premiumUntil || new Date(t.premiumUntil) < new Date();
+                   const isExpired =
+                     t.status === "LOCKED" ||
+                     t.status === "SUSPENDED" ||
+                     !t.premiumUntil ||
+                     new Date(t.premiumUntil) < new Date();
+                   const statusBadge = getTenantStatusBadge(t);
                    const base1M = licenseConversion ? calculateTokenCostForQuantity(licenseConversion, 1) : 1;
                    const base6M = licenseConversion ? calculateTokenCostForQuantity(licenseConversion, 6) : 6;
                    const base12M = licenseConversion ? calculateTokenCostForQuantity(licenseConversion, 12) : 12;
@@ -193,11 +218,7 @@ export default function AgentTokensPage() {
                     <tr key={t.id} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
                        <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: 600 }}>{t.name}</td>
                        <td style={{ padding: "16px 20px" }}>
-                          {isExpired ? (
-                             <span className="badge badge-error">Kedaluwarsa</span>
-                          ) : (
-                             <span className="badge badge-success">Aktif</span>
-                          )}
+                          <span className={`badge ${statusBadge.className}`}>{statusBadge.label}</span>
                        </td>
                        <td style={{ padding: "16px 20px", fontSize: "14px", color: isExpired ? "hsl(var(--error))" : "inherit" }}>
                           {t.premiumUntil ? formatDateShort(t.premiumUntil) : "-"}

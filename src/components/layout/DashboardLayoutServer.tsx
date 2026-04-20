@@ -1,31 +1,15 @@
-import { getBrandConfig } from "@/lib/brand-config";
 import DashboardLayout from "./DashboardLayout";
 
 /**
- * Server wrapper: fetches brand config and injects it into DashboardLayout
- * so the client-side Sidebar can display the correct logo/appName.
+ * Server wrapper kept for routes that still prefer importing a server component.
+ * Brand config is already provided globally by the root layout.
  */
-export default async function DashboardLayoutServer({
+export default function DashboardLayoutServer({
   children,
   title,
 }: {
   children: React.ReactNode;
   title?: string;
 }) {
-  const brand = await getBrandConfig();
-
-  return (
-    <DashboardLayout
-      title={title}
-      brand={{
-        appName: brand.appName,
-        tagline: brand.tagline,
-        logoUrl: brand.logoUrl,
-        faviconUrl: brand.faviconUrl,
-        primaryColor: brand.primaryColor,
-      }}
-    >
-      {children}
-    </DashboardLayout>
-  );
+  return <DashboardLayout title={title}>{children}</DashboardLayout>;
 }
