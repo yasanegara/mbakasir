@@ -75,7 +75,7 @@ export default function LoginPage() {
               id="email"
               type="email"
               className="input-field"
-              placeholder="admin@mbakasir.id"
+              placeholder="nama@usahaanda.id"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -106,20 +106,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={{
-          marginTop: "24px",
-          padding: "16px",
-          background: "hsl(var(--primary) / 0.1)",
-          borderRadius: "var(--radius-md)",
-          fontSize: "12px",
-          color: "hsl(var(--text-secondary))"
-        }}>
-          <strong>Demo Accounts:</strong><br/>
-          Admin: admin@mbakasir.id / SuperAdmin@2026!<br/>
-          Agent: agen.demo@mbakasir.id / Agent@Demo2026!<br/>
-          Owner: owner@demo.id / Owner@Demo2026!<br/>
-          Kasir: kasir@demo.id / Kasir@1234!
-        </div>
       </div>
     </div>
   );
