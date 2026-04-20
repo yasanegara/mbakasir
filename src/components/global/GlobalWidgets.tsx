@@ -26,6 +26,11 @@ export default function GlobalWidgets() {
     const isIOSDevice = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
     setIsIOS(isIOSDevice);
 
+    // Registrasi Service Worker diam-diam untuk memancing Chrome PWA banner
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(console.error);
+    }
+
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -45,6 +50,9 @@ export default function GlobalWidgets() {
     } else if (isIOS) {
       // Show iOS instruction since they can't prompt directly
       alert("Untuk menginstall di iOS:\n1. Tap tombol Share (bagian bawah layar)\n2. Pilih 'Add to Home Screen'");
+    } else {
+      // Fallback jika browser telat menembakkan event (meski banner ditampilkan karena "true")
+      alert("Pemasangan otomatis belum siap atau tidak didukung oleh browser Anda saat ini.\n\nSilakan gunakan menu opsi browser (titik tiga) lalu pilih 'Instal Aplikasi' / 'Tambahkan ke Layar Utama'.");
     }
   };
 

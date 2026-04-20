@@ -1,0 +1,18 @@
+{
+  "name": "MbaKasir Intelligence Pro",
+  "short_name": "MbaKasir",
+  "description": "Aplikasi Kasir UMKM Super Pintar (Offline First)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e111a",
+  "theme_color": "#1e40af",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/globe.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
