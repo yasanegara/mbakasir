@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { formatRupiahFull } from "@/lib/utils";
+import { useToast } from "@/contexts/AppProviders";
+import { buildWhatsappUrl, formatRupiahFull } from "@/lib/utils";
 import CopyButton from "./CopyButton";
 
 interface PurchaseFormProps {
@@ -23,6 +24,7 @@ export default function PurchaseFormClient({
   agentBankDetails,
   lastPurchasePrice,
 }: PurchaseFormProps) {
+  const { toast } = useToast();
   const [amount, setAmount] = useState<number>(1);
   const [voucherCode, setVoucherCode] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,9 +33,21 @@ export default function PurchaseFormClient({
 
   // The actual WA message (to build the URL)
   const waMessage = `Halo Agen ${agentName},\n\nSaya ${tenantName} mau mengonfirmasi pembelian token ${tokenSymbol}.\n\nJumlah: ${amount} ${tokenSymbol}\nVoucher: ${voucherCode || "-"}\n\nMohon pesanan saya segera diproses, ini bukti transfernya...`;
-  const waUrl = `https://wa.me/${agentPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(waMessage)}`;
+  const waUrl = buildWhatsappUrl(agentPhone, waMessage);
 
   async function handleConfirmPurchase() {
+    let whatsappWindow: Window | null = null;
+
+    if (waUrl) {
+      whatsappWindow = window.open("", "_blank");
+      if (whatsappWindow) {
+        whatsappWindow.document.title = "Membuka WhatsApp...";
+        whatsappWindow.document.body.innerHTML =
+          "<p style=\"font-family: sans-serif; padding: 16px;\">Menyiapkan WhatsApp...</p>";
+        whatsappWindow.opener = null;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       // 1. Kirim notifikasi ke DB (Dashboard Agen)
@@ -47,14 +61,31 @@ export default function PurchaseFormClient({
         throw new Error("Gagal memproses pesanan ke server");
       }
 
-      // 2. Notif pop-up buat tenant
-      alert(`Berhasil! Notifikasi telah dikirim ke Dashboard Agen ${agentName}.\n\nJendela WhatsApp akan dibuka untuk Anda melampirkan foto/bukti transfer secara manual.`);
-      
-      // 3. Arahkan ke WA
-      window.open(waUrl, "_blank", "noopener,noreferrer");
+      toast(
+        `Permintaan pembelian sudah masuk ke dashboard agen ${agentName}.`,
+        "success"
+      );
 
-    } catch (err) {
-      alert("Terjadi kesalahan jaringan.");
+      if (!waUrl) {
+        toast(
+          "Nomor WhatsApp agen belum tersedia. Hubungi agen lewat kontak lain.",
+          "warning"
+        );
+        return;
+      }
+
+      if (whatsappWindow && !whatsappWindow.closed) {
+        whatsappWindow.location.replace(waUrl);
+        return;
+      }
+
+      window.location.assign(waUrl);
+
+    } catch {
+      if (whatsappWindow && !whatsappWindow.closed) {
+        whatsappWindow.close();
+      }
+      toast("Terjadi kesalahan jaringan.", "error");
     } finally {
       setIsSubmitting(false);
     }

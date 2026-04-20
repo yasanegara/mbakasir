@@ -43,6 +43,41 @@ export function formatWhileTyping(raw: string): string {
 }
 
 /**
+ * Normalisasi nomor WhatsApp ke format internasional angka-only.
+ * Contoh: 08123... -> 628123..., +62812... -> 62812...
+ */
+export function normalizeWhatsappNumber(value: string): string {
+  const digitsOnly = value.replace(/\D/g, "");
+
+  if (!digitsOnly) {
+    return "";
+  }
+
+  if (digitsOnly.startsWith("62")) {
+    return digitsOnly;
+  }
+
+  if (digitsOnly.startsWith("0")) {
+    return `62${digitsOnly.slice(1)}`;
+  }
+
+  return digitsOnly;
+}
+
+export function buildWhatsappUrl(
+  phoneNumber: string,
+  message: string
+): string | null {
+  const normalizedPhone = normalizeWhatsappNumber(phoneNumber);
+
+  if (!normalizedPhone) {
+    return null;
+  }
+
+  return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
+}
+
+/**
  * Generate nomor invoice unik
  * Format: INV-YYYYMMDD-XXXXX
  */

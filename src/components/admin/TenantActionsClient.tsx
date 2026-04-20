@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/contexts/AppProviders";
+import { buildWhatsappUrl } from "@/lib/utils";
 
 export default function TenantActionsClient({
   tenantId,
@@ -71,7 +72,11 @@ export default function TenantActionsClient({
       return;
     }
     const message = `Peringatan dari Pusat MbaKasir\n\nHalo pemilik toko ${tenantName},\n\nSistem kami mendeteksi anomali pada siklus lisensi atau aktivitas kasir Anda...`;
-    const url = `https://wa.me/${tenantPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
+    const url = buildWhatsappUrl(tenantPhone, message);
+    if (!url) {
+      toast("Nomor WhatsApp toko tidak valid", "error");
+      return;
+    }
     window.open(url, "_blank");
   };
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/contexts/AppProviders";
+import { buildWhatsappUrl } from "@/lib/utils";
 
 export default function AgentActionsClient({
   agentId,
@@ -70,7 +71,11 @@ export default function AgentActionsClient({
       return;
     }
     const message = `Peringatan dari Pusat MbaKasir\n\nHalo Bpk/Ibu ${agentName},\n\nSistem kami mendeteksi anomali pada siklus lisensi atau aktivitas agen Anda... Mohon segera diselesaikan agar akun keagenan Anda tidak disuspen.`;
-    const url = `https://wa.me/${agentPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(message)}`;
+    const url = buildWhatsappUrl(agentPhone, message);
+    if (!url) {
+      toast("Nomor WhatsApp agen tidak valid", "error");
+      return;
+    }
     window.open(url, "_blank");
   };
 
