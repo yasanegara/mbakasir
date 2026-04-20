@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth, useTheme } from "@/contexts/AppProviders";
+import { useBrand } from "@/contexts/BrandContext";
 
 // ============================================================
 // SIDEBAR NAVIGASI — Adaptive per Role
@@ -79,6 +80,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/reports", label: "Laporan", icon: Icon.report, roles: ["TENANT"] },
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },
+  { href: "/settings", label: "Pengaturan", icon: Icon.settings, roles: ["SUPERADMIN", "TENANT"] },
   { href: "/admin/agents", label: "Kelola Agen", icon: Icon.users, roles: ["SUPERADMIN"] },
   { href: "/admin/tokens", label: "Mint Token", icon: Icon.token, roles: ["SUPERADMIN"] },
   { href: "/admin/tenants", label: "Semua Toko", icon: Icon.stores, roles: ["SUPERADMIN"] },
@@ -100,6 +102,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { theme, mode, toggleTheme, toggleMode } = useTheme();
+  const brand = useBrand();
 
   const visibleNav = ALL_NAV.filter(
     (item) => user && item.roles.includes(user.role)
@@ -133,21 +136,31 @@ export default function Sidebar({
             overflow: "hidden",
           }}
         >
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "8px",
-              background: "var(--gradient-primary)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "18px",
-              flexShrink: 0,
-            }}
-          >
-            💳
-          </div>
+          {/* Logo icon or image */}
+          {brand?.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brand.logoUrl}
+              alt={brand.appName}
+              style={{ width: "32px", height: "32px", objectFit: "contain", borderRadius: "8px", flexShrink: 0 }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "8px",
+                background: "var(--gradient-primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "18px",
+                flexShrink: 0,
+              }}
+            >
+              💳
+            </div>
+          )}
           {!isCollapsed && (
             <div style={{ overflow: "hidden" }}>
               <div
@@ -159,7 +172,7 @@ export default function Sidebar({
                   lineHeight: 1.2,
                 }}
               >
-                MbaKasir
+                {brand?.appName ?? "MbaKasir"}
               </div>
               <div
                 style={{
@@ -170,7 +183,7 @@ export default function Sidebar({
                   textTransform: "uppercase",
                 }}
               >
-                Kasir Cerdas
+                {brand?.tagline ?? "Kasir Cerdas"}
               </div>
             </div>
           )}

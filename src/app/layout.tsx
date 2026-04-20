@@ -1,18 +1,31 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import AppRuntimeSync from "@/components/app/AppRuntimeSync";
 import { ThemeProvider, ToastProvider, AuthProvider } from "@/contexts/AppProviders";
+import { getBrandConfig } from "@/lib/brand-config";
+import { BrandProvider } from "@/contexts/BrandContext";
 
-export const metadata: Metadata = {
-  title: {
-    default: "MbaKasir Kasir Cerdas",
-    template: "%s | MbaKasir",
-  },
-  description:
-    "SaaS POS & ERP Mikro dengan arsitektur Local-First. Toko bisa jualan tanpa internet, data sync otomatis ke cloud.",
-  keywords: ["POS", "kasir", "UMKM", "ERP", "Indonesia", "offline", "local-first"],
-  authors: [{ name: "MbaKasir" }],
-  manifest: "/manifest.json",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBrandConfig();
+
+  return {
+    title: {
+      default: brand.appName,
+      template: `%s | ${brand.appName}`,
+    },
+    description: brand.metaDescription ?? undefined,
+    keywords: ["POS", "kasir", "UMKM", "ERP", "Indonesia", "offline", "local-first"],
+    authors: [{ name: brand.appName }],
+    manifest: "/manifest.json",
+    icons: brand.faviconUrl
+      ? {
+          icon: brand.faviconUrl,
+          shortcut: brand.faviconUrl,
+          apple: brand.faviconUrl,
+        }
+      : undefined,
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#1e40af",
@@ -20,21 +33,41 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const brand = await getBrandConfig();
+
   return (
     <html lang="id" suppressHydrationWarning>
+      <head>
+        {brand.faviconUrl && (
+          <>
+            <link rel="icon" href={brand.faviconUrl} />
+            <link rel="shortcut icon" href={brand.faviconUrl} />
+            <link rel="apple-touch-icon" href={brand.faviconUrl} />
+          </>
+        )}
+      </head>
       <body>
-        <ThemeProvider>
-          <AuthProvider>
-            <ToastProvider>
-              {children}
-            </ToastProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <BrandProvider brand={{
+          appName: brand.appName,
+          tagline: brand.tagline ?? null,
+          logoUrl: brand.logoUrl ?? null,
+          faviconUrl: brand.faviconUrl ?? null,
+          primaryColor: brand.primaryColor ?? null,
+        }}>
+          <ThemeProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <AppRuntimeSync />
+                {children}
+              </ToastProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </BrandProvider>
       </body>
     </html>
   );

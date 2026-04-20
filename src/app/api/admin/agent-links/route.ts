@@ -1,0 +1,61 @@
+import { NextRequest } from "next/server";
+import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
+
+export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session || session.role !== "SUPERADMIN" || !session.sub) {
+    return Response.json({ error: "Akses ditolak" }, { status: 403 });
+  }
+
+  try {
+    // @ts-expect-error
+    const links = await prisma.agentRegistrationLink.findMany({
+      where: { superAdminId: session.sub },
+      orderBy: { createdAt: "desc" },
+    });
+    return Response.json({ links });
+  } catch (err) {
+    return Response.json({ error: "Gagal memuat link agen" }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session || session.role !== "SUPERADMIN" || !session.sub) {
+    return Response.json({ error: "Akses ditolak" }, { status: 403 });
+  }
+
+  try {
+    const data = await req.json();
+    let token = data.customSlug || "";
+    
+    if (!token) {
+      token = crypto.randomBytes(8).toString("hex");
+    }
+
+    // Cek apakah custom slug ini sudah ada
+    // @ts-expect-error
+    const existing = await prisma.agentRegistrationLink.findUnique({
+      where: { token }
+    });
+
+    if (existing) {
+      return Response.json({ error: "Slug atau custom link ini sudah dipakai, coba yang lain" }, { status: 400 });
+    }
+
+    // @ts-expect-error
+    const link = await prisma.agentRegistrationLink.create({
+      data: {
+        superAdminId: session.sub,
+        token,
+        label: data.label || null,
+      },
+    });
+
+    return Response.json({ success: true, link });
+  } catch (err) {
+    return Response.json({ error: "Gagal membuat link agen" }, { status: 500 });
+  }
+}

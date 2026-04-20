@@ -31,6 +31,10 @@ export async function verifyPassword(
   return bcrypt.compare(plain, hash);
 }
 
+export function normalizeEmailAddress(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 // ─── JWT ──────────────────────────────────────────────────────
 
 export function signToken(payload: JWTPayload): string {

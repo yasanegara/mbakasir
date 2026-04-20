@@ -1,7 +1,13 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureTokenConfig } from "@/lib/token-settings";
+import {
+  calculateTokenCostForQuantity,
+  getTokenConversion,
+} from "@/lib/token-settings-shared";
 import { NextRequest } from "next/server";
 import { addMonths } from "date-fns";
+import { sendActivationNotification } from "@/lib/notifications";
 
 // ============================================================
 // API: AGENT ACTIVATE TENANT (Pemotongan Koin Murni)
@@ -20,22 +26,46 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Data tidak valid" }, { status: 400 });
     }
 
-    // 1 Koin = 1 Bulan Lisensi
-    const tokenCost = durationMonths;
+    const tokenConfig = await ensureTokenConfig();
+    const licenseConversion = getTokenConversion(tokenConfig, "LICENSE_MONTH");
+
+    if (!licenseConversion) {
+      return Response.json(
+        { error: "Rule konversi LICENSE_MONTH belum aktif di pengaturan pusat" },
+        { status: 500 }
+      );
+    }
+
+    // Compute base token cost for purely the license
+    const baseLicenseCost = calculateTokenCostForQuantity(licenseConversion, durationMonths);
 
     // Transaksi Database (Standar Finansial)
     const result = await prisma.$transaction(async (tx) => {
       // Validasi Agen (Saldo Cukup?)
       const agent = await tx.agent.findUnique({ where: { id: session.agentId } });
       if (!agent) throw new Error("Agen tidak ditemukan");
-      if (agent.tokenBalance < tokenCost) {
-        throw new Error(`Saldo tidak mencukupi. Butuh ${tokenCost} Token.`);
-      }
 
       // Validasi Toko (Apakah milik agen ini?)
-      const tenant = await tx.tenant.findUnique({ where: { id: tenantId } });
+      const tenant = await tx.tenant.findUnique({ 
+        where: { id: tenantId },
+        include: { 
+          users: { take: 1, orderBy: { createdAt: "asc" } },
+          posTerminals: { where: { isDefault: false, isActive: true } }
+        }
+      });
       if (!tenant) throw new Error("Toko tidak ditemukan");
       if (tenant.agentId !== session.agentId) throw new Error("Bukan toko kelolaan Anda");
+
+      const tenantEmail = tenant.users.length > 0 ? tenant.users[0].email : "";
+
+      // Hitung Total Pemotongan: Base + Addons
+      const addonsCostPerMonth = tenant.posTerminals.reduce((sum, pos) => sum + pos.tokenCost, 0);
+      const addonsTotalCost = addonsCostPerMonth * durationMonths;
+      const totalTokenCost = baseLicenseCost + addonsTotalCost;
+
+      if (agent.tokenBalance < totalTokenCost) {
+        throw new Error(`Saldo tidak mencukupi. Butuh ${totalTokenCost} Token.`);
+      }
 
       // Kalkulasi Masa Aktif Baru (Mulai hari ini jika sudah expired, atau lanjut dari expired date)
       const prevUntil = tenant.premiumUntil;
@@ -43,14 +73,14 @@ export async function POST(req: NextRequest) {
       const newUntil = addMonths(baseDate, durationMonths);
 
       const balanceBefore = agent.tokenBalance;
-      const balanceAfter = balanceBefore - tokenCost;
+      const balanceAfter = balanceBefore - totalTokenCost;
 
       // 1. Kurangi Saldo Agen
       await tx.agent.update({
         where: { id: agent.id },
         data: {
           tokenBalance: balanceAfter,
-          totalUsed: { increment: tokenCost },
+          totalUsed: { increment: totalTokenCost },
         },
       });
 
@@ -60,33 +90,61 @@ export async function POST(req: NextRequest) {
         data: {
           premiumUntil: newUntil,
           status: "ACTIVE", // Auto-buka gembok jika tadi terkunci
-          tokenUsed: { increment: tokenCost },
+          tokenUsed: { increment: totalTokenCost },
         },
       });
 
       // 3. Catat di Ledger
+      const addonNotes = addonsCostPerMonth > 0 ? ` + ${addonsCostPerMonth} token/bln untuk ${tenant.posTerminals.length} add-on` : "";
+      
       await tx.tokenLedger.create({
         data: {
           agentId: agent.id,
           tenantId: tenant.id,
           type: "ACTIVATE",
-          amount: -tokenCost, // Negatif karena pengeluaran agen
+          amount: -totalTokenCost, // Negatif karena pengeluaran agen
           balanceBefore,
           balanceAfter,
-          description: `Aktivasi toko via SuperToken (${durationMonths} bln)`,
+          description: `Aktivasi toko via ${tokenConfig.tokenName} (${durationMonths} ${licenseConversion.rewardUnit}${addonNotes})`,
+          conversionTargetKey: licenseConversion.targetKey,
+          conversionLabel: licenseConversion.targetLabel,
+          conversionQuantity: durationMonths,
+          conversionUnit: licenseConversion.rewardUnit,
           durationMonths,
           prevPremiumUntil: prevUntil,
           newPremiumUntil: newUntil,
         },
       });
 
-      return updatedTenant;
+      return {
+        updatedTenant,
+        agentName: agent.name,
+        tenantName: tenant.name,
+        tenantPhone: tenant.phone,
+        tenantEmail,
+      };
     });
 
-    return Response.json({ success: true, premiumUntil: result.premiumUntil });
+    // 4. Kirim Notifikasi via WA / Email secara asinkron (tidak memblokir UI)
+    sendActivationNotification({
+      tenantName: result.tenantName,
+      tenantEmail: result.tenantEmail,
+      tenantPhone: result.tenantPhone,
+      agentName: result.agentName,
+      durationMonths,
+      newPremiumUntil: result.updatedTenant.premiumUntil!,
+    }).catch(err => {
+      console.error("[Notification Worker] Gagal mengirim:", err);
+    });
 
-  } catch (error: any) {
+    return Response.json({ success: true, premiumUntil: result.updatedTenant.premiumUntil });
+
+  } catch (error: unknown) {
     console.error("Activate Tenant Error:", error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: getErrorMessage(error) }, { status: 500 });
   }
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Internal Server Error";
 }

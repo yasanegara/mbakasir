@@ -94,6 +94,8 @@ async function processSyncItem(
       return upsertProduct(localId, payload, tenantId);
     case "rawMaterials":
       return upsertRawMaterial(localId, payload, tenantId);
+    case "billOfMaterials":
+      return upsertBillOfMaterial(localId, payload, tenantId);
     case "shifts":
       return upsertShift(localId, payload, tenantId);
     default:
@@ -176,11 +178,15 @@ async function upsertProduct(
       syncStatus: "SYNCED",
     },
     update: {
+      sku: payload.sku as string | undefined,
       name: payload.name as string,
+      category: payload.category as string | undefined,
       price: payload.price as number,
       costPrice: payload.costPrice as number,
       stock: payload.stock as number,
+      unit: (payload.unit as string) || "pcs",
       isActive: payload.isActive as boolean,
+      hasBoM: (payload.hasBoM as boolean) || false,
       syncStatus: "SYNCED",
     },
   });
@@ -208,13 +214,83 @@ async function upsertRawMaterial(
       syncStatus: "SYNCED",
     },
     update: {
+      name: payload.name as string,
+      unit: (payload.unit as string) || "gr",
       stock: payload.stock as number,
       costPerUnit: payload.costPerUnit as number,
+      minStock: payload.minStock as number,
       syncStatus: "SYNCED",
     },
   });
 
   return { localId, success: true, serverId: material.id };
+}
+
+// ─── BILL OF MATERIAL UPSERT ─────────────────────────────────
+
+async function upsertBillOfMaterial(
+  localId: string,
+  payload: Record<string, unknown>,
+  tenantId?: string
+): Promise<SyncResult> {
+  if (!tenantId) {
+    return { localId, success: false, error: "Tenant context missing" };
+  }
+
+  const quantity = Number(payload.quantity);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return { localId, success: false, error: "Quantity BoM harus lebih dari 0" };
+  }
+
+  const [product, material] = await Promise.all([
+    prisma.product.findFirst({
+      where: {
+        tenantId,
+        OR: [
+          { id: payload.productId as string },
+          { localId: payload.productId as string },
+        ],
+      },
+      select: { id: true },
+    }),
+    prisma.rawMaterial.findFirst({
+      where: {
+        tenantId,
+        OR: [
+          { id: payload.rawMaterialId as string },
+          { localId: payload.rawMaterialId as string },
+        ],
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  if (!product) {
+    return { localId, success: false, error: "Produk BoM tidak ditemukan" };
+  }
+
+  if (!material) {
+    return { localId, success: false, error: "Bahan baku BoM tidak ditemukan" };
+  }
+
+  const bom = await prisma.billOfMaterial.upsert({
+    where: {
+      productId_rawMaterialId: {
+        productId: product.id,
+        rawMaterialId: material.id,
+      },
+    },
+    create: {
+      productId: product.id,
+      rawMaterialId: material.id,
+      quantity,
+    },
+    update: {
+      quantity,
+    },
+  });
+
+  return { localId, success: true, serverId: bom.id };
 }
 
 // ─── SHIFT UPSERT ────────────────────────────────────────────

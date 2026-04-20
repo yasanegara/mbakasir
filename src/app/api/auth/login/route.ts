@@ -1,5 +1,10 @@
 import { prisma as db } from "@/lib/prisma";
-import { hashPassword, verifyPassword, signToken, setSessionCookie } from "@/lib/auth";
+import {
+  normalizeEmailAddress,
+  verifyPassword,
+  signToken,
+  setSessionCookie,
+} from "@/lib/auth";
 import { NextRequest } from "next/server";
 
 // ============================================================
@@ -9,13 +14,15 @@ import { NextRequest } from "next/server";
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
+    const normalizedEmail =
+      typeof email === "string" ? normalizeEmailAddress(email) : "";
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return Response.json({ error: "Email dan password wajib diisi" }, { status: 400 });
     }
 
     // 1. Cek SuperAdmin
-    const superAdmin = await db.superAdmin.findUnique({ where: { email } });
+    const superAdmin = await db.superAdmin.findUnique({ where: { email: normalizedEmail } });
     if (superAdmin && await verifyPassword(password, superAdmin.passwordHash)) {
       const token = signToken({
         sub: superAdmin.id,
@@ -28,7 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Cek Agen
-    const agent = await db.agent.findUnique({ where: { email } });
+    const agent = await db.agent.findUnique({ where: { email: normalizedEmail } });
     if (agent && agent.isActive && await verifyPassword(password, agent.passwordHash)) {
       const token = signToken({
         sub: agent.id,
@@ -45,7 +52,7 @@ export async function POST(req: NextRequest) {
     // Find first matching email. If there are multiple (e.g. same email across tenants), 
     // ideally we need tenant hint, but for simplicity we take first active.
     const user = await db.user.findFirst({ 
-      where: { email, isActive: true },
+      where: { email: normalizedEmail, isActive: true },
       include: { tenant: true }
     });
     

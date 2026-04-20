@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { getDb } from "@/lib/db";
-import type { LocalSale, LocalSyncQueue } from "@/lib/db";
+import type { LocalSyncQueue } from "@/lib/db";
+import { useAuth } from "@/contexts/AppProviders";
 
 // ============================================================
 // BACKGROUND SYNC WORKER HOOK
@@ -27,10 +28,15 @@ interface SyncResult {
 }
 
 export function useBackgroundSync() {
+  const { user } = useAuth();
   const isSyncing = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isEnabled =
+    Boolean(user?.tenantId) &&
+    (user?.role === "TENANT" || user?.role === "CASHIER");
 
   const runSync = useCallback(async () => {
+    if (!isEnabled) return;
     if (!navigator.onLine) return;
     if (isSyncing.current) return;
 
@@ -81,6 +87,7 @@ export function useBackgroundSync() {
           db.sales,
           db.products,
           db.rawMaterials,
+          db.billOfMaterials,
           db.shifts,
         ],
         async () => {
@@ -117,9 +124,17 @@ export function useBackgroundSync() {
     } finally {
       isSyncing.current = false;
     }
-  }, []);
+  }, [isEnabled]);
 
   useEffect(() => {
+    if (!isEnabled) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
     // Jalankan segera saat komponen mount
     runSync();
 
@@ -134,7 +149,7 @@ export function useBackgroundSync() {
       if (intervalRef.current) clearInterval(intervalRef.current);
       window.removeEventListener("online", handleOnline);
     };
-  }, [runSync]);
+  }, [isEnabled, runSync]);
 
   return { triggerSync: runSync };
 }
@@ -161,6 +176,19 @@ async function updateSyncStatus(
     case "rawMaterials":
       await db.rawMaterials.where("localId").equals(localId).modify(update);
       break;
+    case "billOfMaterials": {
+      const existing = await db.billOfMaterials.get(localId);
+      if (!existing || !serverId || serverId === existing.id) {
+        break;
+      }
+
+      await db.billOfMaterials.delete(localId);
+      await db.billOfMaterials.put({
+        ...existing,
+        id: serverId,
+      });
+      break;
+    }
     case "shifts":
       await db.shifts.where("localId").equals(localId).modify(update);
       break;

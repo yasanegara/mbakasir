@@ -1,0 +1,61 @@
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { TokenLedgerType } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+
+export async function mintTokensAction(agentId: string, amount: number) {
+  if (!amount || amount <= 0) {
+    return { success: false, error: "Jumlah token harus lebih dari 0" };
+  }
+
+  try {
+    // Jalankan dalam transaction agar atomic
+    await prisma.$transaction(async (tx) => {
+      // 1. Ambil agen saat ini untuk mendapat balance terakhir
+      const agent = await tx.agent.findUnique({
+        where: { id: agentId }
+      });
+
+      if (!agent) {
+        throw new Error("Agen tidak ditemukan");
+      }
+
+      const balanceBefore = agent.tokenBalance;
+      const balanceAfter = balanceBefore + amount;
+
+      // 2. Buat record ledger
+      await tx.tokenLedger.create({
+        data: {
+          agentId: agent.id,
+          type: TokenLedgerType.MINT,
+          amount: amount,
+          balanceBefore: balanceBefore,
+          balanceAfter: balanceAfter,
+          description: `Minting ${amount} Token by SuperAdmin`
+        }
+      });
+
+      // 3. Update saldo agen dan total minted
+      await tx.agent.update({
+        where: { id: agent.id },
+        data: {
+          tokenBalance: {
+            increment: amount
+          },
+          totalMinted: {
+            increment: amount
+          }
+        }
+      });
+    });
+
+    // Revalidate halaman untuk merefresh data
+    revalidatePath("/admin/tokens");
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Minting Error:", error);
+    return { success: false, error: error.message || "Gagal melakukan minting token" };
+  }
+}

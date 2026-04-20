@@ -32,7 +32,7 @@ export default function LoginPage() {
       } else {
         toast(data.error || "Gagal login", "error");
       }
-    } catch (error) {
+    } catch {
       toast("Terjadi kesalahan jaringan", "error");
     } finally {
       setIsLoading(false);
@@ -117,6 +117,7 @@ export default function LoginPage() {
           <strong>Demo Accounts:</strong><br/>
           Admin: admin@mbakasir.id / SuperAdmin@2026!<br/>
           Agent: agen.demo@mbakasir.id / Agent@Demo2026!<br/>
+          Owner: owner@demo.id / Owner@Demo2026!<br/>
           Kasir: kasir@demo.id / Kasir@1234!
         </div>
       </div>

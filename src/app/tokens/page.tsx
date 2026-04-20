@@ -2,31 +2,73 @@
 
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { useAuth, useToast } from "@/contexts/AppProviders";
+import { useToast } from "@/contexts/AppProviders";
 import { formatDateShort } from "@/lib/utils";
+import {
+  calculateTokenCostForQuantity,
+  formatTokenConversion,
+  type TokenConversionSnapshot,
+} from "@/lib/token-settings-shared";
+
+interface AgentTenant {
+  id: string;
+  name: string;
+  status: "ACTIVE" | "LOCKED" | "SUSPENDED";
+  premiumUntil: string | null;
+  addonsCostPerMonth: number;
+}
+
+interface AgentTokenConfig {
+  tokenName: string;
+  tokenSymbol: string;
+}
 
 // ============================================================
 // AGENT DASHBOARD: SALDO & AKTIVASI TOKO (Client Side)
 // ============================================================
 
 export default function AgentTokensPage() {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const [tenants, setTenants] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<AgentTenant[]>([]);
   const [balance, setBalance] = useState(0);
+  const [tokenConfig, setTokenConfig] = useState<AgentTokenConfig>({
+    tokenName: "SuperToken",
+    tokenSymbol: "ST",
+  });
+  const [licenseConversion, setLicenseConversion] = useState<TokenConversionSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchAgentData = async () => {
-    setIsLoading(true);
+  function applyAgentData(data: {
+    tenants?: AgentTenant[];
+    balance?: number;
+    tokenConfig?: AgentTokenConfig;
+    licenseConversion?: TokenConversionSnapshot | null;
+  }) {
+    setTenants(data.tenants || []);
+    setBalance(data.balance || 0);
+    setTokenConfig(data.tokenConfig || { tokenName: "SuperToken", tokenSymbol: "ST" });
+    setLicenseConversion(data.licenseConversion || null);
+  }
+
+  async function readAgentData() {
+    const res = await fetch("/api/agent/tenants");
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Gagal mengambil data toko");
+    }
+
+    return data;
+  }
+
+  const fetchAgentData = async (showLoading = true) => {
+    if (showLoading) {
+      setIsLoading(true);
+    }
+
     try {
-      // Untuk skeleton ini kita fetch data dummy yang sesuai. Di app nyata, butuh endpoint GET /api/agent/dashboard
-      // Karena kita diminta menyelesaikan seluruh arsitektur dengan API Next.js 15
-      const res = await fetch("/api/agent/tenants"); 
-      if (res.ok) {
-        const data = await res.json();
-        setTenants(data.tenants || []);
-        setBalance(data.balance || 0);
-      }
+      const data = await readAgentData();
+      applyAgentData(data);
     } catch {
        toast("Gagal mengambil data toko", "error");
     } finally {
@@ -35,18 +77,52 @@ export default function AgentTokensPage() {
   };
 
   useEffect(() => {
-    fetchAgentData();
-  }, []);
+    let isCancelled = false;
+
+    async function loadInitialData() {
+      try {
+        const data = await readAgentData();
+        if (isCancelled) return;
+        applyAgentData(data);
+      } catch {
+        if (isCancelled) return;
+        toast("Gagal mengambil data toko", "error");
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadInitialData();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [toast]);
 
   const handleActivate = async (tenantId: string, duration: number) => {
-    if (balance < duration) {
-       toast("Saldo token tidak mencukupi", "error");
+    if (!licenseConversion) {
+       toast("Rule lisensi belum aktif. Hubungi Super Admin.", "error");
        return;
     }
-    
-    if (!confirm(`Potong ${duration} token untuk aktivasi toko ini?`)) return;
+
+    const tokenCost = calculateTokenCostForQuantity(licenseConversion, duration);
 
     try {
+      // Find the cost from local state to verify
+      const tenant = tenants.find(t => t.id === tenantId);
+      const expectedBase = licenseConversion ? calculateTokenCostForQuantity(licenseConversion, duration) : duration;
+      const expectedAddons = (tenant?.addonsCostPerMonth || 0) * duration;
+      const expectedTotal = expectedBase + expectedAddons;
+
+      if (balance < expectedTotal) {
+         toast(`Saldo ${tokenConfig.tokenSymbol} tidak mencukupi`, "error");
+         return;
+      }
+      
+      if (!confirm(`Potong ${expectedTotal} ${tokenConfig.tokenSymbol} untuk aktivasi (${duration} ${licenseConversion.rewardUnit} + Add-ons Aktif)?`)) return;
+
       const res = await fetch("/api/agent/activate-tenant", {
          method: "POST",
          headers: { "Content-Type": "application/json" },
@@ -56,11 +132,11 @@ export default function AgentTokensPage() {
 
       if (res.ok) {
          toast(`Aktivasi sukses sampai ${formatDateShort(data.premiumUntil)}`, "success");
-         fetchAgentData(); // Reload data
+         void fetchAgentData(); // Reload data
       } else {
          toast(data.error || "Gagal aktivasi", "error");
       }
-    } catch (err) {
+    } catch {
       toast("Terjadi kesalahan jaringan", "error");
     }
   };
@@ -68,16 +144,26 @@ export default function AgentTokensPage() {
   return (
     <DashboardLayout title="Manajemen Lisensi (Agen)">
       <div className="stat-card" style={{ marginBottom: "24px", maxWidth: "400px" }}>
-        <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Saldo Token Anda</span>
+        <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Saldo {tokenConfig.tokenName} Anda</span>
         <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
            <span className="stat-value">{balance.toLocaleString()}</span>
-           <span style={{ fontSize: "14px", color: "hsl(var(--text-muted))" }}>koin</span>
+           <span style={{ fontSize: "14px", color: "hsl(var(--text-muted))" }}>{tokenConfig.tokenSymbol}</span>
         </div>
+        {licenseConversion && (
+          <span style={{ marginTop: "8px", fontSize: "12px", color: "hsl(var(--text-muted))" }}>
+            Rule aktif: {formatTokenConversion(licenseConversion)}
+          </span>
+        )}
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
          <div style={{ padding: "20px", borderBottom: "1px solid hsl(var(--border))" }}>
             <h2 style={{ fontSize: "18px" }}>Daftar Toko Pelanggan</h2>
+            {licenseConversion && (
+              <p style={{ marginTop: "6px", fontSize: "13px", color: "hsl(var(--text-secondary))" }}>
+                Aktivasi lisensi memakai rule: {licenseConversion.tokenCost} {tokenConfig.tokenSymbol} untuk {licenseConversion.rewardQuantity} {licenseConversion.rewardUnit}.
+              </p>
+            )}
          </div>
          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
             <thead style={{ background: "hsl(var(--bg-elevated))", borderBottom: "1px solid hsl(var(--border))" }}>
@@ -94,8 +180,15 @@ export default function AgentTokensPage() {
               ) : tenants.length === 0 ? (
                  <tr><td colSpan={4} style={{ padding: "20px", textAlign: "center", color: "hsl(var(--text-muted))" }}>Belum ada toko yang didaftarkan.</td></tr>
               ) : (
-                tenants.map((t) => {
+                 tenants.map((t) => {
                    const isExpired = !t.premiumUntil || new Date(t.premiumUntil) < new Date();
+                   const base1M = licenseConversion ? calculateTokenCostForQuantity(licenseConversion, 1) : 1;
+                   const base6M = licenseConversion ? calculateTokenCostForQuantity(licenseConversion, 6) : 6;
+                   const base12M = licenseConversion ? calculateTokenCostForQuantity(licenseConversion, 12) : 12;
+
+                   const cost1Month = base1M + (t.addonsCostPerMonth * 1);
+                   const cost6Months = base6M + (t.addonsCostPerMonth * 6);
+                   const cost12Months = base12M + (t.addonsCostPerMonth * 12);
                    return (
                     <tr key={t.id} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
                        <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: 600 }}>{t.name}</td>
@@ -112,13 +205,13 @@ export default function AgentTokensPage() {
                        <td style={{ padding: "16px 20px", textAlign: "right" }}>
                           <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
                              <button className={`btn btn-sm ${isExpired ? 'btn-primary' : 'btn-ghost'}`} onClick={() => handleActivate(t.id, 1)}>
-                                + 1 Bln
+                                + 1 Bln ({cost1Month})
                              </button>
                              <button className="btn btn-ghost btn-sm" onClick={() => handleActivate(t.id, 6)}>
-                                + 6 Bln
+                                + 6 Bln ({cost6Months})
                              </button>
                              <button className="btn btn-ghost btn-sm" onClick={() => handleActivate(t.id, 12)}>
-                                + 1 Thn
+                                + 1 Thn ({cost12Months})
                              </button>
                           </div>
                        </td>

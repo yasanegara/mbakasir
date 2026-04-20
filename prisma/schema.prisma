@@ -27,11 +27,13 @@ enum TenantStatus {
   ACTIVE
   LOCKED   // premiumUntil sudah lewat
   SUSPENDED
+  DORMANT  // Nganggur tanpa transaksi
 }
 
 enum TokenLedgerType {
   MINT      // Pusat cetak token ke Agen
   ACTIVATE  // Agen pakai token untuk aktifkan Toko
+  POS_ADD   // Tambah terminal POS tambahan untuk toko
   ADJUST    // Koreksi manual oleh SuperAdmin
 }
 
@@ -67,6 +69,7 @@ model SuperAdmin {
   updatedAt    DateTime @updatedAt
 
   tokenMints   TokenLedger[] @relation("MintedBy")
+  agentLinks   AgentRegistrationLink[]
 
   @@map("super_admins")
 }
@@ -80,16 +83,25 @@ model Agent {
   name         String
   email        String   @unique
   phone        String?
+  nik          String?
   passwordHash String
   tokenBalance Int      @default(0)  // Saldo Token saat ini
   totalMinted  Int      @default(0)  // Total token yg pernah diterima
   totalUsed    Int      @default(0)  // Total token yg pernah dipakai
+  tokenResalePrice Decimal @default(0) @db.Decimal(15, 2) // Harga jual token dari Agen ke Toko
+  whatsappNumber String?     // No WA untuk konfirmasi pembayaran
+  bankDetails  String?       // Info Bank (BCA 123xxx a/n Budi)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   tenants      Tenant[]
   tokenLedger  TokenLedger[]
+  storeRegistrationLinks StoreRegistrationLink[]
+  vouchers     AgentVoucher[]
+  purchaseRequests TokenPurchaseRequest[]
+  registrationLinkId String?
+  registrationLink AgentRegistrationLink? @relation("AgentRegisteredVia", fields: [registrationLinkId], references: [id])
 
   @@map("agents")
 }
@@ -101,11 +113,14 @@ model Agent {
 model Tenant {
   id            String       @id @default(cuid())
   agentId       String
-  agent         Agent        @relation(fields: [agentId], references: [id])
+  agent         Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  registrationLinkId String?
+  registrationLink StoreRegistrationLink? @relation("RegisteredVia", fields: [registrationLinkId], references: [id])
   name          String       // Nama Toko
   businessType  String?      // Kuliner, Retail, Jasa, dll
   address       String?
   phone         String?
+  nik           String?
   logoUrl       String?
   status        TenantStatus @default(LOCKED)
   premiumUntil  DateTime?    // Tanggal kedaluwarsa lisensi — NULL = belum pernah aktif
@@ -119,6 +134,8 @@ model Tenant {
   sales         Sale[]
   tokenLedger   TokenLedger[]
   shifts        Shift[]
+  posTerminals  PosTerminal[]
+  purchaseRequests TokenPurchaseRequest[]
 
   @@map("tenants")
 }
@@ -130,7 +147,7 @@ model Tenant {
 model User {
   id           String   @id @default(cuid())
   tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name         String
   email        String
   phone        String?
@@ -155,7 +172,7 @@ model User {
 model Product {
   id            String    @id @default(cuid())
   tenantId      String
-  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sku           String?
   name          String
   category      String?
@@ -186,7 +203,7 @@ model Product {
 model RawMaterial {
   id          String   @id @default(cuid())
   tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name        String
   unit        String   @default("gr")
   stock       Decimal  @default(0) @db.Decimal(15, 3)
@@ -210,9 +227,9 @@ model RawMaterial {
 model BillOfMaterial {
   id            String      @id @default(cuid())
   productId     String
-  product       Product     @relation(fields: [productId], references: [id])
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
   rawMaterialId String
-  rawMaterial   RawMaterial @relation(fields: [rawMaterialId], references: [id])
+  rawMaterial   RawMaterial @relation(fields: [rawMaterialId], references: [id], onDelete: Cascade)
   quantity      Decimal     @db.Decimal(15, 4) // Qty bahan per 1 unit produk
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -228,9 +245,9 @@ model BillOfMaterial {
 model Shift {
   id            String    @id @default(cuid())
   tenantId      String
-  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId        String
-  user          User      @relation(fields: [userId], references: [id])
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   openingCash   Decimal   @db.Decimal(15, 2)
   closingCash   Decimal?  @db.Decimal(15, 2)
   totalSales    Decimal   @default(0) @db.Decimal(15, 2)
@@ -254,11 +271,11 @@ model Shift {
 model Sale {
   id              String        @id @default(cuid())
   tenantId        String
-  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId          String
-  user            User          @relation(fields: [userId], references: [id])
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   shiftId         String?
-  shift           Shift?        @relation(fields: [shiftId], references: [id])
+  shift           Shift?        @relation(fields: [shiftId], references: [id], onDelete: Cascade)
   invoiceNo       String
   status          SaleStatus    @default(COMPLETED)
   paymentMethod   PaymentMethod @default(CASH)
@@ -291,7 +308,7 @@ model SaleItem {
   saleId      String
   sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   productId   String
-  product     Product  @relation(fields: [productId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   productName String   // Snapshot nama (anti berubah jika produk diedit)
   price       Decimal  @db.Decimal(15, 2) // Snapshot harga saat transaksi
   costPrice   Decimal  @default(0) @db.Decimal(15, 2)
@@ -310,9 +327,9 @@ model SaleItem {
 model TokenLedger {
   id            String          @id @default(cuid())
   agentId       String
-  agent         Agent           @relation(fields: [agentId], references: [id])
+  agent         Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
   tenantId      String?         // NULL jika MINT (belum dialokasikan ke toko)
-  tenant        Tenant?         @relation(fields: [tenantId], references: [id])
+  tenant        Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   superAdminId  String?
   superAdmin    SuperAdmin?     @relation("MintedBy", fields: [superAdminId], references: [id])
   type          TokenLedgerType
@@ -320,6 +337,10 @@ model TokenLedger {
   balanceBefore Int             // Saldo Agen sebelum transaksi ini
   balanceAfter  Int             // Saldo Agen setelah transaksi ini
   description   String
+  conversionTargetKey String?   // Snapshot aturan konversi yg dipakai
+  conversionLabel String?       // Snapshot nama konversi saat transaksi
+  conversionQuantity Int?       // Berapa unit target yg diminta
+  conversionUnit String?        // Snapshot satuan target
   durationMonths Int?           // Berapa bulan yg diaktivasi (jika type = ACTIVATE)
   prevPremiumUntil DateTime?    // premiumUntil sebelum aktivasi
   newPremiumUntil  DateTime?    // premiumUntil setelah aktivasi
@@ -327,4 +348,180 @@ model TokenLedger {
   // Immutable — tidak ada updatedAt
 
   @@map("token_ledger")
+}
+
+// ============================================================
+// AGENT REGISTRATION LINK — Link private milik pusat untuk merekrut agen
+// ============================================================
+
+model AgentRegistrationLink {
+  id            String   @id @default(cuid())
+  superAdminId  String
+  superAdmin    SuperAdmin @relation(fields: [superAdminId], references: [id])
+  token         String   @unique
+  isActive      Boolean  @default(true)
+  useCount      Int      @default(0)
+  lastUsedAt    DateTime?
+  label         String?  // Nama/ref rujukan opsional (Misal: "Iklan Facebook", "Untuk Budi")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  agents        Agent[]  @relation("AgentRegisteredVia")
+
+  @@map("agent_registration_links")
+}
+
+// ============================================================
+// STORE REGISTRATION LINK — Link publik milik agen untuk onboarding toko
+// ============================================================
+
+model StoreRegistrationLink {
+  id            String   @id @default(cuid())
+  agentId       String
+  agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  token         String   @unique
+  isActive      Boolean  @default(true)
+  useCount      Int      @default(0)
+  lastUsedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenants       Tenant[] @relation("RegisteredVia")
+
+  @@map("store_registration_links")
+}
+
+// ============================================================
+// AGENT VOUCHER — Diskon & Promo buatan Agen
+// ============================================================
+
+model AgentVoucher {
+  id            String   @id @default(cuid())
+  agentId       String
+  agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  code          String   // Contoh: PROMO50, GRATISPOS
+  discountValue Decimal  @default(0) @db.Decimal(15, 2) // Rp potongannya
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([agentId, code])
+  @@map("agent_vouchers")
+}
+
+// ============================================================
+// POS TERMINAL — Terminal kasir per toko
+// Default: 1 toko = 1 POS utama. POS tambahan memakan token.
+// ============================================================
+
+model PosTerminal {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  code          String
+  isDefault     Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  tokenCost     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@map("pos_terminals")
+}
+
+// ============================================================
+// TOKEN PURCHASE REQUEST — Pengajuan Pembelian dari Toko ke Agen
+// ============================================================
+
+model TokenPurchaseRequest {
+  id            String   @id @default(cuid())
+  agentId       String
+  agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  amount        Int      // Jumlah Token yang diminta
+  totalPrice    Decimal  @db.Decimal(15, 2) // Harga estimasi
+  voucherCode   String?
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("token_purchase_requests")
+}
+
+// ============================================================
+// TOKEN CONFIG — Harga & Konversi Token Global
+// ============================================================
+
+model TokenConfig {
+  id            String   @id @default("default")
+  tokenName     String   @default("SuperToken")
+  tokenSymbol   String   @default("ST")
+  pricePerToken Decimal  @default(6250) @db.Decimal(15, 2)
+  currencyCode  String   @default("IDR")
+  hppRatio      Int      @default(40) // % biaya operasional dari revenue token terpakai
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  conversions   TokenConversion[]
+
+  @@map("token_config")
+}
+
+model TokenConversion {
+  id             String      @id @default(cuid())
+  configId       String
+  config         TokenConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  targetKey      String
+  targetLabel    String
+  moduleKey      String?
+  tokenCost      Int         @default(1) // Token yg dibelanjakan per bundle
+  rewardQuantity Int         @default(1) // Berapa unit yg didapat per bundle
+  rewardUnit     String      // bulan, kredit, outlet, laporan, dll
+  description    String?
+  isActive       Boolean     @default(true)
+  sortOrder      Int         @default(0)
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([configId, targetKey])
+  @@map("token_conversions")
+}
+
+// ============================================================
+// BRAND CONFIG — Identitas Visual Platform (Logo, Favicon, Meta)
+// ============================================================
+
+model BrandConfig {
+  id              String   @id @default("default")
+  appName         String   @default("MbaKasir Intelligence Pro")
+  tagline         String?
+  metaDescription String?
+  logoUrl         String?  // URL gambar logo (misalnya dari upload)
+  faviconUrl      String?  // URL favicon
+  primaryColor    String?  @default("#1e40af")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("brand_config")
+}
+
+// ============================================================
+// AGENT PACKAGES — Paket pembelian Token pra-konfigurasi untuk Agen
+// ============================================================
+
+model AgentPackage {
+  id              String   @id @default(cuid())
+  name            String
+  tokenAmount     Int
+  price           Decimal  @db.Decimal(15, 2)
+  isActive        Boolean  @default(true)
+  description     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("agent_packages")
 }

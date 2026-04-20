@@ -18,8 +18,15 @@ export function useInitialSync() {
     let mounted = true;
     
     async function doSync() {
-      if (!user || user.role === "SUPERADMIN") return;
-      // Hanya Tenant & Cashier yg butuh sync product ke Dexie
+      if (!user?.tenantId || (user.role !== "TENANT" && user.role !== "CASHIER")) {
+        if (mounted) {
+          setIsSyncing(false);
+          setHasSynced(false);
+          setError(null);
+        }
+        return;
+      }
+      // Hanya Tenant & Cashier yg butuh sync master data ke Dexie
 
       setIsSyncing(true);
       setError(null);
@@ -52,8 +59,10 @@ export function useInitialSync() {
           
           if (mounted) setHasSynced(true);
         }
-      } catch (err: any) {
-         if (mounted) setError(err.message);
+      } catch (err: unknown) {
+         if (mounted) {
+           setError(err instanceof Error ? err.message : "Gagal sinkronisasi awal");
+         }
       } finally {
          if (mounted) setIsSyncing(false);
       }

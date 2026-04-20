@@ -1,13 +1,12 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { NextRequest } from "next/server";
 
 // ============================================================
 // API: INITIAL DOWNLOAD MASTER DATA
 // Tujuan: Mengisi IndexedDB agar Kasir beroperasi 100% offline
 // ============================================================
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await getSession();
     if (!session || !session.tenantId) {
@@ -42,6 +41,22 @@ export async function GET(req: NextRequest) {
 
     const bomList = await prisma.billOfMaterial.findMany({
       where: { product: { tenantId } },
+      select: {
+        id: true,
+        productId: true,
+        rawMaterialId: true,
+        quantity: true,
+        product: {
+          select: {
+            localId: true,
+          },
+        },
+        rawMaterial: {
+          select: {
+            localId: true,
+          },
+        },
+      },
     });
 
     // Sesuaikan format UUID: Prisma punya id & localId, 
@@ -79,8 +94,8 @@ export async function GET(req: NextRequest) {
 
     const formattedBoM = bomList.map((b) => ({
       id: b.id,
-      productId: b.productId, // Harus di-map ke localId saat insert ke dexie jika berbeda
-      rawMaterialId: b.rawMaterialId,
+      productId: b.product.localId || b.productId,
+      rawMaterialId: b.rawMaterial.localId || b.rawMaterialId,
       quantity: Number(b.quantity),
     }));
 
@@ -100,8 +115,13 @@ export async function GET(req: NextRequest) {
       billOfMaterials: formattedBoM,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Initial Sync Error:", error);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json(
+      {
+        error: error instanceof Error ? error.message : "Internal Server Error",
+      },
+      { status: 500 }
+    );
   }
 }
