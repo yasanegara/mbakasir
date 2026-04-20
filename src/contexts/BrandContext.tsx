@@ -12,7 +12,7 @@ export interface BrandSnapshot {
 
 const DEFAULT_BRAND: BrandSnapshot = {
   appName: "MbaKasir Intelligence Pro",
-  tagline: "Kasir Cerdas",
+  tagline: "Teman UMKM Indonesia",
   logoUrl: null,
   faviconUrl: null,
   primaryColor: "#1e40af",

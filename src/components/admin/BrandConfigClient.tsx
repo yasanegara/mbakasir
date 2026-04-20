@@ -333,7 +333,7 @@ export default function BrandConfigClient({
             className="input-field"
             value={config.tagline ?? ""}
             onChange={(e) => update("tagline", e.target.value || null)}
-            placeholder="Kasir Cerdas untuk UMKM Indonesia"
+            placeholder="Teman UMKM Indonesia"
           />
         </div>
 

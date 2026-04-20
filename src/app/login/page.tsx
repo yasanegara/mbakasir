@@ -64,7 +64,7 @@ export default function LoginPage() {
           </div>
           <h1 style={{ fontSize: "24px" }}>MbaKasir</h1>
           <p style={{ color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
-            Kasir Cerdas — Login
+            Teman UMKM Indonesia — Login
           </p>
         </div>
 

@@ -183,7 +183,7 @@ export default function Sidebar({
                   textTransform: "uppercase",
                 }}
               >
-                {brand?.tagline ?? "Kasir Cerdas"}
+                {brand?.tagline ?? "Teman UMKM Indonesia"}
               </div>
             </div>
           )}

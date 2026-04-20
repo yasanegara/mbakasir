@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import StoreRegistrationForm from "@/components/public/StoreRegistrationForm";
+import {
+  isStoreRegistrationToken,
+  normalizeStoreRegistrationToken,
+} from "@/lib/store-registration-shared";
 
 export const dynamic = "force-dynamic";
 
@@ -10,20 +14,23 @@ export default async function RegisterStorePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const normalizedToken = normalizeStoreRegistrationToken(token);
 
-  const registrationLink = await prisma.storeRegistrationLink.findUnique({
-    where: {
-      token,
-    },
-    include: {
-      agent: {
-        select: {
-          name: true,
-          isActive: true,
+  const registrationLink = isStoreRegistrationToken(normalizedToken)
+    ? await prisma.storeRegistrationLink.findUnique({
+        where: {
+          token: normalizedToken,
         },
-      },
-    },
-  });
+        include: {
+          agent: {
+            select: {
+              name: true,
+              isActive: true,
+            },
+          },
+        },
+      })
+    : null;
 
   const isValidLink = Boolean(
     registrationLink?.isActive && registrationLink.agent.isActive
@@ -65,7 +72,7 @@ export default async function RegisterStorePage({
 
         {isValidLink && registrationLink ? (
           <StoreRegistrationForm
-            token={token}
+            token={normalizedToken}
             agentName={registrationLink.agent.name}
           />
         ) : (

@@ -10,15 +10,26 @@ export interface BrandConfigSnapshot {
   primaryColor: string | null;
 }
 
+const LEGACY_TAGLINE = "Kasir Cerdas untuk UMKM Indonesia";
+const DEFAULT_TAGLINE = "Teman UMKM Indonesia";
+
 const DEFAULT_BRAND: BrandConfigSnapshot = {
   appName: "MbaKasir Intelligence Pro",
-  tagline: "Kasir Cerdas untuk UMKM Indonesia",
+  tagline: DEFAULT_TAGLINE,
   metaDescription:
     "SaaS POS & ERP Mikro dengan arsitektur Local-First. Toko bisa jualan tanpa internet, data sync otomatis ke cloud.",
   logoUrl: null,
   faviconUrl: null,
   primaryColor: "#1e40af",
 };
+
+function normalizeTagline(tagline: string | null): string | null {
+  if (tagline === LEGACY_TAGLINE) {
+    return DEFAULT_TAGLINE;
+  }
+
+  return tagline;
+}
 
 export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
   try {
@@ -30,7 +41,7 @@ export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
 
     return {
       appName: config.appName || DEFAULT_BRAND.appName,
-      tagline: config.tagline ?? DEFAULT_BRAND.tagline,
+      tagline: normalizeTagline(config.tagline) ?? DEFAULT_BRAND.tagline,
       metaDescription:
         config.metaDescription ?? DEFAULT_BRAND.metaDescription,
       logoUrl: config.logoUrl ?? null,
@@ -49,7 +60,7 @@ export async function upsertBrandConfig(
     where: { id: "default" },
     update: {
       appName: data.appName,
-      tagline: data.tagline,
+      tagline: normalizeTagline(data.tagline ?? null),
       metaDescription: data.metaDescription,
       logoUrl: data.logoUrl,
       faviconUrl: data.faviconUrl,
@@ -58,7 +69,7 @@ export async function upsertBrandConfig(
     create: {
       id: "default",
       appName: data.appName ?? DEFAULT_BRAND.appName,
-      tagline: data.tagline ?? DEFAULT_BRAND.tagline,
+      tagline: normalizeTagline(data.tagline ?? null) ?? DEFAULT_BRAND.tagline,
       metaDescription:
         data.metaDescription ?? DEFAULT_BRAND.metaDescription,
       logoUrl: data.logoUrl ?? null,

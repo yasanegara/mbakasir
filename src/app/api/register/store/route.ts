@@ -7,9 +7,18 @@ import {
 import { findExistingLoginIdentity } from "@/lib/auth-identity";
 import { getDefaultPosName, formatPosCode } from "@/lib/pos-terminals";
 import { prisma } from "@/lib/prisma";
+import {
+  isStoreRegistrationToken,
+  normalizeStoreRegistrationToken,
+} from "@/lib/store-registration-shared";
 
 const registerStoreSchema = z.object({
-  token: z.string().trim().min(20, "Link pendaftaran toko tidak valid"),
+  token: z
+    .string()
+    .trim()
+    .min(1, "Link pendaftaran toko tidak valid")
+    .transform(normalizeStoreRegistrationToken)
+    .refine(isStoreRegistrationToken, "Link pendaftaran toko tidak valid"),
   storeName: z.string().trim().min(2, "Nama toko minimal 2 karakter").max(120),
   businessType: z.string().trim().max(80).optional().or(z.literal("")),
   address: z.string().trim().max(255).optional().or(z.literal("")),

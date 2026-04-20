@@ -1,4 +1,4 @@
-# MbaKasir (Kasir Cerdas) - Project Documentation
+# MbaKasir (Teman UMKM Indonesia) - Project Documentation
 
 ## 🚀 Overview
 **MbaKasir** adalah sistem SaaS Point of Sale (POS) & ERP Mikro yang dirancang dengan filosofi **Local-First**. Aplikasi ini memungkinkan toko untuk tetap melayani pelanggan secara offline 100%, dengan sinkronisasi otomatis ke cloud (PostgreSQL) saat internet kembali tersedia.
@@ -8,7 +8,7 @@
 ## 🎨 Branding & Design System
 ### Branding
 - **Nama Utama:** MbaKasir
-- **Slogan:** Kasir Cerdas
+- **Slogan:** Teman UMKM Indonesia
 - **Logo:** 💳 (Ikon Kartu Kredit/Digital)
 
 ### Design Themes (Dual-Axis)
