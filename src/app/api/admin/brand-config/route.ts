@@ -32,6 +32,8 @@ const brandConfigSchema = z.object({
     .optional()
     .or(z.literal("")),
   primaryColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Format warna harus #RRGGBB").optional(),
+  supportPhone: z.string().trim().max(20).optional().or(z.literal("")),
+  supportMessage: z.string().trim().max(300).optional().or(z.literal("")),
 });
 
 async function requireSuperAdmin() {
@@ -69,6 +71,8 @@ export async function POST(req: NextRequest) {
       logoUrl: parsed.data.logoUrl || null,
       faviconUrl: parsed.data.faviconUrl || null,
       primaryColor: parsed.data.primaryColor,
+      supportPhone: parsed.data.supportPhone || null,
+      supportMessage: parsed.data.supportMessage || null,
     });
 
     return Response.json({ success: true, config });

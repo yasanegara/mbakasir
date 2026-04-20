@@ -4,6 +4,7 @@ import AppRuntimeSync from "@/components/app/AppRuntimeSync";
 import { ThemeProvider, ToastProvider, AuthProvider } from "@/contexts/AppProviders";
 import { getBrandConfig } from "@/lib/brand-config";
 import { BrandProvider } from "@/contexts/BrandContext";
+import GlobalWidgets from "@/components/global/GlobalWidgets";
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandConfig();
@@ -58,12 +59,15 @@ export default async function RootLayout({
           logoUrl: brand.logoUrl ?? null,
           faviconUrl: brand.faviconUrl ?? null,
           primaryColor: brand.primaryColor ?? null,
+          supportPhone: brand.supportPhone ?? null,
+          supportMessage: brand.supportMessage ?? null,
         }}>
           <ThemeProvider>
             <AuthProvider>
               <ToastProvider>
                 <AppRuntimeSync />
                 {children}
+                <GlobalWidgets />
               </ToastProvider>
             </AuthProvider>
           </ThemeProvider>

@@ -8,6 +8,8 @@ export interface BrandSnapshot {
   logoUrl: string | null;
   faviconUrl: string | null;
   primaryColor: string | null;
+  supportPhone: string | null;
+  supportMessage: string | null;
 }
 
 const DEFAULT_BRAND: BrandSnapshot = {
@@ -16,6 +18,8 @@ const DEFAULT_BRAND: BrandSnapshot = {
   logoUrl: null,
   faviconUrl: null,
   primaryColor: "#1e40af",
+  supportPhone: "6281234567890",
+  supportMessage: "Halo MbaKasir, saya butuh bantuan",
 };
 
 const BrandContext = createContext<BrandSnapshot>(DEFAULT_BRAND);

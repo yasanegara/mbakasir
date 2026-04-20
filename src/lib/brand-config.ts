@@ -8,6 +8,8 @@ export interface BrandConfigSnapshot {
   logoUrl: string | null;
   faviconUrl: string | null;
   primaryColor: string | null;
+  supportPhone: string | null;
+  supportMessage: string | null;
 }
 
 const LEGACY_TAGLINE = "Kasir Cerdas untuk UMKM Indonesia";
@@ -21,6 +23,8 @@ const DEFAULT_BRAND: BrandConfigSnapshot = {
   logoUrl: null,
   faviconUrl: null,
   primaryColor: "#1e40af",
+  supportPhone: "6281234567890",
+  supportMessage: "Halo MbaKasir, saya butuh bantuan",
 };
 
 function normalizeTagline(tagline: string | null): string | null {
@@ -47,6 +51,8 @@ export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
       logoUrl: config.logoUrl ?? null,
       faviconUrl: config.faviconUrl ?? null,
       primaryColor: config.primaryColor ?? DEFAULT_BRAND.primaryColor,
+      supportPhone: config.supportPhone ?? DEFAULT_BRAND.supportPhone,
+      supportMessage: config.supportMessage ?? DEFAULT_BRAND.supportMessage,
     };
   } catch {
     return DEFAULT_BRAND;
@@ -65,6 +71,8 @@ export async function upsertBrandConfig(
       logoUrl: data.logoUrl,
       faviconUrl: data.faviconUrl,
       primaryColor: data.primaryColor,
+      supportPhone: data.supportPhone,
+      supportMessage: data.supportMessage,
     },
     create: {
       id: "default",
@@ -75,6 +83,8 @@ export async function upsertBrandConfig(
       logoUrl: data.logoUrl ?? null,
       faviconUrl: data.faviconUrl ?? null,
       primaryColor: data.primaryColor ?? DEFAULT_BRAND.primaryColor,
+      supportPhone: data.supportPhone ?? DEFAULT_BRAND.supportPhone,
+      supportMessage: data.supportMessage ?? DEFAULT_BRAND.supportMessage,
     },
   });
 
@@ -85,5 +95,7 @@ export async function upsertBrandConfig(
     logoUrl: config.logoUrl,
     faviconUrl: config.faviconUrl,
     primaryColor: config.primaryColor,
+    supportPhone: config.supportPhone,
+    supportMessage: config.supportMessage,
   };
 }

@@ -503,6 +503,8 @@ model BrandConfig {
   logoUrl         String?  // URL gambar logo (misalnya dari upload)
   faviconUrl      String?  // URL favicon
   primaryColor    String?  @default("#1e40af")
+  supportPhone    String?  // Nomor WhatsApp support
+  supportMessage  String?  // Teks pembukaan CTA WhatsApp
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -375,6 +375,33 @@ export default function BrandConfigClient({
             Format HEX (#RRGGBB) · digunakan di logo, tombol, dan aksen UI
           </span>
         </div>
+
+        <div>
+          <label className="input-label" htmlFor="brand-waphone">Nomor WhatsApp Support (CTA)</label>
+          <input
+            id="brand-waphone"
+            className="input-field"
+            value={config.supportPhone ?? ""}
+            onChange={(e) => update("supportPhone", e.target.value || null)}
+            placeholder="6281234567890"
+          />
+          <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "4px", display: "block" }}>
+            Gunakan format 62 tanpa tanda (+), misal: 62812...
+          </span>
+        </div>
+
+        <div>
+          <label className="input-label" htmlFor="brand-watext">Teks Otomatis WA</label>
+          <textarea
+            id="brand-watext"
+            className="input-field"
+            value={config.supportMessage ?? ""}
+            onChange={(e) => update("supportMessage", e.target.value || null)}
+            rows={2}
+            placeholder="Halo MbaKasir, saya butuh bantuan..."
+            style={{ resize: "vertical" }}
+          />
+        </div>
       </div>
 
       {/* Upload widgets */}

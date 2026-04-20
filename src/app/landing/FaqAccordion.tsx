@@ -5,8 +5,8 @@ import styles from "../landing.module.css";
 
 const faqs = [
   {
-    q: "Apakah Mbakasir harus selalu pakai internet?",
-    a: "Tidak! Inilah kelebihan utama Mbakasir. Dengan teknologi Local-First, semua transaksi POS, pencatatan stok, dan operasional tetap berjalan lancar walau WiFi mati atau sinyal putus. Data akan otomatis tersinkronisasi ke cloud saat koneksi kembali.",
+    q: "Apakah MbaKasir harus selalu pakai internet?",
+    a: "Tidak! Inilah kelebihan utama MbaKasir. Dengan teknologi Local-First, semua transaksi POS, pencatatan stok, dan operasional tetap berjalan lancar walau WiFi mati atau sinyal putus. Data akan otomatis tersinkronisasi ke cloud saat koneksi kembali.",
   },
   {
     q: "Harga Rp 750.000/tahun itu sudah termasuk apa saja?",
@@ -14,11 +14,11 @@ const faqs = [
   },
   {
     q: "Gimana kalau HP saya ganti atau rusak?",
-    a: "Tenang saja! Data Anda aman di cloud. Cukup login dari HP baru, semua data toko langsung muncul kembali. Mbakasir bisa diakses dari browser di HP, tablet, atau laptop mana pun.",
+    a: "Tenang saja! Data Anda aman di cloud. Cukup login dari HP baru, semua data toko langsung muncul kembali. MbaKasir bisa diakses dari browser di HP, tablet, atau laptop mana pun.",
   },
   {
     q: "Apakah bisa dipakai untuk lebih dari satu toko atau kasir?",
-    a: "Bisa! Mbakasir mendukung multi-terminal (kasir tambahan) dan arsitekturnya siap untuk multi-cabang. Hubungi Bos Riza untuk info lebih lanjut tentang paket bundle toko.",
+    a: "Bisa! MbaKasir mendukung multi-terminal (kasir tambahan) dan arsitekturnya siap untuk multi-cabang. Hubungi Mba untuk info lebih lanjut tentang paket bundle toko.",
   },
 ];
 

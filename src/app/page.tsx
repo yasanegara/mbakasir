@@ -81,7 +81,7 @@ export default async function IndexPage() {
   const dashboardHref = isAuthenticated ? "/dashboard" : "/login";
 
   const waLink =
-    "https://wa.me/6281234567890?text=Halo%20Bos%20Riza%2C%20saya%20mau%20aktivasi%20Mbakasir%20dengan%20promo%20750rb%2Ftahun%21";
+    "https://wa.me/6281234567890?text=Halo%20Mba%2C%20saya%20mau%20aktivasi%20MbaKasir%20dengan%20promo%20750rb%2Ftahun%21";
 
   return (
     <main className={styles.page}>
@@ -104,7 +104,7 @@ export default async function IndexPage() {
               </svg>
             </div>
             <div>
-              <span className={styles.brandName}>Mbakasir</span>
+              <span className={styles.brandName}>MbaKasir</span>
               <span className={styles.brandSub}>Intelligence Pro</span>
             </div>
           </Link>
@@ -145,14 +145,14 @@ export default async function IndexPage() {
           </div>
 
           <h1 className={styles.heroTitle}>
-            <span className={styles.heroTitleAccent}>Sistem Kasir Sekelas Oracle,</span>
+            <span className={styles.heroTitleAccent}>Sistem Kasir Berkelas,</span>
             <br />
             Harga{" "}
             <span className={styles.heroTitleHighlight}>Cuma Parkir Motor.</span>
           </h1>
 
           <p className={styles.heroDesc}>
-            Bukan sekadar kasir. <strong>Mbakasir</strong> adalah asisten cerdas yang jaga stok bahan baku, hitung laba-rugi otomatis, dan tetap <strong>sat-set jualan walau WiFi mati</strong>.
+            Bukan sekadar kasir. <strong>MbaKasir</strong> adalah asisten cerdas yang jaga stok bahan baku, hitung laba-rugi otomatis, dan tetap <strong>sat-set jualan walau WiFi mati</strong>.
           </p>
 
           <div className={styles.heroActions}>
@@ -200,7 +200,7 @@ export default async function IndexPage() {
                 <span style={{ background: "#febc2e" }} />
                 <span style={{ background: "#28c840" }} />
               </div>
-              <span className={styles.mockupTitle}>Mbakasir POS</span>
+              <span className={styles.mockupTitle}>MbaKasir POS</span>
               <span className={styles.mockupOnline}>
                 <span className={styles.onlineDot} />
                 Offline Mode
@@ -257,7 +257,7 @@ export default async function IndexPage() {
             Apakah Usaha Anda Juga Mengalami Ini?
           </h2>
           <p className={styles.sectionDesc}>
-            Kalau iya, berarti Anda butuh Mbakasir sekarang juga.
+            Kalau iya, berarti Anda butuh MbaKasir sekarang juga.
           </p>
           <div className={styles.problemGrid}>
             {problems.map((p, i) => (
@@ -276,12 +276,12 @@ export default async function IndexPage() {
       ══════════════════════════════════════════════════════════════════ */}
       <section className={styles.section} id="fitur">
         <div className={styles.sectionShell}>
-          <div className={styles.sectionBadge}>✅ Kenapa Mbakasir?</div>
+          <div className={styles.sectionBadge}>✅ Kenapa MbaKasir?</div>
           <h2 className={styles.sectionTitle}>
             Asisten Cerdas yang Kerja 24 Jam untuk Toko Anda
           </h2>
           <p className={styles.sectionDesc}>
-            Bukan cuma mencatat transaksi. Mbakasir aktif menjaga stok, menghitung margin, dan menjaga hubungan dengan pelanggan Anda.
+            Bukan cuma mencatat transaksi. MbaKasir aktif menjaga stok, menghitung margin, dan menjaga hubungan dengan pelanggan Anda.
           </p>
           <div className={styles.featureGrid}>
             {features.map((f, i) => (
@@ -313,7 +313,7 @@ export default async function IndexPage() {
 
               <div className={styles.pricingTop}>
                 <div>
-                  <p className={styles.pricingLabel}>Mbakasir Intelligence Pro</p>
+                  <p className={styles.pricingLabel}>MbaKasir Intelligence Pro</p>
                   <div className={styles.pricingPriceRow}>
                     <span className={styles.pricingStrike}>Rp 3.000.000</span>
                     <span className={styles.pricingSlash}>/tahun</span>
@@ -350,7 +350,7 @@ export default async function IndexPage() {
                 Ambil Promo 750rb/Tahun Sekarang →
               </a>
               <p className={styles.pricingNote}>
-                Hubungi Bos Riza via WhatsApp untuk aktivasi. Proses cepat, tanpa ribet.
+                Hubungi Mba via WhatsApp untuk aktivasi. Proses cepat, tanpa ribet.
               </p>
             </div>
           </div>
@@ -381,7 +381,7 @@ export default async function IndexPage() {
             Toko Anda Layak Dapat Sistem yang Lebih Baik.
           </h2>
           <p className={styles.ctaBannerDesc}>
-            Bergabung dengan ratusan UMKM yang sudah sat-set jualan bersama Mbakasir. Hanya <strong>Rp 750.000/tahun</strong> — mulai hari ini.
+            Bergabung dengan ratusan UMKM yang sudah sat-set jualan bersama MbaKasir. Hanya <strong>Rp 750.000/tahun</strong> — mulai hari ini.
           </p>
           <a
             href={waLink}
@@ -409,7 +409,7 @@ export default async function IndexPage() {
               </svg>
             </div>
             <div>
-              <p className={styles.footerBrandName}>Mbakasir Intelligence Pro</p>
+              <p className={styles.footerBrandName}>MbaKasir Intelligence Pro</p>
               <p className={styles.footerTagline}>Dibuat dengan dedikasi untuk kemajuan UMKM Lokal. 🧡</p>
             </div>
           </div>
@@ -432,7 +432,7 @@ export default async function IndexPage() {
           </div>
 
           <p className={styles.footerCopy}>
-            © {new Date().getFullYear()} Mbakasir Intelligence Pro. All rights reserved.
+            © {new Date().getFullYear()} MbaKasir Intelligence Pro. All rights reserved.
           </p>
         </div>
       </footer>
