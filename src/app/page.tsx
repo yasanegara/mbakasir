@@ -1,349 +1,441 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getBrandConfig } from "@/lib/brand-config";
-import styles from "./page.module.css";
+import styles from "./landing.module.css";
+import FaqAccordion from "./landing/FaqAccordion";
 
-const featureCards = [
+// ─── DATA ───────────────────────────────────────────────────────────────────
+
+const problems = [
   {
-    id: "01",
-    title: "POS yang langsung terasa siap pakai",
-    description:
-      "Buka transaksi, layani pelanggan, dan jaga alur kasir tetap cepat dari layar yang fokus ke operasional harian.",
-    note: "Cepat untuk kasir",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+    ),
+    title: "Duit Kasir Sering Selisih",
+    desc: "Tiap tutup toko, selisihnya bikin kepala pusing. Entah siapa salah, entah ke mana uangnya. Bocor halus yang lama-lama menguras omzet.",
   },
   {
-    id: "02",
-    title: "Stok dan pembelian tetap terkendali",
-    description:
-      "Pantau inventori, kebutuhan restock, dan alur pembelian dari struktur yang rapi dan mudah dipantau tim toko.",
-    note: "Rapi untuk gudang",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+        <line x1="12" y1="22.08" x2="12" y2="12" />
+      </svg>
+    ),
+    title: "Stok Bahan Baku Kacau",
+    desc: "Susah ngitung stok beras, telur, & bumbu secara manual—apalagi kalau jualan menu paketan. Salah hitung, margin terkikis tanpa disadari.",
   },
   {
-    id: "03",
-    title: "Dashboard dan laporan dalam satu alur",
-    description:
-      "Pemilik usaha bisa langsung pindah dari transaksi ke insight tanpa perlu lompat ke sistem yang berbeda.",
-    note: "Ringkas untuk owner",
-  },
-  {
-    id: "04",
-    title: "Sinkronisasi dibuat terasa tenang",
-    description:
-      "Arsitektur local-first membantu operasional tetap jalan sambil menjaga data tetap siap diselaraskan ke cloud.",
-    note: "Siap untuk multi-cabang",
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+    ),
+    title: "Aplikasi Kasir Lain Mahal Banget",
+    desc: "Harga Rp 3 juta/tahun, butuh internet kencang, dan support-nya lambat. Padahal fiturnya belum tentu pas buat UMKM seperti usaha Anda.",
   },
 ];
 
-const workflowSteps = [
+const features = [
   {
-    step: "Langkah 1",
-    title: "Masuk sesuai peran",
-    description:
-      "Agen, pemilik toko, kasir, dan admin memakai pintu masuk yang sama dengan pengalaman yang tetap konsisten.",
+    emoji: "⚡",
+    badge: "Anti-Lemot & Anti-Jebol",
+    title: "Jualan Gas Terus, Walau Internet Putus",
+    desc: "Teknologi Local-First artinya semua transaksi tersimpan di HP Anda dulu. Data otomatis sync ke cloud saat online kembali. WiFi mati? Bukan masalah.",
+    highlight: "Offline-First Technology",
   },
   {
-    step: "Langkah 2",
-    title: "Jalankan operasional harian",
-    description:
-      "Transaksi, stok, pembelian, dan monitoring toko tersedia dari area kerja yang saling terhubung.",
+    emoji: "🍳",
+    badge: "Resep Pintar (Bill of Material)",
+    title: "Jual 1 Porsi, Stok Bahan Otomatis Terpotong",
+    desc: "Daftarkan resep menu Anda sekali. Setiap transaksi, stok beras, telur, minyak, dan semua bahan langsung berkurang otomatis. Akurat tanpa hitung manual.",
+    highlight: "Smart Recipe Engine",
   },
   {
-    step: "Langkah 3",
-    title: "Pantau pertumbuhan dari dashboard",
-    description:
-      "Begitu aktivitas berjalan, owner bisa cek performa toko dan keputusan berikutnya dari pusat kontrol yang ringkas.",
-  },
-];
-
-const workspaceCards = [
-  {
-    label: "POS",
-    title: "Transaksi lebih fokus",
-    description: "Kasir bisa langsung masuk ke penjualan tanpa kebisingan yang tidak perlu.",
-    meta: "Siap dipakai",
+    emoji: "💬",
+    badge: "CRM & Struk WhatsApp",
+    title: "Bikin Pelanggan Balik Lagi & Lagi",
+    desc: "Kirim struk digital langsung via WhatsApp. Simpan data pelanggan, beri sapaan otomatis di hari spesial. Pelanggan merasa diperhatikan, omzet pun naik.",
+    highlight: "Customer Retention System",
   },
   {
-    label: "Inventory",
-    title: "Stok tetap kebaca",
-    description: "Pergerakan barang dan kebutuhan restock lebih mudah diikuti tim operasional.",
-    meta: "Mudah ditinjau",
-  },
-  {
-    label: "Reports",
-    title: "Laporan lebih dekat",
-    description: "Owner bisa lihat ringkasan performa tanpa keluar dari ekosistem kerja utama.",
-    meta: "Cepat dibaca",
-  },
-  {
-    label: "Sync",
-    title: "Data tetap selaras",
-    description: "Pantau status sinkronisasi dengan konteks yang jelas dan tidak terasa teknis.",
-    meta: "Lebih tenang",
+    emoji: "📊",
+    badge: "Dashboard & Laporan",
+    title: "Laba Rugi Kelihatan Setiap Hari",
+    desc: "Pantau omzet, biaya pokok, dan laba bersih dari satu layar. Ambil keputusan bisnis berdasarkan data nyata, bukan feeling semata.",
+    highlight: "Real-time Analytics",
   },
 ];
 
-function getInitials(appName: string): string {
-  const initials = appName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
 
-  return initials || "MK";
-}
-
-function getRoleLabel(role: "SUPERADMIN" | "AGENT" | "TENANT" | "CASHIER"): string {
-  switch (role) {
-    case "SUPERADMIN":
-      return "Super Admin";
-    case "AGENT":
-      return "Agen";
-    case "TENANT":
-      return "Pemilik Toko";
-    case "CASHIER":
-      return "Kasir";
-    default:
-      return "Pengguna";
-  }
-}
+// ─── SERVER PAGE ─────────────────────────────────────────────────────────────
 
 export default async function IndexPage() {
-  const [session, brand] = await Promise.all([getSession(), getBrandConfig()]);
-
+  const session = await getSession();
   const isAuthenticated = Boolean(session);
-  const tagline = brand.tagline ?? "Teman UMKM Indonesia";
-  const description =
-    brand.metaDescription ??
-    "POS & ERP mikro dengan arsitektur local-first untuk bantu operasional toko tetap rapi dari kasir sampai laporan.";
-  const primaryHref = isAuthenticated ? "/dashboard" : "/login";
-  const primaryLabel = isAuthenticated ? "Buka Dashboard" : "Masuk ke Aplikasi";
-  const secondaryHref = isAuthenticated ? "/pos" : "#fitur";
-  const secondaryLabel = isAuthenticated ? "Mulai Transaksi" : "Lihat Fitur";
-  const pageStyle: CSSProperties = {
-    ["--landing-brand" as string]: brand.primaryColor ?? "#1e40af",
-  };
+  const dashboardHref = isAuthenticated ? "/dashboard" : "/login";
+
+  const waLink =
+    "https://wa.me/6281234567890?text=Halo%20Bos%20Riza%2C%20saya%20mau%20aktivasi%20Mbakasir%20dengan%20promo%20750rb%2Ftahun%21";
 
   return (
-    <main className={styles.page} style={pageStyle}>
-      <div className={styles.shell}>
-        <header className={styles.header}>
-          <Link className={styles.brandLink} href="/">
+    <main className={styles.page}>
+      {/* ── DECORATIVE BG ── */}
+      <div className={styles.bgGlow1} aria-hidden="true" />
+      <div className={styles.bgGlow2} aria-hidden="true" />
+      <div className={styles.bgGrid} aria-hidden="true" />
+
+      {/* ══════════════════════════════════════════════════════════════════
+          HEADER / NAV
+      ══════════════════════════════════════════════════════════════════ */}
+      <header className={styles.header}>
+        <div className={styles.headerShell}>
+          <Link href="/" className={styles.brand}>
             <div className={styles.brandMark} aria-hidden="true">
-              {brand.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={brand.logoUrl}
-                  alt=""
-                  className={styles.brandImage}
-                />
-              ) : (
-                <span>{getInitials(brand.appName)}</span>
-              )}
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
             </div>
-            <div className={styles.brandText}>
-              <span className={styles.brandName}>{brand.appName}</span>
-              <span className={styles.brandTagline}>{tagline}</span>
+            <div>
+              <span className={styles.brandName}>Mbakasir</span>
+              <span className={styles.brandSub}>Intelligence Pro</span>
             </div>
           </Link>
 
-          <nav className={styles.nav}>
-            <a href="#fitur">Fitur</a>
-            <a href="#alur">Alur</a>
-            <a href="#mulai">Mulai</a>
+          <nav className={styles.nav} aria-label="Menu utama">
+            <a href="#masalah" className={styles.navLink}>Masalah</a>
+            <a href="#fitur" className={styles.navLink}>Fitur</a>
+            <a href="#harga" className={styles.navLink}>Harga</a>
           </nav>
 
-          <Link className={`btn btn-ghost btn-sm ${styles.headerButton}`} href={primaryHref}>
-            {isAuthenticated ? "Dashboard" : "Login"}
-          </Link>
-        </header>
-
-        <section className={styles.hero}>
-          <div className={styles.heroContent}>
-            <div className={styles.heroEyebrow}>Local-first POS & ERP untuk UMKM</div>
-            <h1 className={styles.heroTitle}>
-              Tampilan awal yang langsung mengarahkan tim toko ke pekerjaan penting.
-            </h1>
-            <p className={styles.heroDescription}>{description}</p>
-
-            <div className={styles.heroNotice}>
-              {session ? (
-                <span>
-                  Masuk sebagai <strong>{getRoleLabel(session.role)}</strong> atas nama{" "}
-                  <strong>{session.name}</strong>.
-                </span>
-              ) : (
-                <span>
-                  Cocok untuk alur kasir, owner, agen, dan admin dalam satu pengalaman yang terasa
-                  satu produk.
-                </span>
-              )}
-            </div>
-
-            <div className={styles.heroActions}>
-              <Link className={`btn btn-primary btn-lg ${styles.primaryAction}`} href={primaryHref}>
-                {primaryLabel}
+          <div className={styles.headerActions}>
+            {isAuthenticated && (
+              <Link href="/dashboard" className="btn btn-ghost btn-sm" id="header-dashboard-btn">
+                Dashboard
               </Link>
-              {isAuthenticated ? (
-                <Link className={`btn btn-ghost btn-lg ${styles.secondaryAction}`} href={secondaryHref}>
-                  {secondaryLabel}
-                </Link>
-              ) : (
-                <a className={`btn btn-ghost btn-lg ${styles.secondaryAction}`} href={secondaryHref}>
-                  {secondaryLabel}
-                </a>
-              )}
-            </div>
-
-            <div className={styles.proofGrid}>
-              <article className={styles.proofCard}>
-                <span className={styles.proofLabel}>Pengalaman</span>
-                <strong className={styles.proofValue}>Satu layar pembuka</strong>
-                <p className={styles.proofText}>
-                  Pengguna langsung paham harus mulai dari mana, tanpa dibebani detail teknis.
-                </p>
-              </article>
-
-              <article className={styles.proofCard}>
-                <span className={styles.proofLabel}>Brand</span>
-                <strong className={styles.proofValue}>Siap ikut identitas bisnis</strong>
-                <p className={styles.proofText}>
-                  Nama aplikasi, logo, dan warna utama tetap mengikuti konfigurasi brand yang ada.
-                </p>
-              </article>
-
-              <article className={styles.proofCard}>
-                <span className={styles.proofLabel}>Operasional</span>
-                <strong className={styles.proofValue}>Kasir ke laporan</strong>
-                <p className={styles.proofText}>
-                  Transaksi, stok, pembelian, dan monitoring terasa terhubung dalam satu alur.
-                </p>
-              </article>
-            </div>
-          </div>
-
-          <div className={styles.previewWrap}>
-            <div className={styles.previewCard}>
-              <div className={styles.previewTop}>
-                <span className={styles.previewBadge}>Landing workspace</span>
-                <span className={styles.previewStatus}>
-                  {isAuthenticated ? "Akses aktif" : "Publik siap login"}
-                </span>
-              </div>
-
-              <div className={styles.previewIntro}>
-                <div>
-                  <p className={styles.previewLabel}>Ringkasan produk</p>
-                  <h2 className={styles.previewTitle}>
-                    Halaman pertama yang menjual rasa percaya sebelum masuk dashboard.
-                  </h2>
-                </div>
-
-                <div className={styles.previewMetric}>
-                  <span>Tagline</span>
-                  <strong>{tagline}</strong>
-                </div>
-              </div>
-
-              <div className={styles.workspaceGrid}>
-                {workspaceCards.map((card) => (
-                  <article key={card.label} className={styles.workspaceCard}>
-                    <span className={styles.workspaceLabel}>{card.label}</span>
-                    <h3 className={styles.workspaceTitle}>{card.title}</h3>
-                    <p className={styles.workspaceDescription}>{card.description}</p>
-                    <div className={styles.workspaceMeta}>
-                      <span>{card.meta}</span>
-                      <span className={styles.workspaceAccent}>Live</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-
-              <div className={styles.previewFooter}>
-                <div>
-                  <span className={styles.previewFooterLabel}>Arah utama</span>
-                  <strong className={styles.previewFooterValue}>
-                    {isAuthenticated ? "Lanjutkan pekerjaan toko sekarang" : "Lihat dulu, lalu masuk saat siap"}
-                  </strong>
-                </div>
-
-                <Link className={styles.inlineLink} href={primaryHref}>
-                  {isAuthenticated ? "Ke dashboard" : "Ke login"}
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.section} id="fitur">
-          <div className={styles.sectionIntro}>
-            <span className={styles.sectionKicker}>Fitur Utama</span>
-            <h2 className={styles.sectionTitle}>Landing page yang menjelaskan produk tanpa terasa penuh.</h2>
-            <p className={styles.sectionText}>
-              Struktur konten ini dirancang supaya calon pengguna atau tim internal langsung menangkap
-              nilai produknya: cepat dipakai di depan, rapi dikelola di belakang.
-            </p>
-          </div>
-
-          <div className={styles.featureGrid}>
-            {featureCards.map((feature) => (
-              <article key={feature.id} className={styles.featureCard}>
-                <div className={styles.featureNumber}>{feature.id}</div>
-                <h3>{feature.title}</h3>
-                <p>{feature.description}</p>
-                <div className={styles.featureNote}>{feature.note}</div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className={styles.section} id="alur">
-          <div className={styles.sectionIntro}>
-            <span className={styles.sectionKicker}>Alur Pengguna</span>
-            <h2 className={styles.sectionTitle}>Dari halaman awal ke aktivitas inti tanpa friksi.</h2>
-            <p className={styles.sectionText}>
-              Alur ini membantu pengguna memahami perjalanan mereka sejak pertama datang sampai
-              benar-benar memakai sistem di toko.
-            </p>
-          </div>
-
-          <div className={styles.flowGrid}>
-            {workflowSteps.map((item) => (
-              <article key={item.step} className={styles.flowCard}>
-                <div className={styles.flowGlow} aria-hidden="true" />
-                <span className={styles.flowStep}>{item.step}</span>
-                <h3>{item.title}</h3>
-                <p>{item.description}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className={styles.ctaPanel} id="mulai">
-          <div>
-            <span className={styles.sectionKicker}>Mulai Sekarang</span>
-            <h2 className={styles.ctaTitle}>Halaman awal ini sudah siap dipakai sebagai wajah depan aplikasi.</h2>
-            <p className={styles.ctaText}>
-              Dari sini user bisa langsung lanjut ke login atau kembali ke dashboard, sementara brand tetap
-              terasa konsisten dengan konfigurasi yang ada.
-            </p>
-            <p className={styles.ctaNote}>
-              Cocok saat aplikasi dibuka oleh tenant, agen, atau calon user internal yang butuh kesan
-              pertama lebih rapi.
-            </p>
-          </div>
-
-          <div className={styles.ctaActions}>
-            <Link className={`btn btn-primary btn-lg ${styles.primaryAction}`} href={primaryHref}>
-              {primaryLabel}
-            </Link>
-            <a className={`btn btn-ghost btn-lg ${styles.secondaryAction}`} href="#fitur">
-              Jelajahi Fitur
+            )}
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`btn btn-accent btn-sm ${styles.headerCta}`}
+              id="header-cta-btn"
+            >
+              Aktifkan Sekarang
             </a>
           </div>
-        </section>
-      </div>
+        </div>
+      </header>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          1. HERO SECTION
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className={styles.hero}>
+        <div className={styles.heroShell}>
+          <div className={styles.heroBadge}>
+            <span className={styles.heroBadgeDot} aria-hidden="true" />
+            Offline-First · Local UMKM · Mulai Hari Ini
+          </div>
+
+          <h1 className={styles.heroTitle}>
+            <span className={styles.heroTitleAccent}>Sistem Kasir Sekelas Oracle,</span>
+            <br />
+            Harga{" "}
+            <span className={styles.heroTitleHighlight}>Cuma Parkir Motor.</span>
+          </h1>
+
+          <p className={styles.heroDesc}>
+            Bukan sekadar kasir. <strong>Mbakasir</strong> adalah asisten cerdas yang jaga stok bahan baku, hitung laba-rugi otomatis, dan tetap <strong>sat-set jualan walau WiFi mati</strong>.
+          </p>
+
+          <div className={styles.heroActions}>
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`btn btn-accent btn-lg ${styles.heroCta}`}
+              id="hero-primary-cta"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
+              </svg>
+              Aktifkan Toko Sekarang (Hanya 750rb/Tahun)
+            </a>
+            <a href="#fitur" className={`btn btn-ghost btn-lg`} id="hero-secondary-cta">
+              Lihat Fitur →
+            </a>
+          </div>
+
+          <div className={styles.heroStats}>
+            <div className={styles.heroStat}>
+              <strong>Rp 2.055</strong>
+              <span>per hari</span>
+            </div>
+            <div className={styles.heroStatDivider} aria-hidden="true" />
+            <div className={styles.heroStat}>
+              <strong>100%</strong>
+              <span>Offline-Ready</span>
+            </div>
+            <div className={styles.heroStatDivider} aria-hidden="true" />
+            <div className={styles.heroStat}>
+              <strong>∞</strong>
+              <span>Transaksi / Bulan</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Floating POS mockup card ── */}
+        <div className={styles.heroVisual} aria-hidden="true">
+          <div className={styles.mockupCard}>
+            <div className={styles.mockupHeader}>
+              <div className={styles.mockupDots}>
+                <span style={{ background: "#ff5f57" }} />
+                <span style={{ background: "#febc2e" }} />
+                <span style={{ background: "#28c840" }} />
+              </div>
+              <span className={styles.mockupTitle}>Mbakasir POS</span>
+              <span className={styles.mockupOnline}>
+                <span className={styles.onlineDot} />
+                Offline Mode
+              </span>
+            </div>
+            <div className={styles.mockupBody}>
+              <div className={styles.mockupRow}>
+                <span>Nasi Goreng Spesial</span>
+                <span>×2</span>
+                <span>Rp 30.000</span>
+              </div>
+              <div className={styles.mockupRow}>
+                <span>Es Teh Manis</span>
+                <span>×3</span>
+                <span>Rp 12.000</span>
+              </div>
+              <div className={styles.mockupRow}>
+                <span>Ayam Geprek</span>
+                <span>×1</span>
+                <span>Rp 18.000</span>
+              </div>
+              <div className={styles.mockupDivider} />
+              <div className={`${styles.mockupRow} ${styles.mockupTotal}`}>
+                <span>Total</span>
+                <span />
+                <span>Rp 60.000</span>
+              </div>
+              <div className={styles.mockupBomAlert}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Stok bahan otomatis dipotong
+              </div>
+            </div>
+            <div className={styles.mockupFooter}>
+              <button className={styles.mockupPayBtn}>Bayar Tunai</button>
+              <button className={styles.mockupWaBtn}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" /></svg>
+                Struk WA
+              </button>
+            </div>
+          </div>
+          <div className={styles.mockupGlow} />
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          2. PROBLEM SECTION
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className={styles.section} id="masalah">
+        <div className={styles.sectionShell}>
+          <div className={styles.sectionBadge}>😓 Penyakit UMKM yang Familiar</div>
+          <h2 className={styles.sectionTitle}>
+            Apakah Usaha Anda Juga Mengalami Ini?
+          </h2>
+          <p className={styles.sectionDesc}>
+            Kalau iya, berarti Anda butuh Mbakasir sekarang juga.
+          </p>
+          <div className={styles.problemGrid}>
+            {problems.map((p, i) => (
+              <article key={i} className={styles.problemCard}>
+                <div className={styles.problemIcon}>{p.icon}</div>
+                <h3 className={styles.problemTitle}>{p.title}</h3>
+                <p className={styles.problemDesc}>{p.desc}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          3. SOLUTION / FEATURES SECTION
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className={styles.section} id="fitur">
+        <div className={styles.sectionShell}>
+          <div className={styles.sectionBadge}>✅ Kenapa Mbakasir?</div>
+          <h2 className={styles.sectionTitle}>
+            Asisten Cerdas yang Kerja 24 Jam untuk Toko Anda
+          </h2>
+          <p className={styles.sectionDesc}>
+            Bukan cuma mencatat transaksi. Mbakasir aktif menjaga stok, menghitung margin, dan menjaga hubungan dengan pelanggan Anda.
+          </p>
+          <div className={styles.featureGrid}>
+            {features.map((f, i) => (
+              <article key={i} className={styles.featureCard}>
+                <div className={styles.featureEmoji}>{f.emoji}</div>
+                <span className={styles.featureBadge}>{f.badge}</span>
+                <h3 className={styles.featureTitle}>{f.title}</h3>
+                <p className={styles.featureDesc}>{f.desc}</p>
+                <div className={styles.featureHighlight}>{f.highlight}</div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          4. PRICING SECTION
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className={styles.section} id="harga">
+        <div className={styles.sectionShell}>
+          <div className={styles.sectionBadge}>🏷️ Harga yang Bikin Senyum</div>
+          <h2 className={styles.sectionTitle}>
+            Satu Harga. Semua Fitur. Tanpa Ribet.
+          </h2>
+
+          <div className={styles.pricingWrap}>
+            <div className={styles.pricingCard}>
+              <div className={styles.pricingBadgePro}>🔥 Penawaran Terbatas</div>
+
+              <div className={styles.pricingTop}>
+                <div>
+                  <p className={styles.pricingLabel}>Mbakasir Intelligence Pro</p>
+                  <div className={styles.pricingPriceRow}>
+                    <span className={styles.pricingStrike}>Rp 3.000.000</span>
+                    <span className={styles.pricingSlash}>/tahun</span>
+                  </div>
+                  <div className={styles.pricingMain}>
+                    <span className={styles.pricingCurrency}>Rp</span>
+                    <span className={styles.pricingAmount}>750.000</span>
+                    <span className={styles.pricingPeriod}>/tahun</span>
+                  </div>
+                  <p className={styles.pricingMicro}>
+                    💡 <strong>Cuma Rp 2.055 perak sehari.</strong> Lebih murah dari bayar parkir motor!
+                  </p>
+                </div>
+              </div>
+
+              <ul className={styles.pricingFeatureList}>
+                <li><span className={styles.checkmark}>✔</span> POS Kasir (Unlimited Transaksi)</li>
+                <li><span className={styles.checkmark}>✔</span> Manajemen Stok & Pembelian</li>
+                <li><span className={styles.checkmark}>✔</span> Resep Pintar / Bill of Material (BoM)</li>
+                <li><span className={styles.checkmark}>✔</span> Laporan Laba-Rugi Otomatis</li>
+                <li><span className={styles.checkmark}>✔</span> Struk Digital via WhatsApp</li>
+                <li><span className={styles.checkmark}>✔</span> CRM Pelanggan Dasar</li>
+                <li><span className={styles.checkmark}>✔</span> Arsitektur Offline-First (No Internet? Fine!)</li>
+                <li><span className={styles.checkmark}>✔</span> Multi-Device (HP, Tablet, Laptop)</li>
+              </ul>
+
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`btn btn-accent btn-xl ${styles.pricingCta}`}
+                id="pricing-cta-btn"
+              >
+                Ambil Promo 750rb/Tahun Sekarang →
+              </a>
+              <p className={styles.pricingNote}>
+                Hubungi Bos Riza via WhatsApp untuk aktivasi. Proses cepat, tanpa ribet.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      {/* ══════════════════════════════════════════════════════════════════
+          5b. FAQ SECTION
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className={styles.section} id="faq">
+        <div className={styles.sectionShell}>
+          <div className={styles.sectionBadge}>🙋 Ada Pertanyaan?</div>
+          <h2 className={styles.sectionTitle}>
+            Pertanyaan yang Sering Ditanyakan
+          </h2>
+          <FaqAccordion />
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          6. FINAL CTA BANNER
+      ══════════════════════════════════════════════════════════════════ */}
+      <section className={styles.ctaBanner}>
+        <div className={styles.ctaBannerGlow} aria-hidden="true" />
+        <div className={styles.ctaBannerContent}>
+          <h2 className={styles.ctaBannerTitle}>
+            Toko Anda Layak Dapat Sistem yang Lebih Baik.
+          </h2>
+          <p className={styles.ctaBannerDesc}>
+            Bergabung dengan ratusan UMKM yang sudah sat-set jualan bersama Mbakasir. Hanya <strong>Rp 750.000/tahun</strong> — mulai hari ini.
+          </p>
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`btn btn-accent btn-xl ${styles.ctaBannerBtn}`}
+            id="final-cta-btn"
+          >
+            Aktifkan Toko Saya Sekarang 🚀
+          </a>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          FOOTER
+      ══════════════════════════════════════════════════════════════════ */}
+      <footer className={styles.footer}>
+        <div className={styles.footerShell}>
+          <div className={styles.footerBrand}>
+            <div className={styles.footerMark} aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+            </div>
+            <div>
+              <p className={styles.footerBrandName}>Mbakasir Intelligence Pro</p>
+              <p className={styles.footerTagline}>Dibuat dengan dedikasi untuk kemajuan UMKM Lokal. 🧡</p>
+            </div>
+          </div>
+
+          <div className={styles.footerLinks}>
+            <a href="/login" className={styles.footerLink}>Login</a>
+            <span className={styles.footerDot} aria-hidden="true">·</span>
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.footerLink}
+            >
+              Kontak Bantuan
+            </a>
+            <span className={styles.footerDot} aria-hidden="true">·</span>
+            <Link href="/register" className={styles.footerLink}>
+              Daftar
+            </Link>
+          </div>
+
+          <p className={styles.footerCopy}>
+            © {new Date().getFullYear()} Mbakasir Intelligence Pro. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </main>
   );
 }
