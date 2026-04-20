@@ -64,7 +64,7 @@ export default async function TransaksiAgenPage() {
           requests={requests} 
           tenants={tenants}
           tokenConfig={tokenConfig}
-          agentId={session.agentId}
+          agentId={session.agentId as string}
         />
 
       </div>
