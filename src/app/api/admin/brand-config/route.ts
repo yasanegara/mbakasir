@@ -3,12 +3,34 @@ import { getSession } from "@/lib/auth";
 import { getBrandConfig, upsertBrandConfig } from "@/lib/brand-config";
 import { z } from "zod";
 
+// Menerima URL absolut (https://...) atau path relatif (/uploads/...) dari internal upload
+const isValidUrl = (val: string) => {
+  if (!val) return true;
+  if (val.startsWith("/")) return true; // path relatif dari /api/admin/brand-upload
+  try {
+    new URL(val);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const brandConfigSchema = z.object({
   appName: z.string().trim().min(2).max(120),
   tagline: z.string().trim().max(200).optional().or(z.literal("")),
   metaDescription: z.string().trim().max(500).optional().or(z.literal("")),
-  logoUrl: z.string().trim().url("URL logo tidak valid").optional().or(z.literal("")),
-  faviconUrl: z.string().trim().url("URL favicon tidak valid").optional().or(z.literal("")),
+  logoUrl: z
+    .string()
+    .trim()
+    .refine(isValidUrl, "URL logo tidak valid")
+    .optional()
+    .or(z.literal("")),
+  faviconUrl: z
+    .string()
+    .trim()
+    .refine(isValidUrl, "URL favicon tidak valid")
+    .optional()
+    .or(z.literal("")),
   primaryColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Format warna harus #RRGGBB").optional(),
 });
 
