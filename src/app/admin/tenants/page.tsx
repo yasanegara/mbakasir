@@ -206,7 +206,6 @@ export default async function AdminTenantsPage() {
                           ? "badge-warning"
                           : "badge-error";
 
-                    // @ts-expect-error
                     const statusLabel = tenant.status === "ACTIVE" ? "Aktif" : tenant.status === "LOCKED" ? "Terkunci" : tenant.status === "DORMANT" ? "Dorman" : "Suspend";
 
                     return (
