@@ -6,7 +6,7 @@ import {
   getTokenConversion,
 } from "@/lib/token-settings-shared";
 import { NextRequest } from "next/server";
-import { addMonths } from "date-fns";
+import { addDays } from "date-fns";
 import { sendActivationNotification } from "@/lib/notifications";
 
 // ============================================================
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       // Kalkulasi Masa Aktif Baru (Mulai hari ini jika sudah expired, atau lanjut dari expired date)
       const prevUntil = tenant.premiumUntil;
       const baseDate = (!prevUntil || prevUntil < new Date()) ? new Date() : prevUntil;
-      const newUntil = addMonths(baseDate, durationMonths);
+      const newUntil = addDays(baseDate, durationMonths * 30);
 
       const balanceBefore = agent.tokenBalance;
       const balanceAfter = balanceBefore - totalTokenCost;

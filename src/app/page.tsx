@@ -304,40 +304,80 @@ export default async function IndexPage() {
         <div className={styles.sectionShell}>
           <div className={styles.sectionBadge}>🏷️ Harga yang Bikin Senyum</div>
           <h2 className={styles.sectionTitle}>
-            Satu Harga. Semua Fitur. Tanpa Ribet.
+            Pilih Paket yang Paling Cocok Buat Warungmu
           </h2>
+          <p style={{ textAlign: "center", color: "var(--text-muted)", marginBottom: "40px", fontSize: "16px" }}>
+            Bayar bulanan atau hemat lebih banyak dengan paket tahunan. Semua fitur sama!
+          </p>
 
-          <div className={styles.pricingWrap}>
-            <div className={styles.pricingCard}>
-              <div className={styles.pricingBadgePro}>🔥 Penawaran Terbatas</div>
+          <div className={styles.pricingWrap} style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", maxWidth: "780px", margin: "0 auto" }}>
 
+            {/* BULANAN */}
+            <div className={styles.pricingCard} style={{ opacity: 0.92 }}>
               <div className={styles.pricingTop}>
                 <div>
-                  <p className={styles.pricingLabel}>MbaKasir Intelligence Pro</p>
-                  <div className={styles.pricingPriceRow}>
-                    <span className={styles.pricingStrike}>Rp 3.000.000</span>
-                    <span className={styles.pricingSlash}>/tahun</span>
-                  </div>
+                  <p className={styles.pricingLabel}>Paket Bulanan</p>
                   <div className={styles.pricingMain}>
                     <span className={styles.pricingCurrency}>Rp</span>
-                    <span className={styles.pricingAmount}>750.000</span>
-                    <span className={styles.pricingPeriod}>/tahun</span>
+                    <span className={styles.pricingAmount}>75.000</span>
+                    <span className={styles.pricingPeriod}>/bulan</span>
                   </div>
                   <p className={styles.pricingMicro}>
-                    💡 <strong>Cuma Rp 2.055 perak sehari.</strong> Lebih murah dari bayar parkir motor!
+                    💡 <strong>Rp 2.500/hari.</strong> Coba dulu, bayar bulanan, bisa berhenti kapan saja.
                   </p>
                 </div>
               </div>
 
               <ul className={styles.pricingFeatureList}>
                 <li><span className={styles.checkmark}>✔</span> POS Kasir (Unlimited Transaksi)</li>
-                <li><span className={styles.checkmark}>✔</span> Manajemen Stok & Pembelian</li>
+                <li><span className={styles.checkmark}>✔</span> Manajemen Stok & Bahan Baku</li>
                 <li><span className={styles.checkmark}>✔</span> Resep Pintar / Bill of Material (BoM)</li>
                 <li><span className={styles.checkmark}>✔</span> Laporan Laba-Rugi Otomatis</li>
                 <li><span className={styles.checkmark}>✔</span> Struk Digital via WhatsApp</li>
-                <li><span className={styles.checkmark}>✔</span> CRM Pelanggan Dasar</li>
-                <li><span className={styles.checkmark}>✔</span> Arsitektur Offline-First (No Internet? Fine!)</li>
+                <li><span className={styles.checkmark}>✔</span> Arsitektur Offline-First</li>
+              </ul>
+
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`btn btn-ghost btn-xl ${styles.pricingCta}`}
+                id="pricing-monthly-btn"
+                style={{ border: "1px solid hsl(var(--primary)/0.4)" }}
+              >
+                Mulai Paket Bulanan →
+              </a>
+            </div>
+
+            {/* TAHUNAN — RECOMMENDED */}
+            <div className={styles.pricingCard} style={{ border: "2px solid hsl(var(--primary))", position: "relative" }}>
+              <div className={styles.pricingBadgePro}>⭐ Paling Hemat — Hemat Rp 151.000</div>
+
+              <div className={styles.pricingTop}>
+                <div>
+                  <p className={styles.pricingLabel}>Paket Tahunan</p>
+                  <div className={styles.pricingPriceRow}>
+                    <span className={styles.pricingStrike}>Rp 900.000</span>
+                    <span className={styles.pricingSlash}>/tahun</span>
+                  </div>
+                  <div className={styles.pricingMain}>
+                    <span className={styles.pricingCurrency}>Rp</span>
+                    <span className={styles.pricingAmount}>749.000</span>
+                    <span className={styles.pricingPeriod}>/tahun</span>
+                  </div>
+                  <p className={styles.pricingMicro}>
+                    💡 <strong>Cuma Rp 2.052 perak sehari.</strong> Lebih murah dari secangkir kopi!
+                  </p>
+                </div>
+              </div>
+
+              <ul className={styles.pricingFeatureList}>
+                <li><span className={styles.checkmark}>✔</span> Semua fitur Paket Bulanan</li>
+                <li><span className={styles.checkmark}>✔</span> Hemat 17% vs bayar bulanan</li>
+                <li><span className={styles.checkmark}>✔</span> Prioritas support dari Agen</li>
+                <li><span className={styles.checkmark}>✔</span> Update fitur sepanjang tahun</li>
                 <li><span className={styles.checkmark}>✔</span> Multi-Device (HP, Tablet, Laptop)</li>
+                <li><span className={styles.checkmark}>✔</span> Manajemen Karyawan & PIN Kasir</li>
               </ul>
 
               <a
@@ -345,14 +385,15 @@ export default async function IndexPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`btn btn-accent btn-xl ${styles.pricingCta}`}
-                id="pricing-cta-btn"
+                id="pricing-yearly-btn"
               >
-                Ambil Promo 750rb/Tahun Sekarang →
+                Ambil Paket Tahunan 749rb →
               </a>
               <p className={styles.pricingNote}>
                 Hubungi Mba via WhatsApp untuk aktivasi. Proses cepat, tanpa ribet.
               </p>
             </div>
+
           </div>
         </div>
       </section>
@@ -381,7 +422,7 @@ export default async function IndexPage() {
             Toko Anda Layak Dapat Sistem yang Lebih Baik.
           </h2>
           <p className={styles.ctaBannerDesc}>
-            Bergabung dengan ratusan UMKM yang sudah sat-set jualan bersama MbaKasir. Hanya <strong>Rp 750.000/tahun</strong> — mulai hari ini.
+            Bergabung dengan ratusan UMKM yang sudah sat-set jualan bersama MbaKasir. Mulai dari <strong>Rp 75.000/bulan</strong> atau hemat dengan paket <strong>Rp 749.000/tahun</strong> — mulai hari ini.
           </p>
           <a
             href={waLink}
