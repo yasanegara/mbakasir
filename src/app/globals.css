@@ -464,17 +464,17 @@ h1, h2, h3, h4, h5, h6 {
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(20px); }
-  to   { opacity: 1; transform: translateX(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 @keyframes pulse-glow {
@@ -621,6 +621,24 @@ h1, h2, h3, h4, h5, h6 {
   cursor: not-allowed;
 }
 
+.product-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.cart-sticky-bar {
+  display: none;
+}
+
+.cart-overlay {
+  display: none;
+}
+
+.mobile-drawer-handle {
+  display: none;
+}
+
 /* ─── LOCK SCREEN ────────────────────────────────────────────── */
 
 .lock-screen {
@@ -680,6 +698,71 @@ h1, h2, h3, h4, h5, h6 {
     grid-template-rows: auto 1fr;
     height: auto;
     min-height: calc(100dvh - 60px);
+    padding-bottom: 70px; /* space for sticky bar */
+  }
+
+  .pos-cart {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 85dvh;
+    z-index: 200;
+    transform: translateY(120%);
+    visibility: hidden;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s;
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.3);
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    padding-bottom: 20px; /* extra space at bottom */
+    background: hsl(var(--bg-card));
+  }
+  .pos-cart.open {
+    transform: translateY(0);
+    visibility: visible;
+  }
+  .cart-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(2px);
+    z-index: 150;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .cart-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .mobile-close-btn {
+    display: flex !important;
+  }
+  .mobile-drawer-handle {
+    display: flex !important;
+  }
+
+  .cart-sticky-bar {
+     display: flex;
+     position: fixed;
+     bottom: 16px;
+     left: 16px;
+     right: 16px;
+     background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
+     color: white;
+     padding: 12px 20px;
+     border-radius: 9999px;
+     z-index: 100;
+     justify-content: space-between;
+     align-items: center;
+     box-shadow: 0 10px 25px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset;
+     cursor: pointer;
+     transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .cart-sticky-bar:active {
+     transform: scale(0.98);
+     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
   }
 
   /* ─── Header di tablet ─── */
@@ -696,12 +779,6 @@ h1, h2, h3, h4, h5, h6 {
   /* POS produk scroll horizontal jika sempit */
   .pos-products {
     padding: 12px;
-  }
-
-  .pos-cart {
-    border-left: none;
-    border-top: 1px solid hsl(var(--border));
-    max-height: 60dvh;
   }
 
   /* Stat cards: 2 kolom di tablet */
@@ -785,7 +862,12 @@ h1, h2, h3, h4, h5, h6 {
 
   /* POS: produk grid 2 kolom di HP */
   .pos-products { padding: 10px; }
-  .pos-cart { max-height: 55dvh; }
+  .product-grid-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .product-card { padding: 10px; }
+  .product-card > div:first-child { height: 80px !important; }
 
   /* Toast lebih kecil */
   .toast {
@@ -843,12 +925,12 @@ h1, h2, h3, h4, h5, h6 {
   body * {
     visibility: hidden;
   }
-  
+
+  /* Shift summary print */
   #print-area, #print-area * {
     visibility: visible;
     color: black !important;
   }
-  
   #print-area {
     position: absolute;
     left: 0;
@@ -858,7 +940,20 @@ h1, h2, h3, h4, h5, h6 {
     border: none;
     box-shadow: none;
   }
-  
+
+  /* Transaction receipt auto-print */
+  #print-receipt {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 99999;
+  }
+  #print-receipt * {
+    visibility: visible !important;
+    color: black !important;
+  }
+
   .no-print {
     display: none !important;
   }

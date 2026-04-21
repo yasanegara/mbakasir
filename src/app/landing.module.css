@@ -1191,10 +1191,9 @@
     grid-template-columns: 1fr;
   }
 
-  /* Pricing cards jadi 1 kolom vertikal */
+  /* Pricing cards layout */
   .pricingWrap {
-    grid-template-columns: 1fr !important;
-    max-width: 480px !important;
+    /* Keep it side-by-side */
   }
 
   .pricingCard {

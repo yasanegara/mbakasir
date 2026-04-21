@@ -11,9 +11,10 @@ import { formatDate } from "@/lib/utils";
 interface HeaderProps {
   title?: string;
   onMenuClick: () => void;
+  headerActions?: React.ReactNode;
 }
 
-export default function Header({ title, onMenuClick }: HeaderProps) {
+export default function Header({ title, onMenuClick, headerActions }: HeaderProps) {
   const { user } = useAuth();
   const { mode, toggleMode } = useTheme();
   const [isOnline, setIsOnline] = useState(true);
@@ -95,9 +96,16 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
         </h1>
       )}
 
+      {/* Custom actions from page (e.g. Tutup Shift di POS) */}
+        {headerActions && (
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "8px" }}>
+            {headerActions}
+          </div>
+        )}
+
       <div
         style={{
-          marginLeft: "auto",
+          marginLeft: headerActions ? "0" : "auto",
           display: "flex",
           alignItems: "center",
           gap: "16px",

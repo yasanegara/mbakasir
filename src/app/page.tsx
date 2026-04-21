@@ -116,9 +116,13 @@ export default async function IndexPage() {
           </nav>
 
           <div className={styles.headerActions}>
-            {isAuthenticated && (
+            {isAuthenticated ? (
               <Link href="/dashboard" className="btn btn-ghost btn-sm" id="header-dashboard-btn">
                 Dashboard
+              </Link>
+            ) : (
+              <Link href="/login" className="btn btn-ghost btn-sm" id="header-login-btn">
+                Login
               </Link>
             )}
             <a
@@ -310,7 +314,7 @@ export default async function IndexPage() {
             Bayar bulanan atau hemat lebih banyak dengan paket tahunan. Semua fitur sama!
           </p>
 
-          <div className={styles.pricingWrap} style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", maxWidth: "780px", margin: "0 auto" }}>
+          <div className={styles.pricingWrap} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", maxWidth: "900px", margin: "0 auto", gap: "24px" }}>
 
             {/* BULANAN */}
             <div className={styles.pricingCard} style={{ opacity: 0.92 }}>
@@ -456,8 +460,6 @@ export default async function IndexPage() {
           </div>
 
           <div className={styles.footerLinks}>
-            <a href="/login" className={styles.footerLink}>Login</a>
-            <span className={styles.footerDot} aria-hidden="true">·</span>
             <a
               href={waLink}
               target="_blank"

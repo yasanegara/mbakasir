@@ -12,9 +12,11 @@ import TenantLockWrapper from "./TenantLockWrapper";
 export default function DashboardLayout({
   children,
   title,
+  headerActions,
 }: {
   children: React.ReactNode;
   title?: string;
+  headerActions?: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -32,6 +34,7 @@ export default function DashboardLayout({
         <Header
           title={title}
           onMenuClick={() => setIsSidebarOpen((prev) => !prev)}
+          headerActions={headerActions}
         />
 
         <main className="page-body animate-fade-in">
