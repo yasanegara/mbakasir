@@ -139,6 +139,31 @@ export interface LocalSyncQueue {
   createdAt: number;
 }
 
+export interface LocalShoppingItem {
+  id: string;           // UUID lokal sebagai primary key
+  tenantId: string;
+  type: "product" | "rawMaterial"; // Jenis item
+  status: "pending" | "done";      // Status belanja
+  // Data pokok
+  name: string;
+  sku?: string;         // Untuk produk  
+  category?: string;    // Untuk produk
+  unit: string;
+  // Jumlah target beli
+  qtyToBuy: number;
+  price?: number;       // Harga jual (produk)
+  costPrice?: number;   // HPP / harga beli
+  costPerUnit?: number; // Bahan baku
+  minStock?: number;    // Threshold bahan baku
+  notes?: string;
+  // Relasi ke record yang sudah ada (jika restock item lama)
+  existingLocalId?: string;
+  isNew: boolean;       // true = belum ada di sistem, false = restock item lama
+  completedAt?: number; // Kapan ditandai selesai
+  createdAt: number;
+  updatedAt: number;
+}
+
 // ─── DEXIE DATABASE CLASS ─────────────────────────────────────
 
 export class MbakasirDatabase extends Dexie {
@@ -151,6 +176,7 @@ export class MbakasirDatabase extends Dexie {
   saleItems!: EntityTable<LocalSaleItem, "localId">;
   shifts!: EntityTable<LocalShift, "localId">;
   syncQueue!: EntityTable<LocalSyncQueue, "id">;
+  shoppingList!: EntityTable<LocalShoppingItem, "id">;
 
   constructor() {
     super("MbakasirDB");
@@ -168,6 +194,10 @@ export class MbakasirDatabase extends Dexie {
       saleItems: "localId, saleLocalId, productId",
       shifts: "localId, id, tenantId, userId, syncStatus, startedAt",
       syncQueue: "++id, table, localId, action, retries, createdAt",
+    });
+
+    this.version(2).stores({
+      shoppingList: "id, tenantId, type, status, isNew, createdAt, updatedAt",
     });
   }
 }

@@ -85,6 +85,11 @@ const Icon = {
       <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
     </svg>
   ),
+  shoppingList: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" /><rect x="9" y="3" width="6" height="4" rx="2" /><path d="M9 14h.01" /><path d="M9 18h.01" /><path d="M13 14h2" /><path d="M13 18h2" />
+    </svg>
+  ),
 };
 
 const ALL_NAV: NavItem[] = [
@@ -96,6 +101,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/reports", label: "Laporan", icon: Icon.report, roles: ["TENANT"] },
   { href: "/employees", label: "Karyawan", icon: Icon.employees, roles: ["TENANT"] },
   { href: "/stock-alert", label: "Stok Kritis", icon: Icon.alert, roles: ["TENANT"] },
+  { href: "/shopping-list", label: "Daftar Belanja", icon: Icon.shoppingList, roles: ["TENANT"] },
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },
   { href: "/settings", label: "Pengaturan", icon: Icon.settings, roles: ["SUPERADMIN", "TENANT"] },
