@@ -517,14 +517,6 @@ export default function ProductsPage() {
                 />
               </div>
 
-              <CurrencyInput
-                id="price"
-                label="Harga Jual"
-                value={form.price}
-                onChange={(value) => setForm((prev) => ({ ...prev, price: value }))}
-                placeholder="15000"
-              />
-
               {form.hasBoM ? (
                 <div style={{ display: "grid", gap: "8px", alignContent: "start" }}>
                   <span className="input-label">HPP / Cost Price</span>
@@ -567,6 +559,14 @@ export default function ProductsPage() {
                   placeholder="7000"
                 />
               )}
+
+              <CurrencyInput
+                id="price"
+                label="Harga Jual"
+                value={form.price}
+                onChange={(value) => setForm((prev) => ({ ...prev, price: value }))}
+                placeholder="15000"
+              />
             </div>
 
             <div

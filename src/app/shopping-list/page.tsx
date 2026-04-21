@@ -141,12 +141,12 @@ function AddItemModal({ tenantId, onClose, toast }: AddItemModalProps) {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
-                  <label style={{ fontSize: "13px", fontWeight: 600, marginBottom: "6px", display: "block" }}>Harga Jual</label>
-                  <input className="input-field" type="number" value={price || ""} onChange={e => setPrice(Number(e.target.value))} placeholder="0" />
-                </div>
-                <div>
                   <label style={{ fontSize: "13px", fontWeight: 600, marginBottom: "6px", display: "block" }}>HPP / Harga Beli</label>
                   <input className="input-field" type="number" value={costPrice || ""} onChange={e => setCostPrice(Number(e.target.value))} placeholder="0" />
+                </div>
+                <div>
+                  <label style={{ fontSize: "13px", fontWeight: 600, marginBottom: "6px", display: "block" }}>Harga Jual</label>
+                  <input className="input-field" type="number" value={price || ""} onChange={e => setPrice(Number(e.target.value))} placeholder="0" />
                 </div>
               </div>
             </>

@@ -30,7 +30,8 @@ async function main() {
     include: { agent: { select: { id: true, name: true, email: true, isActive: true } } },
   });
 
-  let agentId: string;
+  /** @type {string} */
+  let agentId;
 
   if (existing) {
     console.log(`   Link ditemukan → agen: ${existing.agent.name} (${existing.agent.email})`);

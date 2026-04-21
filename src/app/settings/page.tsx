@@ -6,6 +6,7 @@ import AgentVoucherManager from "@/components/settings/AgentVoucherManager";
 import TokenSettingsClient from "@/components/settings/TokenSettingsClient";
 import AgentPackageManager from "@/components/admin/AgentPackageManager";
 import BrandConfigClient from "@/components/admin/BrandConfigClient";
+import StoreProfileClient from "@/components/settings/StoreProfileClient";
 import { getSession } from "@/lib/auth";
 import { ensureDefaultPosTerminal } from "@/lib/pos-terminals";
 import { prisma } from "@/lib/prisma";
@@ -80,12 +81,10 @@ export default async function SettingsPage() {
     return (
       <DashboardLayout title="Pengaturan Toko">
         <div style={{ display: "grid", gap: "24px" }}>
-          <section className="card">
-            <h2 style={{ fontSize: "20px" }}>Pengaturan Umum</h2>
-            <p style={{ marginTop: "8px", color: "hsl(var(--text-secondary))" }}>
-              Manajemen terminal POS dan Token telah dipindahkan ke halaman <strong>Dashboard</strong>. 
-            </p>
-          </section>
+          <StoreProfileClient
+            tenantId={session.tenantId}
+            initialStoreName={tenant.name}
+          />
         </div>
       </DashboardLayout>
     );

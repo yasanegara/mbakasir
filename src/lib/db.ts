@@ -139,6 +139,20 @@ export interface LocalSyncQueue {
   createdAt: number;
 }
 
+export interface LocalStoreProfile {
+  id: string;              // Selalu "default" — satu record per tenant
+  tenantId: string;
+  storeName: string;
+  address?: string;
+  phone?: string;
+  qrisImageUrl?: string;   // URL gambar QRIS statis (base64 atau URL)
+  footerNote?: string;     // Keterangan footer struk
+  // Template pesan WhatsApp (bisa diedit manual)
+  waReceiptTemplate?: string; // Template struk via WA
+  waOrderTemplate?: string;   // Template order/pesanan via WA
+  updatedAt: number;
+}
+
 export interface LocalShoppingItem {
   id: string;           // UUID lokal sebagai primary key
   tenantId: string;
@@ -177,6 +191,7 @@ export class MbakasirDatabase extends Dexie {
   shifts!: EntityTable<LocalShift, "localId">;
   syncQueue!: EntityTable<LocalSyncQueue, "id">;
   shoppingList!: EntityTable<LocalShoppingItem, "id">;
+  storeProfile!: EntityTable<LocalStoreProfile, "id">;
 
   constructor() {
     super("MbakasirDB");
@@ -198,6 +213,10 @@ export class MbakasirDatabase extends Dexie {
 
     this.version(2).stores({
       shoppingList: "id, tenantId, type, status, isNew, createdAt, updatedAt",
+    });
+
+    this.version(3).stores({
+      storeProfile: "id, tenantId, updatedAt",
     });
   }
 }

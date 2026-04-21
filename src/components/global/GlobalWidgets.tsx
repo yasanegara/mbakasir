@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useBrand } from "@/contexts/BrandContext";
 
 export default function GlobalWidgets() {
@@ -70,8 +71,7 @@ export default function GlobalWidgets() {
   const waText = encodeURIComponent(brand.supportMessage || process.env.NEXT_PUBLIC_WA_TEXT || "Halo MbaKasir, saya butuh bantuan");
   const waLink = `https://wa.me/${waNumber}?text=${waText}`;
 
-  // Conditionally render WA button ONLY on landing pages or agent directories
-  const pathname = typeof window !== 'undefined' ? window.location.pathname : "";
+  const pathname = usePathname() || "";
   const showWaButton = pathname === "/" || pathname === "/buy" || pathname.startsWith("/agent");
 
   return (

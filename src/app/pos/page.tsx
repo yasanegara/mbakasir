@@ -10,6 +10,7 @@ import { useInitialSync } from "@/hooks/useInitialSync";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { formatRupiah, formatRupiahFull, generateInvoiceNo, generateUUID } from "@/lib/utils";
+import { renderWaTemplate } from "@/hooks/useStoreProfile";
 
 function getSuggestedAmounts(total: number): number[] {
   if (total <= 0) return [];
@@ -49,6 +50,15 @@ export default function POSPage() {
     const all = await getDb().products.toArray();
     return all.filter((p) => p.isActive === true);
   }) || [];
+
+  // Profil toko dari IndexedDB
+  const storeProfile = useLiveQuery(() => getDb().storeProfile.get("default"));
+  const storeName = storeProfile?.storeName || "";
+  const storeAddress = storeProfile?.address || "";
+  const storePhone = storeProfile?.phone || "";
+  const storeFooter = storeProfile?.footerNote || "Terima kasih sudah berbelanja! 🙏";
+  const storeQrisImage = storeProfile?.qrisImageUrl || "";
+  const waReceiptTemplate = storeProfile?.waReceiptTemplate || "";
   
   const shifts = useLiveQuery(async () => {
     if (!user) return [];
@@ -317,15 +327,35 @@ export default function POSPage() {
 
       // 5. Kirim Struk WA jika ada nomor konsumen
       if (customerWa.trim()) {
-        const itemLines = cart.map((i) => `  • ${i.product.name} x${i.qty} = ${formatRupiahFull(i.product.price * i.qty)}`).join("\n");
-        const greeting = customerName ? `Halo ${customerName}! 👋\n` : "";
-        const discountLine = discountAmount > 0 ? `\nDiskon/Voucher: -${formatRupiahFull(discountAmount)}` : "";
-        const changeLine = paymentMethod === "CASH" && changeAmount > 0 ? `\nKembalian: ${formatRupiahFull(changeAmount)}` : "";
-        const waText = encodeURIComponent(
-          `${greeting}Berikut struk pembelian Anda:\n\n${itemLines}\n\nSubtotal: ${formatRupiahFull(subtotal)}${discountLine}\n*Total Bayar: ${formatRupiahFull(totalAmount)}*\nMetode: ${paymentMethod}${changeLine}\n\nTerima kasih sudah berbelanja! 🙏`
-        );
+        const itemLines = cart
+          .map((i) => `• ${i.product.name} ×${i.qty}  ${formatRupiahFull(i.product.price * i.qty)}`)
+          .join("\n");
+
+        let waMsg: string;
+        if (waReceiptTemplate) {
+          waMsg = renderWaTemplate(waReceiptTemplate, {
+            storeName,
+            address: storeAddress,
+            phone: storePhone,
+            items: itemLines,
+            subtotal: formatRupiahFull(subtotal).replace("Rp", "").trim(),
+            discount: discountAmount > 0 ? formatRupiahFull(discountAmount).replace("Rp", "").trim() : "",
+            total: formatRupiahFull(totalAmount).replace("Rp", "").trim(),
+            paid: paymentMethod === "CASH" ? formatRupiahFull(paidAmount).replace("Rp", "").trim() : formatRupiahFull(totalAmount).replace("Rp", "").trim(),
+            change: changeAmount > 0 ? formatRupiahFull(changeAmount).replace("Rp", "").trim() : "0",
+            paymentMethod: paymentMethod === "CASH" ? "Tunai" : "QRIS",
+            invoiceNo: sale.invoiceNo,
+            footerNote: storeFooter,
+          });
+        } else {
+          const greeting = customerName ? `Halo ${customerName}! 👋\n` : "";
+          const discountLine = discountAmount > 0 ? `\nDiskon: -${formatRupiahFull(discountAmount)}` : "";
+          const changeLine = paymentMethod === "CASH" && changeAmount > 0 ? `\nKembalian: ${formatRupiahFull(changeAmount)}` : "";
+          waMsg = `${greeting}*🧾 Struk Belanja*\n${storeName ? `*${storeName}*\n` : ""}\n${itemLines}\n\nSubtotal: ${formatRupiahFull(subtotal)}${discountLine}\n*Total: ${formatRupiahFull(totalAmount)}*\nMetode: ${paymentMethod === "CASH" ? "Tunai" : "QRIS"}${changeLine}\n\n${storeFooter}`;
+        }
+
         const waNumber = customerWa.replace(/\D/g, "").replace(/^0/, "62");
-        window.open(`https://wa.me/${waNumber}?text=${waText}`, "_blank");
+        window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(waMsg)}`, "_blank");
       }
 
       setCustomerName("");
@@ -644,9 +674,26 @@ export default function POSPage() {
                )}
              </div>
              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
-               <button className={`btn ${paymentMethod === "CASH" ? "btn-primary" : "btn-ghost"}`} onClick={() => setPaymentMethod("CASH")}>Tunai</button>
-               <button className={`btn ${paymentMethod === "QRIS" ? "btn-primary" : "btn-ghost"}`} onClick={() => { setPaymentMethod("QRIS"); setPaidAmount(0); }}>QRIS</button>
+               <button className={`btn ${paymentMethod === "CASH" ? "btn-primary" : "btn-ghost"}`} onClick={() => setPaymentMethod("CASH")}>💵 Tunai</button>
+               <button className={`btn ${paymentMethod === "QRIS" ? "btn-primary" : "btn-ghost"}`} onClick={() => { setPaymentMethod("QRIS"); setPaidAmount(0); }}>📲 QRIS</button>
              </div>
+             {/* QRIS Image – tampil saat metode QRIS dipilih */}
+             {paymentMethod === "QRIS" && storeQrisImage && (
+               <div style={{ textAlign: "center", marginBottom: "14px" }}>
+                 {/* eslint-disable-next-line @next/next/no-img-element */}
+                 <img
+                   src={storeQrisImage}
+                   alt="QRIS Pembayaran"
+                   style={{ maxWidth: "200px", width: "100%", borderRadius: "12px", border: "1px solid hsl(var(--border))", display: "inline-block" }}
+                 />
+                 <p style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "6px" }}>Scan QRIS untuk pembayaran</p>
+               </div>
+             )}
+             {paymentMethod === "QRIS" && !storeQrisImage && (
+               <div style={{ textAlign: "center", marginBottom: "14px", padding: "16px", background: "hsl(var(--bg-elevated))", borderRadius: "10px", border: "1px dashed hsl(var(--border))" }}>
+                 <p style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>📲 Belum ada QRIS. Upload di <strong>Pengaturan → QRIS Statis</strong></p>
+               </div>
+             )}
              {paymentMethod === "CASH" && (
                 <div style={{ marginBottom: "16px" }}>
                   <CurrencyInput label="Tunai Diterima" value={paidAmount} onChange={setPaidAmount} autoFocus />
@@ -695,19 +742,29 @@ export default function POSPage() {
       {lastReceipt && (
         <div id="print-receipt" style={{ display: "none" }}>
           <div style={{ fontFamily: "monospace", fontSize: "13px", width: "280px", margin: "0 auto", padding: "16px 0" }}>
+            {/* ── Header Toko ── */}
             <div style={{ textAlign: "center", marginBottom: "12px", borderBottom: "1px dashed #000", paddingBottom: "12px" }}>
-              <div style={{ fontSize: "18px", fontWeight: 800 }}>MbaKasir</div>
-              <div style={{ fontSize: "11px" }}>Struk Pembelian</div>
-              <div style={{ fontSize: "11px" }}>#{lastReceipt.invoiceNo}</div>
-              <div style={{ fontSize: "11px" }}>{new Date().toLocaleString("id-ID")}</div>
-              {lastReceipt.customerName && <div style={{ fontSize: "11px" }}>Pelanggan: {lastReceipt.customerName}</div>}
+              <div style={{ fontSize: "18px", fontWeight: 800 }}>{storeName || "MbaKasir"}</div>
+              {storeAddress && <div style={{ fontSize: "10px", marginTop: "2px", whiteSpace: "pre-wrap" }}>{storeAddress}</div>}
+              {storePhone && <div style={{ fontSize: "10px" }}>📞 {storePhone}</div>}
+              <div style={{ fontSize: "10px", marginTop: "6px" }}>Struk Pembelian</div>
+              <div style={{ fontSize: "10px" }}>No. {lastReceipt.invoiceNo}</div>
+              <div style={{ fontSize: "10px" }}>{new Date().toLocaleString("id-ID")}</div>
+              {lastReceipt.customerName && <div style={{ fontSize: "10px" }}>Pelanggan: {lastReceipt.customerName}</div>}
             </div>
+
+            {/* ── Item List ── */}
             {lastReceipt.items.map((item, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                <span>{item.name} x{item.qty}</span>
-                <span>{formatRupiahFull(item.price * item.qty)}</span>
+              <div key={i} style={{ marginBottom: "4px" }}>
+                <div>{item.name}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#555" }}>
+                  <span style={{ paddingLeft: "8px" }}>{item.qty} × {formatRupiahFull(item.price)}</span>
+                  <span>{formatRupiahFull(item.price * item.qty)}</span>
+                </div>
               </div>
             ))}
+
+            {/* ── Ringkasan ── */}
             <div style={{ borderTop: "1px dashed #000", marginTop: "8px", paddingTop: "8px" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>Subtotal</span><span>{formatRupiahFull(lastReceipt.subtotal)}</span>
@@ -721,7 +778,7 @@ export default function POSPage() {
                 <span>TOTAL</span><span>{formatRupiahFull(lastReceipt.total)}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
-                <span>Metode</span><span>{lastReceipt.method}</span>
+                <span>Metode</span><span>{lastReceipt.method === "CASH" ? "Tunai" : lastReceipt.method}</span>
               </div>
               {lastReceipt.change > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -729,8 +786,10 @@ export default function POSPage() {
                 </div>
               )}
             </div>
-            <div style={{ textAlign: "center", marginTop: "16px", fontSize: "11px", borderTop: "1px dashed #000", paddingTop: "12px" }}>
-              Terima kasih sudah berbelanja! 🙏
+
+            {/* ── Footer ── */}
+            <div style={{ textAlign: "center", marginTop: "16px", fontSize: "10px", borderTop: "1px dashed #000", paddingTop: "12px", whiteSpace: "pre-wrap" }}>
+              {storeFooter}
             </div>
           </div>
         </div>

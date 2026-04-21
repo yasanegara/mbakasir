@@ -1191,10 +1191,7 @@
     grid-template-columns: 1fr;
   }
 
-  /* Pricing cards layout */
-  .pricingWrap {
-    /* Keep it side-by-side */
-  }
+  /* Pricing cards layout — keep side-by-side on tablet */
 
   .pricingCard {
     padding: 32px 28px;

@@ -90,6 +90,16 @@ const Icon = {
       <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" /><rect x="9" y="3" width="6" height="4" rx="2" /><path d="M9 14h.01" /><path d="M9 18h.01" /><path d="M13 14h2" /><path d="M13 18h2" />
     </svg>
   ),
+  book: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  ),
+  megaphone: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+      <path d="M3 11l19-9-9 19-2-8-8-2z" />
+    </svg>
+  ),
 };
 
 const ALL_NAV: NavItem[] = [
@@ -104,10 +114,13 @@ const ALL_NAV: NavItem[] = [
   { href: "/shopping-list", label: "Daftar Belanja", icon: Icon.shoppingList, roles: ["TENANT"] },
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },
+  { href: "/learn", label: "Pusat Belajar", icon: Icon.book, roles: ["AGENT", "TENANT"] },
   { href: "/settings", label: "Pengaturan", icon: Icon.settings, roles: ["SUPERADMIN", "TENANT"] },
   { href: "/admin/agents", label: "Kelola Agen", icon: Icon.users, roles: ["SUPERADMIN"] },
   { href: "/admin/tokens", label: "Mint Token", icon: Icon.token, roles: ["SUPERADMIN"] },
   { href: "/admin/tenants", label: "Semua Toko", icon: Icon.stores, roles: ["SUPERADMIN"] },
+  { href: "/admin/learn", label: "Konten Learn", icon: Icon.book, roles: ["SUPERADMIN"] },
+  { href: "/admin/announcements", label: "Pengumuman", icon: Icon.megaphone, roles: ["SUPERADMIN"] },
 ];
 
 interface SidebarProps {

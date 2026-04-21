@@ -27,13 +27,51 @@ export default function PurchaseFormClient({
   const { toast } = useToast();
   const [amount, setAmount] = useState<number>(1);
   const [voucherCode, setVoucherCode] = useState<string>("");
+  const [discount, setDiscount] = useState<number>(0);
+  const [checkingVoucher, setCheckingVoucher] = useState(false);
+  const [voucherError, setVoucherError] = useState("");
+  const [voucherSuccess, setVoucherSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const subtotal = amount * tokenPrice;
+  const totalPrice = Math.max(0, subtotal - discount);
 
   // The actual WA message (to build the URL)
-  const waMessage = `Halo Agen ${agentName},\n\nSaya ${tenantName} mau mengonfirmasi pembelian token ${tokenSymbol}.\n\nJumlah: ${amount} ${tokenSymbol}\nVoucher: ${voucherCode || "-"}\n\nMohon pesanan saya segera diproses, ini bukti transfernya...`;
+  const waMessage = `Halo Agen ${agentName},\n\nSaya ${tenantName} mau mengonfirmasi pembelian token ${tokenSymbol}.\n\nJumlah: ${amount} ${tokenSymbol}\nVoucher: ${voucherCode || "-"}${discount > 0 ? ` (Potongan: ${formatRupiahFull(discount)})` : ""}\nTotal Estimasi: ${formatRupiahFull(totalPrice)}\n\nMohon pesanan saya segera diproses, ini bukti transfernya...`;
   const waUrl = buildWhatsappUrl(agentPhone, waMessage);
+
+  async function handleCheckVoucher() {
+    if (!voucherCode.trim()) {
+      setVoucherError("Masukkan kode voucher");
+      setVoucherSuccess("");
+      setDiscount(0);
+      return;
+    }
+
+    setCheckingVoucher(true);
+    setVoucherError("");
+    setVoucherSuccess("");
+    try {
+      const res = await fetch("/api/tenant/check-voucher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: voucherCode }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal cek voucher");
+      }
+
+      setDiscount(data.discountValue);
+      setVoucherSuccess(`Diskon ${formatRupiahFull(data.discountValue)} berhasil digunakan!`);
+    } catch (e: any) {
+      setVoucherError(e.message);
+      setDiscount(0);
+    } finally {
+      setCheckingVoucher(false);
+    }
+  }
 
   async function handleConfirmPurchase() {
     let whatsappWindow: Window | null = null;
@@ -54,7 +92,7 @@ export default function PurchaseFormClient({
       const res = await fetch("/api/tenant/purchase-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, totalPrice: subtotal, voucherCode: voucherCode || "" }),
+        body: JSON.stringify({ amount, totalPrice, voucherCode: voucherCode || "" }),
       });
       
       if (!res.ok) {
@@ -133,8 +171,13 @@ export default function PurchaseFormClient({
             {/* Kanan: Total Estimasi */}
             <div style={{ textAlign: "right", alignSelf: "center", paddingRight: "8px" }}>
               <div style={{ color: "hsl(var(--text-secondary))", fontSize: "13px", marginBottom: "4px" }}>Estimasi Harga</div>
-              <div style={{ fontSize: "28px", fontWeight: 700, color: "hsl(var(--primary))", letterSpacing: "-0.5px" }}>
-                {tokenPrice > 0 ? formatRupiahFull(subtotal) : "Gratis / Hubungi Agen"}
+              {discount > 0 && (
+                 <div style={{ fontSize: "14px", color: "hsl(var(--text-muted))", textDecoration: "line-through", marginBottom: "2px" }}>
+                   {formatRupiahFull(subtotal)}
+                 </div>
+              )}
+              <div style={{ fontSize: "28px", fontWeight: 700, color: discount > 0 ? "hsl(var(--success))" : "hsl(var(--primary))", letterSpacing: "-0.5px" }}>
+                {tokenPrice > 0 ? formatRupiahFull(totalPrice) : "Gratis / Hubungi Agen"}
               </div>
             </div>
             
@@ -143,15 +186,32 @@ export default function PurchaseFormClient({
           {/* Baris Bawah: Voucher */}
           <div>
             <label className="input-label" htmlFor="voucher" style={{ display: "block", marginBottom: "8px", fontSize: "14px" }}>Kode Voucher (Promo dari Agen)</label>
-            <input
-              id="voucher"
-              className="input-field"
-              type="text"
-              value={voucherCode}
-              onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
-              placeholder="Masukkan kode diskon jika ada"
-              style={{ background: "hsl(var(--bg-card))" }}
-            />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input
+                id="voucher"
+                className="input-field"
+                placeholder="PROMO202X"
+                value={voucherCode}
+                onChange={(e) => {
+                  setVoucherCode(e.target.value.toUpperCase());
+                  if (discount > 0) {
+                     setDiscount(0);
+                     setVoucherSuccess("");
+                  }
+                  if (voucherError) setVoucherError("");
+                }}
+                style={{ flex: 1, textTransform: "uppercase", background: "hsl(var(--bg-card))" }}
+              />
+              <button 
+                className="btn btn-outline" 
+                onClick={handleCheckVoucher}
+                disabled={checkingVoucher || !voucherCode.trim()}
+              >
+                {checkingVoucher ? "Cek..." : "Terapkan"}
+              </button>
+            </div>
+            {voucherError && <div style={{ color: "hsl(var(--error))", fontSize: "13px", marginTop: "6px" }}>❌ {voucherError}</div>}
+            {voucherSuccess && <div style={{ color: "hsl(var(--success))", fontSize: "13px", marginTop: "6px" }}>✅ {voucherSuccess}</div>}
           </div>
 
         </div>
