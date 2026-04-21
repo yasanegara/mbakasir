@@ -32,6 +32,8 @@ export const viewport: Viewport = {
   themeColor: "#1e40af",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,   // Izinkan zoom manual, tapi jangan auto-zoom karena input
+  userScalable: true,
 };
 
 export default async function RootLayout({

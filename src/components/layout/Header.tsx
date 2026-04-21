@@ -103,12 +103,14 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
           gap: "16px",
         }}
       >
-        {/* Waktu sekarang */}
+        {/* Waktu sekarang — disembunyikan di layar < 480px */}
         <span
+          className="header-clock"
           style={{
             fontSize: "13px",
             color: "hsl(var(--text-secondary))",
             fontVariantNumeric: "tabular-nums",
+            whiteSpace: "nowrap",
           }}
         >
           {now.toLocaleTimeString("id-ID", {
@@ -181,7 +183,7 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
           title={isOnline ? "Terhubung ke internet" : "Offline — data tersimpan lokal"}
         >
           <span className={`status-dot ${isOnline ? "online" : "offline"}`} />
-          <span>{isOnline ? "Online" : "Offline"}</span>
+          <span className="online-label">{isOnline ? "Online" : "Offline"}</span>
         </div>
 
         {/* Avatar user */}

@@ -1141,6 +1141,7 @@
 
 /* ─── RESPONSIVE ─────────────────────────────────────────────── */
 
+/* === TABLET LANDSCAPE ≤1100px === */
 @media (max-width: 1100px) {
   .hero {
     grid-template-columns: 1fr;
@@ -1153,6 +1154,7 @@
 
   .heroDesc {
     text-align: center;
+    max-width: 64ch;
   }
 
   .heroStats {
@@ -1164,16 +1166,19 @@
   }
 
   .heroVisual {
-    max-width: 500px;
+    max-width: 520px;
     margin: 0 auto;
   }
 }
 
+/* === TABLET PORTRAIT ≤860px === */
 @media (max-width: 860px) {
+  /* Navigasi navbar disembunyikan */
   .nav {
     display: none;
   }
 
+  /* Grids ke 1 kolom */
   .problemGrid {
     grid-template-columns: 1fr;
   }
@@ -1186,18 +1191,53 @@
     grid-template-columns: 1fr;
   }
 
+  /* Pricing cards jadi 1 kolom vertikal */
+  .pricingWrap {
+    grid-template-columns: 1fr !important;
+    max-width: 480px !important;
+  }
+
   .pricingCard {
-    padding: 32px 24px;
+    padding: 32px 28px;
+  }
+
+  .pricingAmount {
+    font-size: 3.2rem;
+  }
+
+  /* FAQ */
+  .faqDesc {
+    max-width: 90%;
   }
 }
 
+/* === PHONE ≤640px === */
 @media (max-width: 640px) {
+  /* Header */
   .headerShell {
-    gap: 16px;
+    gap: 12px;
+    height: 60px;
+    padding: 0 clamp(12px, 4vw, 20px);
   }
 
+  /* Hero */
   .heroTitle {
     letter-spacing: -0.03em;
+    font-size: clamp(2rem, 8vw, 2.8rem);
+  }
+
+  .heroDesc {
+    font-size: 0.97rem;
+  }
+
+  .heroActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .heroActions > * {
+    text-align: center;
+    justify-content: center;
   }
 
   .heroStats {
@@ -1205,6 +1245,7 @@
     gap: 12px;
     padding: 16px;
     width: 100%;
+    align-self: stretch;
   }
 
   .heroStatDivider {
@@ -1216,13 +1257,107 @@
     padding: 0;
   }
 
+  .heroStat strong {
+    font-size: 1.3rem;
+  }
+
+  /* Mockup */
   .mockupCard {
     border-radius: 16px;
   }
 
+  /* Problem cards satu kolom full-width */
+  .problemCard {
+    padding: 22px 18px;
+  }
+
+  /* Feature cards */
+  .featureCard {
+    padding: 22px 18px;
+  }
+
+  /* Pricing */
+  .pricingCard {
+    padding: 28px 20px;
+  }
+
+  .pricingAmount {
+    font-size: 2.8rem;
+  }
+
+  .pricingCurrency {
+    font-size: 1.4rem;
+  }
+
+  .pricingPeriod {
+    font-size: 1rem;
+  }
+
+  /* Section titles */
+  .sectionTitle {
+    font-size: clamp(1.5rem, 6vw, 2rem);
+  }
+
+  /* CTA Banner */
   .ctaBanner {
-    margin: 24px 16px;
+    margin: 24px 12px;
     border-radius: 20px;
+  }
+
+  .ctaBannerTitle {
+    font-size: clamp(1.4rem, 5vw, 2rem);
+  }
+
+  .ctaBannerDesc {
+    font-size: 0.95rem;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 32px 16px;
+  }
+
+  .footerLinks {
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  /* Section padding */
+  .section {
+    padding: clamp(40px, 6vw, 80px) clamp(12px, 4vw, 24px);
+  }
+}
+
+/* === VERY SMALL PHONE ≤375px === */
+@media (max-width: 375px) {
+  .heroTitle {
+    font-size: clamp(1.7rem, 9vw, 2.2rem);
+  }
+
+  .pricingCard {
+    padding: 22px 14px;
+  }
+
+  .pricingAmount {
+    font-size: 2.4rem;
+  }
+
+  .headerShell {
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .brandName {
+    font-size: 0.9rem;
+  }
+
+  .brandSub {
+    display: none;
+  }
+
+  .section {
+    padding: 32px 10px;
   }
 }
 

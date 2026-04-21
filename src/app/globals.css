@@ -372,6 +372,8 @@ h1, h2, h3, h4, h5, h6 {
   position: sticky;
   top: 0;
   z-index: 30;
+  /* Pastikan item tidak meluap */
+  overflow: hidden;
 }
 
 .page-body {
@@ -656,20 +658,162 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ─── RESPONSIVE ─────────────────────────────────────────────── */
 
+/* === TABLET LANDSCAPE / SMALL DESKTOP (≤1024px) === */
 @media (max-width: 1024px) {
+  /* Sidebar tersembunyi, muncul lewat hamburger */
   .main-sidebar {
     transform: translateX(-100%);
+    width: 260px !important;
+    z-index: 50;
   }
   .main-sidebar.mobile-open {
     transform: translateX(0);
   }
   .sidebar-overlay.active { display: block; }
+
+  /* Konten utama full-width */
   .main-content { margin-left: 0 !important; }
-  .pos-grid { grid-template-columns: 1fr; }
+
+  /* POS: bertumpuk vertikal, cart di bawah produk */
+  .pos-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: auto;
+    min-height: calc(100dvh - 60px);
+  }
+
+  /* ─── Header di tablet ─── */
+  .main-header {
+    padding: 0 16px;
+    gap: 12px;
+  }
 }
 
-@media (max-width: 640px) {
+/* === TABLET PORTRAIT (≤768px) === */
+@media (max-width: 768px) {
   .page-body { padding: 16px; }
+
+  /* POS produk scroll horizontal jika sempit */
+  .pos-products {
+    padding: 12px;
+  }
+
+  .pos-cart {
+    border-left: none;
+    border-top: 1px solid hsl(var(--border));
+    max-height: 60dvh;
+  }
+
+  /* Stat cards: 2 kolom di tablet */
+  .stat-card {
+    padding: 16px;
+  }
+  .stat-value {
+    font-size: 24px;
+  }
+
+  /* Card padding lebih kecil */
+  .card {
+    padding: 16px;
+  }
+
+  /* Tombol xl lebih kecil */
+  .btn-xl {
+    padding: 14px 24px;
+    font-size: 16px;
+  }
+
+  /* Tabel: tambah horizontal scroll */
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table {
+    min-width: 500px;
+  }
+
+  /* Header info lebih ringkas */
+  .main-header {
+    padding: 0 12px;
+    gap: 8px;
+    height: 56px;
+  }
+}
+
+/* === PHONE (≤480px) === */
+@media (max-width: 480px) {
+  /* Base spacing */
+  .page-body { padding: 12px; }
+
+  /* Font heading lebih kecil */
+  h1 { font-size: 20px; }
+  h2 { font-size: 18px; }
+  h3 { font-size: 16px; }
+
+  /* Card */
+  .card {
+    padding: 14px;
+    border-radius: var(--radius-md);
+  }
+
+  /* Stat card: 1 kolom */
+  .stat-card {
+    padding: 14px;
+  }
+  .stat-value {
+    font-size: 22px;
+  }
+
+  /* Buttons compact */
+  .btn { padding: 9px 16px; font-size: 13px; }
+  .btn-lg { padding: 12px 20px; font-size: 14px; }
+  .btn-xl { padding: 13px 20px; font-size: 15px; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* Input compact */
+  .input-field {
+    padding: 10px 12px;
+    font-size: 16px; /* Mencegah iOS zoom-in otomatis pada fokus */
+  }
+
+  /* Header: sembunyikan waktu di HP kecil */
+  .main-header {
+    padding: 0 10px;
+    gap: 8px;
+    height: 52px;
+  }
+
+  /* POS: produk grid 2 kolom di HP */
+  .pos-products { padding: 10px; }
+  .pos-cart { max-height: 55dvh; }
+
+  /* Toast lebih kecil */
+  .toast {
+    min-width: 200px;
+    max-width: calc(100vw - 32px);
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+
+  /* Badge compact */
+  .badge { padding: 2px 8px; font-size: 10px; }
+
+  /* Lock screen card max-width */
+  .lock-screen .card {
+    margin: 16px;
+    width: calc(100% - 32px);
+  }
+
+  /* Header: sembunyikan jam & teks online di HP kecil */
+  .header-clock { display: none; }
+  .online-label { display: none; }
+}
+
+/* === VERY SMALL PHONE (≤375px) === */
+@media (max-width: 375px) {
+  .page-body { padding: 10px; }
+  .card { padding: 12px; }
+  .btn-xl { padding: 12px 18px; font-size: 14px; }
 }
 
 /* ─── SKELETON LOADER ────────────────────────────────────────── */
