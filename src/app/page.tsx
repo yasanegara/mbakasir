@@ -125,15 +125,6 @@ export default async function IndexPage() {
                 Login
               </Link>
             )}
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`btn btn-accent btn-sm ${styles.headerCta}`}
-              id="header-cta-btn"
-            >
-              Aktifkan Sekarang
-            </a>
           </div>
         </div>
       </header>

@@ -194,28 +194,6 @@ export default function Header({ title, onMenuClick, headerActions }: HeaderProp
           <span className="online-label">{isOnline ? "Online" : "Offline"}</span>
         </div>
 
-        {/* Avatar user */}
-        {user && (
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "50%",
-              background: "var(--gradient-primary)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "13px",
-              fontWeight: 700,
-              color: "white",
-              flexShrink: 0,
-              cursor: "default",
-            }}
-            title={user.name}
-          >
-            {user.name.charAt(0).toUpperCase()}
-          </div>
-        )}
       </div>
     </header>
   );
