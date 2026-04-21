@@ -136,7 +136,7 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
         {/* Pending sync badge */}
         {syncCount > 0 && (
           <div
-            title={`${syncCount} transaksi menunggu sync`}
+            title={`${syncCount} transaksi penjualan kasir (POS) tersimpan lokal dan sedang menunggu untuk diupload ke server pusat. Akan diupload saat sinyal internet pulih.`}
             style={{
               display: "flex",
               alignItems: "center",
@@ -162,7 +162,7 @@ export default function Header({ title, onMenuClick }: HeaderProps) {
               <polyline points="23 4 23 10 17 10" />
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
-            {syncCount} pending
+            <span style={{ display: "none" }} className="md:inline">Belum Upload: </span>{syncCount}
           </div>
         )}
 

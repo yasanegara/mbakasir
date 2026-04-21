@@ -54,6 +54,16 @@ export default function POSPage() {
   const [showShiftSummary, setShowShiftSummary] = useState(false);
   const [includeInventory, setIncludeInventory] = useState(false);
 
+  // PIN verification state
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [isPinVerified, setIsPinVerified] = useState(false);
+
+  // Customer info for receipt
+  const [customerName, setCustomerName] = useState("");
+  const [customerWa, setCustomerWa] = useState("");
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+
   // Kalkulasi total
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
   const changeAmount = paymentMethod === "CASH" ? Math.max(0, paidAmount - subtotal) : 0;
@@ -96,6 +106,24 @@ export default function POSPage() {
     );
   };
 
+
+  // ─── Handler PIN Verification ──────────────────────────────
+
+  const handleVerifyPin = () => {
+    const expectedPin = user?.pin;
+    if (!expectedPin) {
+      // No PIN set, skip verification
+      setIsPinVerified(true);
+      return;
+    }
+    if (pinInput === expectedPin) {
+      setIsPinVerified(true);
+      setPinError("");
+    } else {
+      setPinError("PIN salah. Coba lagi.");
+      setPinInput("");
+    }
+  };
 
   // ─── Handler Shift ──────────────────────────────────────────
 
@@ -242,6 +270,21 @@ export default function POSPage() {
       // 4. Reset & Beri Notifikasi
       setCart([]);
       setPaidAmount(0);
+
+      // 5. Kirim Struk WA jika ada nomor konsumen
+      if (customerWa.trim()) {
+        const itemLines = cart.map((i) => `- ${i.product.name} x${i.qty} = ${formatRupiahFull(i.product.price * i.qty)}`).join("\n");
+        const greeting = customerName ? `Halo ${customerName}! ` : "";
+        const waText = encodeURIComponent(
+          `${greeting}Berikut struk pembelian Anda:\n\n${itemLines}\n\nTotal: ${formatRupiahFull(subtotal)}\nMetode: ${paymentMethod}\n\nTerima kasih sudah berbelanja! 🙏`
+        );
+        const waNumber = customerWa.replace(/\D/g, "").replace(/^0/, "62");
+        window.open(`https://wa.me/${waNumber}?text=${waText}`, "_blank");
+      }
+
+      setCustomerName("");
+      setCustomerWa("");
+      setShowCustomerForm(false);
       toast("Transaksi berhasil! Offline sync berjalan.", "success");
 
     } catch (err: any) {
@@ -258,6 +301,45 @@ export default function POSPage() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh" }}>
           <div className="animate-spin" style={{ fontSize: "40px" }}>⏳</div>
           <p style={{ marginTop: "16px", fontWeight: 600 }}>Sinkronisasi Master Data...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Verifikasi PIN dulu (Abaikan jika SUPERADMIN atau TENANT / owner)
+  if (user && user.role === "CASHIER" && user.pin && !isPinVerified) {
+    return (
+      <DashboardLayout title="Verifikasi Identitas">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "70vh" }}>
+          <div className="card" style={{ width: "100%", maxWidth: "380px", textAlign: "center" }}>
+            <div style={{ fontSize: "40px", marginBottom: "16px" }}>🔐</div>
+            <h2 style={{ marginBottom: "8px", fontSize: "20px", fontWeight: 700 }}>Masukkan PIN Anda</h2>
+            <p style={{ color: "hsl(var(--text-secondary))", marginBottom: "24px", fontSize: "14px" }}>
+              Masukkan PIN 6 digit Anda sebagai {user.name} untuk membuka sesi kasir.
+            </p>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              className="input-field"
+              style={{ textAlign: "center", fontSize: "24px", letterSpacing: "8px", marginBottom: "16px" }}
+              placeholder="• • • • • •"
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onKeyDown={(e) => { if (e.key === "Enter" && pinInput.length === 6) handleVerifyPin(); }}
+              autoFocus
+            />
+            {pinError && (
+              <p style={{ color: "hsl(var(--error))", fontSize: "13px", marginBottom: "12px" }}>{pinError}</p>
+            )}
+            <button
+              className="btn btn-primary btn-block btn-lg"
+              disabled={pinInput.length !== 6}
+              onClick={handleVerifyPin}
+            >
+              Verifikasi PIN
+            </button>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -379,6 +461,41 @@ export default function POSPage() {
              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px", fontSize: "18px", fontWeight: 700 }}>
                <span>Total:</span>
                <span>{formatRupiahFull(subtotal)}</span>
+             </div>
+
+             {/* Customer Info (Optional) */}
+             <div style={{ marginBottom: "14px" }}>
+               <button
+                 className="btn btn-ghost btn-sm"
+                 style={{ fontSize: "12px", width: "100%", marginBottom: "8px" }}
+                 onClick={() => setShowCustomerForm((v) => !v)}
+               >
+                 {showCustomerForm ? "▲ Sembunyikan Info Pelanggan" : "💬 Tambah Info Pelanggan (Opsional)"}
+               </button>
+               {showCustomerForm && (
+                 <div style={{ display: "grid", gap: "8px", padding: "12px", background: "hsl(var(--bg-card))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}>
+                   <input
+                     className="input-field"
+                     style={{ fontSize: "13px", padding: "8px 12px" }}
+                     placeholder="Nama pelanggan (opsional)"
+                     value={customerName}
+                     onChange={(e) => setCustomerName(e.target.value)}
+                   />
+                   <input
+                     className="input-field"
+                     style={{ fontSize: "13px", padding: "8px 12px" }}
+                     placeholder="No. WA untuk struk (misal: 08123456789)"
+                     type="tel"
+                     value={customerWa}
+                     onChange={(e) => setCustomerWa(e.target.value)}
+                   />
+                   {customerWa && (
+                     <p style={{ fontSize: "11px", color: "hsl(var(--text-muted))" }}>
+                       📩 Struk akan dikirim via WhatsApp setelah transaksi berhasil.
+                     </p>
+                   )}
+                 </div>
+               )}
              </div>
 
              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>

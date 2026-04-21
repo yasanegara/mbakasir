@@ -16,14 +16,18 @@ export default async function AdminTokensPage() {
 
   const [agents, ledger] = await Promise.all([
     prisma.agent.findMany({
+      where: { email: { not: "agen.demo@mbakasir.id" } },
       orderBy: { createdAt: "desc" },
       include: {
         tenants: { select: { id: true } },
       },
     }),
-    // Ledger semua transaksi ACTIVATE (konsumsi nyata token)
+    // Ledger semua transaksi ACTIVATE (konsumsi nyata token) - kecualikan akun demo
     prisma.tokenLedger.findMany({
-      where: { type: "ACTIVATE" },
+      where: { 
+        type: "ACTIVATE",
+        agent: { email: { not: "agen.demo@mbakasir.id" } }
+      },
       select: {
         amount: true,
         createdAt: true,

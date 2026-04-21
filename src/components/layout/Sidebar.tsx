@@ -70,14 +70,32 @@ const Icon = {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   ),
+  employees: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="22" y1="11" x2="16" y2="11" /><line x1="19" y1="8" x2="19" y2="14" />
+    </svg>
+  ),
+  history: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+      <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  ),
+  alert: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  ),
 };
 
 const ALL_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Icon.dashboard, roles: ["SUPERADMIN", "AGENT", "TENANT", "CASHIER"] },
   { href: "/pos", label: "Kasir (POS)", icon: Icon.pos, roles: ["CASHIER", "TENANT"] },
-  { href: "/products", label: "Produk", icon: Icon.products, roles: ["TENANT", "CASHIER"] },
+  { href: "/products", label: "Produk", icon: Icon.products, roles: ["TENANT"] },
   { href: "/inventory", label: "Bahan Baku", icon: Icon.inventory, roles: ["TENANT"] },
+  { href: "/sales", label: "Riwayat Transaksi", icon: Icon.history, roles: ["TENANT", "CASHIER"] },
   { href: "/reports", label: "Laporan", icon: Icon.report, roles: ["TENANT"] },
+  { href: "/employees", label: "Karyawan", icon: Icon.employees, roles: ["TENANT"] },
+  { href: "/stock-alert", label: "Stok Kritis", icon: Icon.alert, roles: ["TENANT"] },
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },
   { href: "/settings", label: "Pengaturan", icon: Icon.settings, roles: ["SUPERADMIN", "TENANT"] },

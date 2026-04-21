@@ -39,10 +39,13 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = (role: "owner" | "kasir") => {
+  const handleDemoLogin = (role: "owner" | "kasir" | "agent") => {
     if (role === "owner") {
       setEmail("owner@demo.id");
       setPassword("Owner@Demo2026!");
+    } else if (role === "agent") {
+      setEmail("agen.demo@mbakasir.id");
+      setPassword("Agent@Demo2026!");
     } else {
       setEmail("kasir@demo.id");
       setPassword("Kasir@1234!");
@@ -147,6 +150,15 @@ export default function LoginPage() {
                style={{ justifyContent: "center", borderStyle: "dashed" }}
              >
                🛒 Gunakan Demo Kasir
+             </button>
+             <button 
+               type="button" 
+               className="btn btn-ghost btn-block" 
+               onClick={() => handleDemoLogin("agent")}
+               disabled={isLoading}
+               style={{ justifyContent: "center", borderStyle: "solid", marginTop: "8px" }}
+             >
+               💼 Gunakan Demo Mitra (Agent)
              </button>
            </div>
         </div>
