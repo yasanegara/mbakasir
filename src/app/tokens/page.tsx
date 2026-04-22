@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { useToast } from "@/contexts/AppProviders";
+import { useAuth, useToast } from "@/contexts/AppProviders";
 import { formatDateShort } from "@/lib/utils";
+import OrderTokenClient from "./OrderTokenClient";
 import {
   calculateTokenCostForQuantity,
   formatTokenConversion,
@@ -28,6 +29,7 @@ interface AgentTokenConfig {
 // ============================================================
 
 export default function AgentTokensPage() {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [tenants, setTenants] = useState<AgentTenant[]>([]);
   const [balance, setBalance] = useState(0);
@@ -174,6 +176,11 @@ export default function AgentTokensPage() {
             Rule aktif: {formatTokenConversion(licenseConversion)}
           </span>
         )}
+        
+        <OrderTokenClient 
+          agentName={user?.name || "Agen"} 
+          tokenSymbol={tokenConfig.tokenSymbol} 
+        />
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
