@@ -21,8 +21,16 @@ function getErrorMessage(err: unknown) {
   return err instanceof Error ? err.message : "Unknown error";
 }
 
-async function generateWithGeminiFallback(apiKey: string, prompt: string) {
+async function generateWithGeminiFallback(apiKey: string, prompt: string, requestedModel?: string) {
   const genAI = new GoogleGenerativeAI(apiKey);
+
+  if (requestedModel) {
+    const model = genAI.getGenerativeModel({ model: requestedModel });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return { content: response.text(), modelName: requestedModel };
+  }
+
   let lastError: unknown;
 
   for (const modelName of GEMINI_TEXT_MODELS) {
@@ -55,7 +63,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { title, instruction } = await req.json();
+  const { title, instruction, model: requestedModel } = await req.json();
   if (!title) {
     return NextResponse.json({ error: "Judul wajib diisi" }, { status: 400 });
   }
@@ -90,7 +98,8 @@ HASILKAN HANYA KONTEN MARKDOWN-NYA SAJA TANPA PENJELASAN LAIN.
 
     const { content, modelName } = await generateWithGeminiFallback(
       config.geminiApiKey,
-      prompt
+      prompt,
+      requestedModel
     );
 
     return NextResponse.json({ content, model: modelName });

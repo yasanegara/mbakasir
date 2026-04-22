@@ -83,6 +83,7 @@ export default function LearnAdminClient() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiInstruction, setAiInstruction] = useState("");
+  const [aiModel, setAiModel] = useState("gemini-2.5-flash"); // default model
   const [tab, setTab] = useState<"list" | "editor">("list");
   const [previewMode, setPreviewMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -259,7 +260,7 @@ export default function LearnAdminClient() {
     try {
       const res = await fetch("/api/admin/learn/generate", {
         method: "POST",
-        body: JSON.stringify({ title: form.title, instruction: aiInstruction }),
+        body: JSON.stringify({ title: form.title, instruction: aiInstruction, model: aiModel }),
       });
       const data = await res.json();
       
@@ -665,6 +666,19 @@ export default function LearnAdminClient() {
             </p>
             
             <div style={{ marginBottom: "24px" }}>
+              <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "8px" }}>Model AI</label>
+              <select 
+                className="input-field" 
+                value={aiModel} 
+                onChange={(e) => setAiModel(e.target.value)}
+                style={{ fontSize: "14px", marginBottom: "16px" }}
+              >
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Sangat Cepat)</option>
+                <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Paling Ringan & Cepat)</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro (Paling Pintar & Detail)</option>
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Stabil)</option>
+              </select>
+
               <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "8px" }}>Instruksi Khusus (Opsional)</label>
               <textarea
                 className="input-field"
