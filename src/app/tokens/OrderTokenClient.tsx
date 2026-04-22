@@ -60,7 +60,12 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
       return;
     }
 
-    window.open(url, "_blank");
+    toast(`Pesanan paket ${pkg.name} disiapkan. Mengalihkan ke WhatsApp Pusat...`, "success");
+    
+    // Memberi sedikit jeda agar toast sempat terbaca sebelum pindah tab
+    setTimeout(() => {
+      window.open(url, "_blank");
+    }, 500);
   };
 
   if (!isOpen) {

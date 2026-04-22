@@ -20,7 +20,7 @@ export async function GET() {
     select: {
       id: true, title: true, slug: true, excerpt: true,
       emoji: true, targetRole: true, sortOrder: true,
-      content: true, createdAt: true, updatedAt: true,
+      content: true, isPublic: true, createdAt: true, updatedAt: true,
     },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });

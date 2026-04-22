@@ -643,7 +643,7 @@ export default function LearnAdminClient() {
       {/* ── AI PROMPT MODAL ── */}
       {showAiModal && (
         <div 
-          className="modal-overlay" 
+          className="modal-overlay active" 
           style={{ 
             zIndex: 1000,
             position: "fixed",
