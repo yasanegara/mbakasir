@@ -28,7 +28,7 @@ export interface TokenConfigSnapshot {
 export const DEFAULT_TOKEN_CONFIG: TokenConfigSnapshot = {
   id: DEFAULT_TOKEN_CONFIG_ID,
   tokenName: "SuperToken",
-  tokenSymbol: "ST",
+  tokenSymbol: "T.",
   pricePerToken: BASE_TOKEN_PRICE,
   currencyCode: "IDR",
   hppRatio: 40,

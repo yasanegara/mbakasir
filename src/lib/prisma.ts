@@ -49,7 +49,7 @@ function hasRequiredModelDelegates(
   );
 }
 
-const CURRENT_SCHEMA_VERSION = 12;
+const CURRENT_SCHEMA_VERSION = 13;
 
 if (globalForPrisma.prismaVersion !== CURRENT_SCHEMA_VERSION) {
   globalForPrisma.prisma = undefined;

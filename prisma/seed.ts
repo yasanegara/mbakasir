@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { DEFAULT_AI_KNOWLEDGE_BASE } from "../src/lib/default-ai-brain";
 
 // ============================================================
 // PRISMA SEED — Data awal sistem Mbakasir
@@ -15,7 +16,7 @@ async function main() {
     where: { id: "default" },
     update: {
       tokenName: "SuperToken",
-      tokenSymbol: "ST",
+      tokenSymbol: "T.",
       pricePerToken: 6250,
       currencyCode: "IDR",
       notes: "Token pusat bisa dikonversi ke lisensi toko dan modul lain.",
@@ -23,7 +24,7 @@ async function main() {
     create: {
       id: "default",
       tokenName: "SuperToken",
-      tokenSymbol: "ST",
+      tokenSymbol: "T.",
       pricePerToken: 6250,
       currencyCode: "IDR",
       notes: "Token pusat bisa dikonversi ke lisensi toko dan modul lain.",
@@ -93,6 +94,24 @@ async function main() {
     },
   });
   console.log("✅ Token Config: POS_SLOT");
+
+  const existingBrandConfig = await prisma.brandConfig.findUnique({
+    where: { id: "default" },
+    select: { aiKnowledgeBase: true },
+  });
+
+  await prisma.brandConfig.upsert({
+    where: { id: "default" },
+    update: {
+      aiKnowledgeBase:
+        existingBrandConfig?.aiKnowledgeBase?.trim() || DEFAULT_AI_KNOWLEDGE_BASE,
+    },
+    create: {
+      id: "default",
+      aiKnowledgeBase: DEFAULT_AI_KNOWLEDGE_BASE,
+    },
+  });
+  console.log("✅ Brand Config: AI BRAIN default terpasang");
 
   // ─── SuperAdmin ────────────────────────────────────────────
   const superAdminPassword = await bcrypt.hash("SuperAdmin@2026!", 12);

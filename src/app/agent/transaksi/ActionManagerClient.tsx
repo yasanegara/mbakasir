@@ -153,7 +153,7 @@ export default function ActionManagerClient({ requests, tenants, tokenConfig, ag
               <select className="input-field" value={selectedTenant} onChange={e => setSelectedTenant(e.target.value)}>
                 <option value="">-- Pilih Toko Anda --</option>
                 {tenants.map(t => (
-                  <option key={t.id} value={t.id}>{t.name} (Terpakai: {t.tokenUsed} ST)</option>
+                  <option key={t.id} value={t.id}>{t.name} (Terpakai: {t.tokenUsed} T.)</option>
                 ))}
               </select>
             </div>

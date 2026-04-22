@@ -9,6 +9,15 @@ import {
 
 type PrismaTokenConfigWithConversions = Awaited<ReturnType<typeof fetchTokenConfigRow>>;
 
+function normalizeTokenSymbol(tokenSymbol: string | null | undefined) {
+  if (!tokenSymbol) {
+    return DEFAULT_TOKEN_CONFIG.tokenSymbol;
+  }
+
+  const normalized = tokenSymbol.trim().toUpperCase();
+  return normalized === "ST" ? "T." : normalized;
+}
+
 function getTokenConfigDelegate() {
   const tokenConfigDelegate = (
     prisma as PrismaClient & { tokenConfig?: PrismaClient["tokenConfig"] }
@@ -89,10 +98,10 @@ export function normalizeTokenConfig(
   return {
     id: config.id,
     tokenName: config.tokenName,
-    tokenSymbol: config.tokenSymbol,
+    tokenSymbol: normalizeTokenSymbol(config.tokenSymbol),
     pricePerToken: Number(config.pricePerToken),
     currencyCode: config.currencyCode,
-    hppRatio: typeof (config as any).hppRatio === "number" ? (config as any).hppRatio : 40,
+    hppRatio: typeof config.hppRatio === "number" ? config.hppRatio : 40,
     notes: config.notes,
     conversions:
       config.conversions.length > 0

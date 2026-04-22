@@ -226,7 +226,7 @@ export default function TokenSettingsClient({
               className="input-field"
               value={config.tokenSymbol}
               onChange={(event) => updateRootField("tokenSymbol", event.target.value.toUpperCase())}
-              placeholder="ST"
+              placeholder="T."
               maxLength={12}
             />
           </div>

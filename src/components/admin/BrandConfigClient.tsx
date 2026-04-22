@@ -421,6 +421,25 @@ export default function BrandConfigClient({
             Dapatkan kunci gratis di <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" style={{ color: "hsl(var(--primary))", fontWeight: 600 }}>Google AI Studio</a>. Kunci ini digunakan untuk fitur "MbaKasir AI Writer".
           </span>
         </div>
+
+        <div style={{ gridColumn: "1 / -1" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+             <label className="input-label" htmlFor="brand-ai-knowledge" style={{ marginBottom: 0 }}>Basis Pengetahuan AI (Kotak Maklumat)</label>
+             <span style={{ fontSize: "10px", background: "hsl(var(--success) / 0.1)", color: "hsl(var(--success))", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>AI BRAIN</span>
+          </div>
+          <textarea
+            id="brand-ai-knowledge"
+            className="input-field"
+            value={config.aiKnowledgeBase ?? ""}
+            onChange={(e) => update("aiKnowledgeBase", e.target.value || null)}
+            placeholder="Contoh: Selalu gunakan kata 'Cerdas' bukan 'Pintar'. Fokuskan pada keramahan UMKM. Jangan sebutkan harga kompetitor..."
+            rows={5}
+            style={{ resize: "vertical", minHeight: "120px", fontSize: "14px", lineHeight: 1.6 }}
+          />
+          <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "4px", display: "block" }}>
+            Semua maklumat di sini akan dibaca oleh AI sebagai pedoman wajib setiap kali dia menulis artikel.
+          </span>
+        </div>
       </div>
 
       {/* Upload widgets */}

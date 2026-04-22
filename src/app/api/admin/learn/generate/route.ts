@@ -3,6 +3,52 @@ import { getSession } from "@/lib/auth";
 import { getBrandConfig } from "@/lib/brand-config";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+const GEMINI_TEXT_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+] as const;
+
+function isMissingModelError(err: unknown) {
+  return (
+    err instanceof Error &&
+    err.message.includes("404") &&
+    err.message.includes("models/")
+  );
+}
+
+function getErrorMessage(err: unknown) {
+  return err instanceof Error ? err.message : "Unknown error";
+}
+
+async function generateWithGeminiFallback(apiKey: string, prompt: string) {
+  const genAI = new GoogleGenerativeAI(apiKey);
+  let lastError: unknown;
+
+  for (const modelName of GEMINI_TEXT_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+
+      return {
+        content: response.text(),
+        modelName,
+      };
+    } catch (err) {
+      lastError = err;
+
+      if (!isMissingModelError(err)) {
+        throw err;
+      }
+
+      console.warn(`Gemini model not available for generateContent: ${modelName}`);
+    }
+  }
+
+  throw lastError ?? new Error("Tidak ada model Gemini yang tersedia.");
+}
+
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "SUPERADMIN") {
@@ -20,11 +66,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(config.geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
     const prompt = `
 Bertindaklah sebagai MbaKasir, asisten cerdas untuk UMKM. Gunakan kepribadian: Kakak perempuan yang hangat (ngayomi), sabar, dan sangat menguasai operasional toko.
+
+${config.aiKnowledgeBase ? `MAKLUMAT WAJIB (Selalu patuhi aturan ini):
+${config.aiKnowledgeBase}
+` : ""}
 
 TUGAS: Buatkan draf artikel panduan dalam format Markdown berdasarkan judul dan instruksi berikut.
 
@@ -41,13 +88,31 @@ ATURAN PENULISAN:
 HASILKAN HANYA KONTEN MARKDOWN-NYA SAJA TANPA PENJELASAN LAIN.
     `;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const { content, modelName } = await generateWithGeminiFallback(
+      config.geminiApiKey,
+      prompt
+    );
 
-    return NextResponse.json({ content: text });
-  } catch (err: any) {
+    return NextResponse.json({ content, model: modelName });
+  } catch (err: unknown) {
     console.error("AI Generate Error:", err);
-    return NextResponse.json({ error: "Gagal generate artikel: " + (err.message || "Unknown error") }, { status: 500 });
+    const errorMessage = getErrorMessage(err);
+
+    if (isMissingModelError(err)) {
+      return NextResponse.json(
+        {
+          error:
+            "Model Gemini untuk fitur ini sudah tidak tersedia di Google AI Studio. Sistem sudah mencoba beberapa model teks terbaru, tapi semuanya ditolak untuk API key ini.",
+        },
+        { status: 502 }
+      );
+    }
+
+    // Jika masih 429, beri pesan yang lebih bersahabat
+    if (errorMessage.includes("429")) {
+      return NextResponse.json({ error: "Waduh, si Mba lagi capek nulis (Limit Quota). Coba lagi dalam 1 menit ya Bos!" }, { status: 429 });
+    }
+
+    return NextResponse.json({ error: "Gagal generate artikel: " + errorMessage }, { status: 500 });
   }
 }

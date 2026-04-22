@@ -17,24 +17,27 @@ const isValidUrl = (val: string) => {
 
 const brandConfigSchema = z.object({
   appName: z.string().trim().min(2).max(120),
-  tagline: z.string().trim().max(200).optional().or(z.literal("")),
-  metaDescription: z.string().trim().max(500).optional().or(z.literal("")),
+  tagline: z.string().trim().max(200).nullable().optional().or(z.literal("")),
+  metaDescription: z.string().trim().max(500).nullable().optional().or(z.literal("")),
   logoUrl: z
     .string()
     .trim()
     .refine(isValidUrl, "URL logo tidak valid")
+    .nullable()
     .optional()
     .or(z.literal("")),
   faviconUrl: z
     .string()
     .trim()
     .refine(isValidUrl, "URL favicon tidak valid")
+    .nullable()
     .optional()
     .or(z.literal("")),
-  primaryColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Format warna harus #RRGGBB").optional(),
-  supportPhone: z.string().trim().max(20).optional().or(z.literal("")),
-  supportMessage: z.string().trim().max(300).optional().or(z.literal("")),
-  geminiApiKey: z.string().trim().optional().or(z.literal("")),
+  primaryColor: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Format warna harus #RRGGBB").nullable().optional(),
+  supportPhone: z.string().trim().max(20).nullable().optional().or(z.literal("")),
+  supportMessage: z.string().trim().max(300).nullable().optional().or(z.literal("")),
+  geminiApiKey: z.string().trim().nullable().optional().or(z.literal("")),
+  aiKnowledgeBase: z.string().trim().nullable().optional().or(z.literal("")),
 });
 
 async function requireSuperAdmin() {
@@ -66,15 +69,15 @@ export async function POST(req: NextRequest) {
     }
 
     const config = await upsertBrandConfig({
-      appName: parsed.data.appName,
+      ...parsed.data,
       tagline: parsed.data.tagline || null,
       metaDescription: parsed.data.metaDescription || null,
       logoUrl: parsed.data.logoUrl || null,
       faviconUrl: parsed.data.faviconUrl || null,
-      primaryColor: parsed.data.primaryColor,
       supportPhone: parsed.data.supportPhone || null,
       supportMessage: parsed.data.supportMessage || null,
       geminiApiKey: parsed.data.geminiApiKey || null,
+      aiKnowledgeBase: parsed.data.aiKnowledgeBase || null,
     });
 
     return Response.json({ success: true, config });

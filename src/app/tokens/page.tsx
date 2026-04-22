@@ -33,7 +33,7 @@ export default function AgentTokensPage() {
   const [balance, setBalance] = useState(0);
   const [tokenConfig, setTokenConfig] = useState<AgentTokenConfig>({
     tokenName: "SuperToken",
-    tokenSymbol: "ST",
+    tokenSymbol: "T.",
   });
   const [licenseConversion, setLicenseConversion] = useState<TokenConversionSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +46,7 @@ export default function AgentTokensPage() {
   }) {
     setTenants(data.tenants || []);
     setBalance(data.balance || 0);
-    setTokenConfig(data.tokenConfig || { tokenName: "SuperToken", tokenSymbol: "ST" });
+    setTokenConfig(data.tokenConfig || { tokenName: "SuperToken", tokenSymbol: "T." });
     setLicenseConversion(data.licenseConversion || null);
   }
 

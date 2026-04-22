@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_AI_KNOWLEDGE_BASE } from "@/lib/default-ai-brain";
 
 export interface BrandConfigSnapshot {
   appName: string;
@@ -11,6 +12,7 @@ export interface BrandConfigSnapshot {
   supportPhone: string | null;
   supportMessage: string | null;
   geminiApiKey: string | null;
+  aiKnowledgeBase: string | null;
 }
 
 const LEGACY_TAGLINE = "Kasir Cerdas untuk UMKM Indonesia";
@@ -27,6 +29,7 @@ const DEFAULT_BRAND: BrandConfigSnapshot = {
   supportPhone: "6281234567890",
   supportMessage: "Halo MbaKasir, saya butuh bantuan",
   geminiApiKey: null,
+  aiKnowledgeBase: DEFAULT_AI_KNOWLEDGE_BASE,
 };
 
 function normalizeTagline(tagline: string | null): string | null {
@@ -56,6 +59,7 @@ export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
       supportPhone: config.supportPhone ?? DEFAULT_BRAND.supportPhone,
       supportMessage: config.supportMessage ?? DEFAULT_BRAND.supportMessage,
       geminiApiKey: config.geminiApiKey ?? null,
+      aiKnowledgeBase: config.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
     };
   } catch {
     return DEFAULT_BRAND;
@@ -77,6 +81,7 @@ export async function upsertBrandConfig(
       supportPhone: data.supportPhone,
       supportMessage: data.supportMessage,
       geminiApiKey: data.geminiApiKey,
+      aiKnowledgeBase: data.aiKnowledgeBase,
     },
     create: {
       id: "default",
@@ -90,6 +95,7 @@ export async function upsertBrandConfig(
       supportPhone: data.supportPhone ?? DEFAULT_BRAND.supportPhone,
       supportMessage: data.supportMessage ?? DEFAULT_BRAND.supportMessage,
       geminiApiKey: data.geminiApiKey ?? null,
+      aiKnowledgeBase: data.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
     },
   });
 
@@ -103,5 +109,6 @@ export async function upsertBrandConfig(
     supportPhone: config.supportPhone ?? DEFAULT_BRAND.supportPhone,
     supportMessage: config.supportMessage ?? DEFAULT_BRAND.supportMessage,
     geminiApiKey: config.geminiApiKey,
+    aiKnowledgeBase: config.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
   };
 }

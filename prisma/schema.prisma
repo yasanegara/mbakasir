@@ -457,7 +457,7 @@ model TokenPurchaseRequest {
 model TokenConfig {
   id            String   @id @default("default")
   tokenName     String   @default("SuperToken")
-  tokenSymbol   String   @default("ST")
+  tokenSymbol   String   @default("T.")
   pricePerToken Decimal  @default(6250) @db.Decimal(15, 2)
   currencyCode  String   @default("IDR")
   hppRatio      Int      @default(40) // % biaya operasional dari revenue token terpakai
@@ -506,6 +506,7 @@ model BrandConfig {
   supportPhone    String?  // Nomor WhatsApp support
   supportMessage  String?  // Teks pembukaan CTA WhatsApp
   geminiApiKey    String?  // Kunci API untuk fitur Generate Artikel AI
+  aiKnowledgeBase String?  @db.Text
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

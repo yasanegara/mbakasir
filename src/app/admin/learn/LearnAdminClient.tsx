@@ -19,6 +19,17 @@ interface Doc {
   createdAt: string;
 }
 
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  type: string;
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Terjadi kesalahan";
+}
+
 const EMPTY_FORM = {
   title: "",
   content: "",
@@ -65,6 +76,7 @@ Terima kasih sudah membaca! 🙏
 export default function LearnAdminClient() {
   const { toast } = useToast();
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [highDemandAlert, setHighDemandAlert] = useState<Announcement | null>(null);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState<string | null>(null);
@@ -85,7 +97,50 @@ export default function LearnAdminClient() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchDocs(); }, []);
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadDocs() {
+      setLoading(true);
+      const res = await fetch("/api/admin/learn");
+      const data = await res.json();
+      if (isCancelled) return;
+      setDocs(Array.isArray(data) ? data : []);
+      setLoading(false);
+    }
+
+    void loadDocs();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    async function fetchHighDemandAlert() {
+      try {
+        const res = await fetch("/api/announcements");
+        const data = await res.json();
+        if (!res.ok || !Array.isArray(data)) return;
+
+        const alert = data.find((item: Announcement) => {
+          const haystack = `${item.title} ${item.content}`.toLowerCase();
+          return (
+            haystack.includes("high demand") ||
+            haystack.includes("permintaan tinggi") ||
+            haystack.includes("lonjakan demand") ||
+            haystack.includes("lonjakan permintaan")
+          );
+        });
+
+        setHighDemandAlert(alert ?? null);
+      } catch {
+        setHighDemandAlert(null);
+      }
+    }
+
+    void fetchHighDemandAlert();
+  }, []);
 
   const openNew = () => {
     setEditId(null);
@@ -129,8 +184,8 @@ export default function LearnAdminClient() {
       toast(editId ? "Dokumen diperbarui!" : "Dokumen dibuat!", "success");
       await fetchDocs();
       setTab("list");
-    } catch (e: any) {
-      toast(`Gagal: ${e.message}`, "error");
+    } catch (error: unknown) {
+      toast(`Gagal: ${getErrorMessage(error)}`, "error");
     } finally {
       setSaving(false);
     }
@@ -155,8 +210,8 @@ export default function LearnAdminClient() {
       if (!res.ok) throw new Error("Gagal menyimpan");
       toast(doc.isPublished ? "Dokumen disembunyikan" : "Dokumen dipublikasikan!", "success");
       fetchDocs();
-    } catch (e: any) {
-      toast(e.message, "error");
+    } catch (error: unknown) {
+      toast(getErrorMessage(error), "error");
     }
   };
 
@@ -214,8 +269,8 @@ export default function LearnAdminClient() {
       setShowAiModal(false);
       setAiInstruction("");
       toast("Boom! Artikel sudah Mba tuliskan. Cek di editor ya!", "success");
-    } catch (err: any) {
-      toast(err.message || "Gagal generate artikel", "error");
+    } catch (error: unknown) {
+      toast(getErrorMessage(error) || "Gagal generate artikel", "error");
     } finally {
       setIsGenerating(false);
     }
@@ -274,7 +329,7 @@ export default function LearnAdminClient() {
           ) : docs.length === 0 ? (
             <div style={{ textAlign: "center", padding: "48px", border: "1px dashed hsl(var(--border))", borderRadius: "12px" }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}>📄</div>
-              <p style={{ color: "hsl(var(--text-muted))" }}>Belum ada dokumen. Klik "Buat Dokumen Baru" untuk mulai.</p>
+              <p style={{ color: "hsl(var(--text-muted))" }}>Belum ada dokumen. Klik &quot;Buat Dokumen Baru&quot; untuk mulai.</p>
             </div>
           ) : (
             <div style={{ display: "grid", gap: "12px" }}>
@@ -371,14 +426,41 @@ export default function LearnAdminClient() {
                 />
               </div>
               <div style={{ flex: 1, display: "flex", alignItems: "flex-end", paddingBottom: "4px" }}>
-                <button 
-                  className="btn btn-ghost"
-                  style={{ color: "hsl(var(--primary))", fontWeight: 700, fontSize: "13px", gap: "8px" }}
-                  onClick={() => setShowAiModal(true)}
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? "⏳ Sedang Menulis..." : "✨ Tulis Pakai MbaKasir AI"}
-                </button>
+                <div style={{ display: "grid", gap: "10px", width: "100%" }}>
+                  <button 
+                    className="btn btn-ghost"
+                    style={{ color: "hsl(var(--primary))", fontWeight: 700, fontSize: "13px", gap: "8px", justifySelf: "start" }}
+                    onClick={() => setShowAiModal(true)}
+                    disabled={isGenerating}
+                  >
+                    {isGenerating ? "⏳ Sedang Menulis..." : "✨ Tulis Pakai MbaKasir AI"}
+                  </button>
+
+                  {highDemandAlert && (
+                    <div
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: "12px",
+                        background: "hsl(var(--warning) / 0.10)",
+                        border: "1px solid hsl(var(--warning) / 0.28)",
+                        color: "hsl(var(--text-primary))",
+                        display: "grid",
+                        gap: "4px",
+                        maxWidth: "520px",
+                      }}
+                    >
+                      <div style={{ fontSize: "12px", fontWeight: 800, color: "hsl(var(--warning))", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                        High Demand Alert
+                      </div>
+                      <div style={{ fontSize: "13px", fontWeight: 700 }}>
+                        {highDemandAlert.title}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "hsl(var(--text-secondary))", lineHeight: 1.5 }}>
+                        {highDemandAlert.content}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>
