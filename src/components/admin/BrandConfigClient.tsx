@@ -403,6 +403,22 @@ export default function BrandConfigClient({
           />
         </div>
 
+        <div>
+          <label className="input-label" htmlFor="brand-bank">Rekening Bank Pusat (Pembelian Agen)</label>
+          <textarea
+            id="brand-bank"
+            className="input-field"
+            value={config.bankDetails ?? ""}
+            onChange={(e) => update("bankDetails", e.target.value || null)}
+            rows={2}
+            placeholder="BCA 123456789 a/n PT MbaKasir Digital"
+            style={{ resize: "vertical" }}
+          />
+          <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "4px", display: "block" }}>
+            Info ini akan muncul saat Agen ingin membeli paket token ke Pusat.
+          </span>
+        </div>
+
         <div style={{ gridColumn: "1 / -1" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
              <label className="input-label" htmlFor="brand-ai-key" style={{ marginBottom: 0 }}>Gemini API Key</label>

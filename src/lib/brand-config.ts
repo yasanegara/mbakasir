@@ -13,6 +13,7 @@ export interface BrandConfigSnapshot {
   supportMessage: string | null;
   geminiApiKey: string | null;
   aiKnowledgeBase: string | null;
+  bankDetails: string | null;
 }
 
 const LEGACY_TAGLINE = "Kasir Cerdas untuk UMKM Indonesia";
@@ -30,6 +31,7 @@ const DEFAULT_BRAND: BrandConfigSnapshot = {
   supportMessage: "Halo MbaKasir, saya butuh bantuan",
   geminiApiKey: null,
   aiKnowledgeBase: DEFAULT_AI_KNOWLEDGE_BASE,
+  bankDetails: "Belum dikonfigurasi. Hubungi Pusat.",
 };
 
 function normalizeTagline(tagline: string | null): string | null {
@@ -60,6 +62,7 @@ export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
       supportMessage: config.supportMessage ?? DEFAULT_BRAND.supportMessage,
       geminiApiKey: config.geminiApiKey ?? null,
       aiKnowledgeBase: config.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
+      bankDetails: config.bankDetails ?? DEFAULT_BRAND.bankDetails,
     };
   } catch {
     return DEFAULT_BRAND;
@@ -82,6 +85,7 @@ export async function upsertBrandConfig(
       supportMessage: data.supportMessage,
       geminiApiKey: data.geminiApiKey,
       aiKnowledgeBase: data.aiKnowledgeBase,
+      bankDetails: data.bankDetails,
     },
     create: {
       id: "default",
@@ -96,6 +100,7 @@ export async function upsertBrandConfig(
       supportMessage: data.supportMessage ?? DEFAULT_BRAND.supportMessage,
       geminiApiKey: data.geminiApiKey ?? null,
       aiKnowledgeBase: data.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
+      bankDetails: data.bankDetails ?? DEFAULT_BRAND.bankDetails,
     },
   });
 
@@ -110,5 +115,6 @@ export async function upsertBrandConfig(
     supportMessage: config.supportMessage ?? DEFAULT_BRAND.supportMessage,
     geminiApiKey: config.geminiApiKey,
     aiKnowledgeBase: config.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
+    bankDetails: config.bankDetails ?? DEFAULT_BRAND.bankDetails,
   };
 }

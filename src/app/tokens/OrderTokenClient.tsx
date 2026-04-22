@@ -20,7 +20,7 @@ interface OrderTokenClientProps {
 export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [packages, setPackages] = useState<AgentPackage[]>([]);
-  const [pusatInfo, setPusatInfo] = useState({ phone: "", name: "" });
+  const [pusatInfo, setPusatInfo] = useState({ phone: "", name: "", bank: "" });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -31,7 +31,11 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
       const data = await res.json();
       if (res.ok) {
         setPackages(data.packages);
-        setPusatInfo({ phone: data.pusatPhone, name: data.pusatName });
+        setPusatInfo({ 
+          phone: data.pusatPhone, 
+          name: data.pusatName,
+          bank: data.pusatBank
+        });
       } else {
         toast(data.error || "Gagal memuat paket", "error");
       }
@@ -49,7 +53,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
   }, [isOpen]);
 
   const handleOrder = (pkg: AgentPackage) => {
-    const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan paket token:\n\nPaket: ${pkg.name}\nJumlah: ${pkg.tokenAmount} ${tokenSymbol}\nHarga: ${formatRupiahFull(pkg.price)}\n\nMohon instruksi pembayarannya. Terima kasih!`;
+    const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan paket token:\n\nPaket: ${pkg.name}\nJumlah: ${pkg.tokenAmount} ${tokenSymbol}\nHarga: ${formatRupiahFull(pkg.price)}\n\nSaya akan segera transfer ke rekening ${pusatInfo.bank}. Terima kasih!`;
     const url = buildWhatsappUrl(pusatInfo.phone, message);
     window.open(url, "_blank");
   };
@@ -74,15 +78,14 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
       <div className="card animate-fade-in" style={{ maxWidth: "500px", width: "100%", maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
         <button 
           onClick={() => setIsOpen(false)} 
-          style={{ position: "absolute", top: "16px", right: "16px", background: "none", border: "none", cursor: "pointer", fontSize: "20px" }}
+          style={{ position: "absolute", top: "16px", right: "16px", background: "none", border: "none", cursor: "pointer", fontSize: "20px", color: "hsl(var(--text-muted))" }}
         >
           ✕
         </button>
 
         <h2 style={{ fontSize: "20px", marginBottom: "8px" }}>Beli Token {tokenSymbol}</h2>
         <p style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", marginBottom: "24px" }}>
-          Pilih paket bundling di bawah untuk melakukan pemesanan ke {pusatInfo.name || "Pusat"}. 
-          Konfirmasi dilakukan via WhatsApp.
+          Pilih paket bundling di bawah untuk melakukan pemesanan ke {pusatInfo.name || "Pusat"}.
         </p>
 
         {isLoading ? (
@@ -123,6 +126,16 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                 </button>
               </div>
             ))}
+
+            <div style={{ marginTop: "20px", padding: "16px", background: "hsl(var(--bg-surface))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}>
+              <div style={{ fontSize: "13px", color: "hsl(var(--text-muted))", marginBottom: "8px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Info Rekening Pusat</div>
+              <div style={{ fontSize: "15px", fontWeight: 700, color: "hsl(var(--text-primary))", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+                {pusatInfo.bank || "Hubungi Pusat untuk info rekening."}
+              </div>
+              <div style={{ marginTop: "12px", fontSize: "12px", color: "hsl(var(--text-secondary))", borderTop: "1px solid hsl(var(--border))", paddingTop: "12px" }}>
+                Setelah transfer, klik tombol <strong>Pesan</strong> di atas untuk konfirmasi via WhatsApp dengan bukti transfer Anda.
+              </div>
+            </div>
           </div>
         )}
 

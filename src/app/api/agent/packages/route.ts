@@ -22,7 +22,8 @@ export async function GET() {
     return Response.json({ 
       packages,
       pusatPhone: brand.supportPhone,
-      pusatName: brand.appName
+      pusatName: brand.appName,
+      pusatBank: brand.bankDetails
     });
   } catch (err) {
     return Response.json({ error: "Gagal memuat paket agen" }, { status: 500 });

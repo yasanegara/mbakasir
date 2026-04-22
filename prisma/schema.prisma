@@ -507,6 +507,7 @@ model BrandConfig {
   supportMessage  String?  // Teks pembukaan CTA WhatsApp
   geminiApiKey    String?  // Kunci API untuk fitur Generate Artikel AI
   aiKnowledgeBase String?  @db.Text
+  bankDetails     String?  // Info Rekening Bank Pusat (BCA 123xxx a/n PT MbaKasir)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
