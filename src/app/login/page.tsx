@@ -46,6 +46,9 @@ export default function LoginPage() {
     if (role === "owner") {
       setEmail("owner@demo.id");
       setPassword("Owner@Demo2026!");
+    } else if (role === "agent") {
+      setEmail("agen.demo@mbakasir.id");
+      setPassword("Agent@Demo2026!");
     } else {
       setEmail("kasir@demo.id");
       setPassword("Kasir@1234!");
@@ -135,7 +138,7 @@ export default function LoginPage() {
              <button 
                type="button" 
                className="btn btn-ghost btn-block" 
-               onClick={() => handleDemoLogin("Kasir")}
+               onClick={() => handleDemoLogin("kasir")}
                disabled={isLoading}
                style={{ justifyContent: "center", borderStyle: "dashed" }}
              >
