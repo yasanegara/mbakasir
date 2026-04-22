@@ -5,6 +5,11 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { renderMarkdown } from "@/lib/markdown";
+import {
+  buildStoreRegistrationPath,
+  isStoreRegistrationToken,
+  normalizeStoreRegistrationToken,
+} from "@/lib/store-registration-shared";
 
 interface Doc {
   id: string;
@@ -23,11 +28,17 @@ function LearnArticleView({
   selected,
   onBack,
   backLabel = "← Kembali ke Daftar",
+  registrationToken,
 }: {
   selected: Doc;
   onBack: () => void;
   backLabel?: string;
+  registrationToken?: string | null;
 }) {
+  const ctaHref = registrationToken
+    ? buildStoreRegistrationPath(registrationToken)
+    : "/";
+
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto" }}>
       <button
@@ -81,11 +92,11 @@ function LearnArticleView({
               Mari majukan UMKM bareng-bareng!
             </p>
             <Link 
-              href="/" 
+              href={ctaHref}
               className="btn btn-primary"
               style={{ textDecoration: "none", display: "inline-block", padding: "12px 24px" }}
             >
-              Coba MbaKasir Gratis Sekarang!
+              {registrationToken ? "Daftar Toko via Agen Ini" : "Coba MbaKasir Gratis Sekarang!"}
             </Link>
           </div>
         )}
@@ -203,6 +214,10 @@ function LearnContent() {
 
   const searchParams = useSearchParams();
   const requestedSlug = searchParams.get("s");
+  const sharedTokenRaw = searchParams.get("agent") ?? searchParams.get("store");
+  const registrationToken = sharedTokenRaw && isStoreRegistrationToken(sharedTokenRaw)
+    ? normalizeStoreRegistrationToken(sharedTokenRaw)
+    : null;
 
   useEffect(() => {
     fetch("/api/learn")
@@ -259,6 +274,7 @@ function LearnContent() {
                 window.location.href = "/";
               }}
               backLabel="← Kembali"
+              registrationToken={registrationToken}
             />
           ) : (
             <div className="card" style={{ maxWidth: "800px", margin: "0 auto", textAlign: "center", padding: "56px 24px" }}>
@@ -276,7 +292,7 @@ function LearnContent() {
   return (
     <DashboardLayout title={selected ? selected.title : "Pusat Belajar"}>
       {selected ? (
-        <LearnArticleView selected={selected} onBack={() => setSelected(null)} />
+        <LearnArticleView selected={selected} onBack={() => setSelected(null)} registrationToken={registrationToken} />
       ) : (
         <LearnListView docs={docs} loading={loading} onSelect={setSelected} />
       )}
