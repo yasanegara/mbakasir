@@ -55,6 +55,11 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
   const handleOrder = (pkg: AgentPackage) => {
     const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan paket token:\n\nPaket: ${pkg.name}\nJumlah: ${pkg.tokenAmount} ${tokenSymbol}\nHarga: ${formatRupiahFull(pkg.price)}\n\nSaya akan segera transfer ke rekening ${pusatInfo.bank}. Terima kasih!`;
     const url = buildWhatsappUrl(pusatInfo.phone, message);
+    if (!url) {
+      toast("Nomor WhatsApp Pusat belum tersedia.", "error");
+      return;
+    }
+
     window.open(url, "_blank");
   };
 
