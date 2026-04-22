@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { renderMarkdown } from "@/lib/markdown";
@@ -196,7 +196,7 @@ function LearnListView({
   );
 }
 
-export default function LearnPage() {
+function LearnContent() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Doc | null>(null);
@@ -281,5 +281,17 @@ export default function LearnPage() {
         <LearnListView docs={docs} loading={loading} onSelect={setSelected} />
       )}
     </DashboardLayout>
+  );
+}
+
+export default function LearnPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="spinner" />
+      </div>
+    }>
+      <LearnContent />
+    </Suspense>
   );
 }
