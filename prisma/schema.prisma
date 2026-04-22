@@ -505,6 +505,7 @@ model BrandConfig {
   primaryColor    String?  @default("#1e40af")
   supportPhone    String?  // Nomor WhatsApp support
   supportMessage  String?  // Teks pembukaan CTA WhatsApp
+  geminiApiKey    String?  // Kunci API untuk fitur Generate Artikel AI
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -541,6 +542,8 @@ model LearnDocument {
   emoji       String?  @default("📄")
   targetRole  String   @default("AGENT") // AGENT | TENANT | ALL
   isPublished Boolean  @default(false)
+  isPublic    Boolean  @default(false)
+  version     Int      @default(1)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

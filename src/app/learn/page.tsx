@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { renderMarkdown } from "@/lib/markdown";
 
@@ -12,6 +13,8 @@ interface Doc {
   excerpt: string | null;
   emoji: string | null;
   targetRole: string;
+  isPublic: boolean;
+  version: number;
   createdAt: string;
 }
 
@@ -20,14 +23,24 @@ export default function LearnPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Doc | null>(null);
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     fetch("/api/learn")
       .then((r) => r.json())
       .then((data) => {
-        setDocs(Array.isArray(data) ? data : []);
+        const docsArray = Array.isArray(data) ? data : [];
+        setDocs(docsArray);
         setLoading(false);
+
+        // Auto-select if slug matches
+        const s = searchParams.get("s");
+        if (s) {
+          const doc = docsArray.find((d: Doc) => d.slug === s);
+          if (doc) setSelected(doc);
+        }
       });
-  }, []);
+  }, [searchParams]);
 
   return (
     <DashboardLayout title={selected ? selected.title : "Pusat Belajar"}>
@@ -57,7 +70,7 @@ export default function LearnPage() {
                 </p>
               )}
               <p style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "10px" }}>
-                Diperbarui: {new Date(selected.createdAt).toLocaleDateString("id-ID", {
+                Versi {selected.version || 1} &nbsp;·&nbsp; Diperbarui: {new Date(selected.createdAt).toLocaleDateString("id-ID", {
                   day: "numeric", month: "long", year: "numeric"
                 })}
               </p>
@@ -66,6 +79,34 @@ export default function LearnPage() {
               className="markdown-body"
               dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.content) }}
             />
+
+            {/* ── PUBLIC FOOTNOTE ── */}
+            {selected.isPublic && (
+              <div style={{
+                marginTop: "48px",
+                padding: "32px",
+                background: "hsl(var(--primary) / 0.05)",
+                border: "1px dashed hsl(var(--primary) / 0.3)",
+                borderRadius: "24px",
+                textAlign: "center",
+              }}>
+                <div style={{ fontSize: "32px", marginBottom: "12px" }}>🚀</div>
+                <h3 style={{ fontWeight: 800, fontSize: "20px", marginBottom: "8px", color: "hsl(var(--text-primary))" }}>
+                  Mau Kelola Toko Secerdas Ini?
+                </h3>
+                <p style={{ fontSize: "15px", color: "hsl(var(--text-secondary))", marginBottom: "20px", lineHeight: 1.6 }}>
+                  Gunakan **MbaKasir** untuk automasi stok, laporan untung, dan kasir yang anti-ribet. 
+                  Mari majukan UMKM bareng-bareng!
+                </p>
+                <a 
+                  href="/" 
+                  className="btn btn-primary"
+                  style={{ textDecoration: "none", display: "inline-block", padding: "12px 24px" }}
+                >
+                  Coba MbaKasir Gratis Sekarang!
+                </a>
+              </div>
+            )}
           </div>
         </div>
       ) : (

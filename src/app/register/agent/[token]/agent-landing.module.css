@@ -1,0 +1,123 @@
+.pageWrap {
+  min-height: 100vh;
+  background-color: hsl(var(--bg));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.container {
+  max-width: 1100px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .container {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
+
+.leftColumn {
+  display: flex;
+  flex-direction: column;
+}
+
+.badge {
+  display: inline-block;
+  padding: 6px 12px;
+  background-color: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.title {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: hsl(var(--text-primary));
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+}
+
+@media (max-width: 600px) {
+  .title {
+    font-size: 28px;
+  }
+}
+
+.subtitle {
+  font-size: 16px;
+  color: hsl(var(--text-secondary));
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.featureItem {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.featureIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background-color: hsl(var(--bg-elevated));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  border: 1px solid hsl(var(--border));
+}
+
+.featureTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: hsl(var(--text-primary));
+  margin-bottom: 4px;
+}
+
+.featureDesc {
+  font-size: 14px;
+  color: hsl(var(--text-secondary));
+  line-height: 1.5;
+}
+
+.demoSection {
+  background-color: hsl(var(--bg-elevated));
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px dashed hsl(var(--primary) / 0.3);
+}
+
+.rightColumn {
+  position: relative;
+}
+
+.formCard {
+  padding: 32px;
+  background-color: hsl(var(--bg-card));
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+  border: 1px solid hsl(var(--border));
+}
+
+.inputBg {
+  background-color: hsl(var(--bg-elevated));
+}

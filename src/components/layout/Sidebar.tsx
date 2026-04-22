@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import BrandBadge from "@/components/brand/BrandBadge";
 import { useAuth, useTheme } from "@/contexts/AppProviders";
 import { useBrand } from "@/contexts/BrandContext";
 
@@ -138,12 +139,13 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { theme, mode, toggleTheme, toggleMode } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const brand = useBrand();
 
   const visibleNav = ALL_NAV.filter(
     (item) => user && item.roles.includes(user.role)
   );
+  const settingsLabel = user?.role === "CASHIER" ? "PIN & Password" : "Pengaturan";
 
   const roleLabel: Record<string, string> = {
     SUPERADMIN: "Super Admin",
@@ -173,31 +175,15 @@ export default function Sidebar({
             overflow: "hidden",
           }}
         >
-          {/* Logo icon or image */}
-          {brand?.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={brand.logoUrl}
-              alt={brand.appName}
-              style={{ width: "32px", height: "32px", objectFit: "contain", borderRadius: "8px", flexShrink: 0 }}
-            />
-          ) : (
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                background: "var(--gradient-primary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "18px",
-                flexShrink: 0,
-              }}
-            >
-              💳
-            </div>
-          )}
+          <BrandBadge
+            logoUrl={brand?.logoUrl}
+            alt={brand?.appName ?? "MbaKasir"}
+            size={32}
+            style={{
+              borderRadius: "10px",
+              boxShadow: "none",
+            }}
+          />
           {!isCollapsed && (
             <div style={{ overflow: "hidden" }}>
               <div
@@ -348,11 +334,11 @@ export default function Sidebar({
           <Link
             href="/settings"
             className={`nav-item${pathname === "/settings" ? " active" : ""}`}
-            title={isCollapsed ? "Pengaturan" : undefined}
+            title={isCollapsed ? settingsLabel : undefined}
             style={isCollapsed ? { justifyContent: "center", padding: "10px" } : {}}
           >
             {Icon.settings}
-            {!isCollapsed && <span>Pengaturan</span>}
+            {!isCollapsed && <span>{settingsLabel}</span>}
           </Link>
 
           {/* Logout */}

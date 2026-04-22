@@ -1,18 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import styles from "../landing.module.css"; // Reuse general marketing styles
-import agentStyles from "./agent.module.css";
-import AgentCalculator from "./calculator";
+import BrandBadge from "@/components/brand/BrandBadge";
+import { getBrandConfig } from "@/lib/brand-config";
+import styles from "../../landing.module.css"; // Reuse general marketing styles
+import agentStyles from "../agent.module.css";
+import AgentCalculator from "../calculator";
 
 export const metadata: Metadata = {
   title: "Program Kemitraan Agen | MbaKasir",
   description: "Jadilah Agen MbaKasir di kota Anda. Nikmati recurring income dengan margin profit hingga 90% dari UMKM yang Anda kelola.",
 };
 
-const waLink =
-  "https://wa.me/6281234567890?text=Halo%20Mba%2C%20saya%20tertarik%20bergabung%20menjadi%20Agen%20MbaKasir%21";
+type Props = {
+  params: Promise<{ token: string }>;
+};
 
-export default function AgentLandingPage() {
+export default async function AgentLandingPage({ params }: Props) {
+  const [{ token }, brand] = await Promise.all([params, getBrandConfig()]);
+  const registerLink = `/register/agent/${token}`;
+
   return (
     <main className={styles.page}>
       {/* ── DECORATIVE BG ── */}
@@ -26,15 +32,9 @@ export default function AgentLandingPage() {
       <header className={styles.header}>
         <div className={styles.headerShell}>
           <Link href="/" className={styles.brand}>
-            <div className={styles.brandMark} aria-hidden="true">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-            </div>
+            <BrandBadge logoUrl={brand.logoUrl} alt={brand.appName} size={44} />
             <div>
-              <span className={styles.brandName}>MbaKasir</span>
+              <span className={styles.brandName}>{brand.appName}</span>
               <span className={styles.brandSub}>Partner Kemitraan</span>
             </div>
           </Link>
@@ -63,14 +63,12 @@ export default function AgentLandingPage() {
           </p>
 
           <div className={styles.heroActions} style={{ justifyContent: "center" }}>
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href={registerLink}
               className={`btn btn-accent btn-lg ${styles.heroCta}`}
             >
               Daftar Jadi Agen Sekarang
-            </a>
+            </Link>
             <a href="#kalkulator" className="btn btn-ghost btn-lg">
               Simulasi Keuntungan ↓
             </a>
@@ -121,7 +119,7 @@ export default function AgentLandingPage() {
             <article className={styles.featureCard}>
               <div className={styles.featureEmoji}>🤝</div>
               <h3 className={styles.featureTitle}>Aplikasi Tahan Banting</h3>
-              <p className={styles.featureDesc}>Berkat teknologi Offline-First, minim keluhan "Aplikasi Lemot" / "Server Down". Anda tenang, pelanggan pun senang.</p>
+              <p className={styles.featureDesc}>Berkat teknologi Offline-First, minim keluhan &quot;Aplikasi Lemot&quot; / &quot;Server Down&quot;. Anda tenang, pelanggan pun senang.</p>
             </article>
             <article className={styles.featureCard}>
               <div className={styles.featureEmoji}>🚀</div>
@@ -144,14 +142,12 @@ export default function AgentLandingPage() {
           <p className={styles.ctaBannerDesc}>
             Amankan area Anda sekarang sebelum direbut agen lain. Hubungi kami untuk kesepakatan dan akses <strong>Dashboard Agen Spesial</strong>.
           </p>
-          <a
-            href={waLink}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href={registerLink}
             className={`btn btn-accent btn-xl ${styles.ctaBannerBtn}`}
           >
-            Hubungi Mba Sekarang 🚀
-          </a>
+            Daftar Menjadi Mitra 🚀
+          </Link>
         </div>
       </section>
       
@@ -161,20 +157,14 @@ export default function AgentLandingPage() {
       <footer className={styles.footer}>
         <div className={styles.footerShell}>
           <div className={styles.footerBrand}>
-            <div className={styles.footerMark} aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-            </div>
+            <BrandBadge logoUrl={brand.logoUrl} alt={brand.appName} size={40} />
             <div>
-              <p className={styles.footerBrandName}>MbaKasir Partner</p>
+              <p className={styles.footerBrandName}>{brand.appName} Partner</p>
               <p className={styles.footerTagline}>Menyediakan solusi digital untuk memanusiakan UMKM.</p>
             </div>
           </div>
           <p className={styles.footerCopy}>
-            © {new Date().getFullYear()} MbaKasir Partner Program. All rights reserved.
+            © {new Date().getFullYear()} {brand.appName} Partner Program. All rights reserved.
           </p>
         </div>
       </footer>

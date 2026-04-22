@@ -6,8 +6,13 @@ import { getBrandConfig } from "@/lib/brand-config";
 import { BrandProvider } from "@/contexts/BrandContext";
 import GlobalWidgets from "@/components/global/GlobalWidgets";
 
+function isAppleIconCandidate(url: string | null): boolean {
+  return Boolean(url && /\.(png|jpe?g)$/i.test(url));
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandConfig();
+  const iconUrl = brand.faviconUrl ?? "/icon.svg";
 
   return {
     title: {
@@ -18,18 +23,16 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: ["POS", "kasir", "UMKM", "ERP", "Indonesia", "offline", "local-first"],
     authors: [{ name: brand.appName }],
     manifest: "/manifest.json",
-    icons: brand.faviconUrl
-      ? {
-          icon: brand.faviconUrl,
-          shortcut: brand.faviconUrl,
-          apple: brand.faviconUrl,
-        }
-      : undefined,
+    icons: {
+      icon: iconUrl,
+      shortcut: iconUrl,
+      apple: isAppleIconCandidate(brand.faviconUrl) ? brand.faviconUrl! : "/apple-icon.png",
+    },
   };
 }
 
 export const viewport: Viewport = {
-  themeColor: "#1e40af",
+  themeColor: "#111111",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,   // Izinkan zoom manual, tapi jangan auto-zoom karena input
@@ -45,15 +48,6 @@ export default async function RootLayout({
 
   return (
     <html lang="id" suppressHydrationWarning>
-      <head>
-        {brand.faviconUrl && (
-          <>
-            <link rel="icon" href={brand.faviconUrl} />
-            <link rel="shortcut icon" href={brand.faviconUrl} />
-            <link rel="apple-touch-icon" href={brand.faviconUrl} />
-          </>
-        )}
-      </head>
       <body>
         <BrandProvider brand={{
           appName: brand.appName,

@@ -4,15 +4,17 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session?.role;
 
-  const role = session.role;
   const docs = await prisma.learnDocument.findMany({
     where: {
       isPublished: true,
       OR: [
-        { targetRole: "ALL" },
-        { targetRole: role },
+        { isPublic: true },
+        ...(role ? [
+          { targetRole: "ALL" },
+          { targetRole: role },
+        ] : []),
       ],
     },
     select: {

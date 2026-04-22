@@ -61,7 +61,7 @@ export function renderMarkdown(md: string): string {
   );
 
   // Paragraphs — split by double newline, wrap non-block lines
-  const blocks = html.split(/\n{2,}/);
+  const blocks = html.split(/\r?\n\r?\n+/);
   html = blocks
     .map((block) => {
       const trimmed = block.trim();

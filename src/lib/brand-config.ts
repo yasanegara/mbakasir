@@ -10,6 +10,7 @@ export interface BrandConfigSnapshot {
   primaryColor: string | null;
   supportPhone: string | null;
   supportMessage: string | null;
+  geminiApiKey: string | null;
 }
 
 const LEGACY_TAGLINE = "Kasir Cerdas untuk UMKM Indonesia";
@@ -20,11 +21,12 @@ const DEFAULT_BRAND: BrandConfigSnapshot = {
   tagline: DEFAULT_TAGLINE,
   metaDescription:
     "SaaS POS & ERP Mikro dengan arsitektur Local-First. Toko bisa jualan tanpa internet, data sync otomatis ke cloud.",
-  logoUrl: null,
-  faviconUrl: null,
-  primaryColor: "#1e40af",
+  logoUrl: "/brand/mbakasir-logo.svg",
+  faviconUrl: "/icon.svg",
+  primaryColor: "#111111",
   supportPhone: "6281234567890",
   supportMessage: "Halo MbaKasir, saya butuh bantuan",
+  geminiApiKey: null,
 };
 
 function normalizeTagline(tagline: string | null): string | null {
@@ -48,11 +50,12 @@ export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
       tagline: normalizeTagline(config.tagline) ?? DEFAULT_BRAND.tagline,
       metaDescription:
         config.metaDescription ?? DEFAULT_BRAND.metaDescription,
-      logoUrl: config.logoUrl ?? null,
-      faviconUrl: config.faviconUrl ?? null,
+      logoUrl: config.logoUrl ?? DEFAULT_BRAND.logoUrl,
+      faviconUrl: config.faviconUrl ?? DEFAULT_BRAND.faviconUrl,
       primaryColor: config.primaryColor ?? DEFAULT_BRAND.primaryColor,
       supportPhone: config.supportPhone ?? DEFAULT_BRAND.supportPhone,
       supportMessage: config.supportMessage ?? DEFAULT_BRAND.supportMessage,
+      geminiApiKey: config.geminiApiKey ?? null,
     };
   } catch {
     return DEFAULT_BRAND;
@@ -73,6 +76,7 @@ export async function upsertBrandConfig(
       primaryColor: data.primaryColor,
       supportPhone: data.supportPhone,
       supportMessage: data.supportMessage,
+      geminiApiKey: data.geminiApiKey,
     },
     create: {
       id: "default",
@@ -85,6 +89,7 @@ export async function upsertBrandConfig(
       primaryColor: data.primaryColor ?? DEFAULT_BRAND.primaryColor,
       supportPhone: data.supportPhone ?? DEFAULT_BRAND.supportPhone,
       supportMessage: data.supportMessage ?? DEFAULT_BRAND.supportMessage,
+      geminiApiKey: data.geminiApiKey ?? null,
     },
   });
 
@@ -92,10 +97,11 @@ export async function upsertBrandConfig(
     appName: config.appName,
     tagline: config.tagline,
     metaDescription: config.metaDescription,
-    logoUrl: config.logoUrl,
-    faviconUrl: config.faviconUrl,
-    primaryColor: config.primaryColor,
-    supportPhone: config.supportPhone,
-    supportMessage: config.supportMessage,
+    logoUrl: config.logoUrl ?? DEFAULT_BRAND.logoUrl,
+    faviconUrl: config.faviconUrl ?? DEFAULT_BRAND.faviconUrl,
+    primaryColor: config.primaryColor ?? DEFAULT_BRAND.primaryColor,
+    supportPhone: config.supportPhone ?? DEFAULT_BRAND.supportPhone,
+    supportMessage: config.supportMessage ?? DEFAULT_BRAND.supportMessage,
+    geminiApiKey: config.geminiApiKey,
   };
 }

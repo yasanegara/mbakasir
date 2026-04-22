@@ -1,6 +1,7 @@
-import type { CSSProperties } from "react";
 import Link from "next/link";
+import BrandBadge from "@/components/brand/BrandBadge";
 import { getSession } from "@/lib/auth";
+import { getBrandConfig } from "@/lib/brand-config";
 import styles from "./landing.module.css";
 import FaqAccordion from "./landing/FaqAccordion";
 
@@ -76,9 +77,8 @@ const features = [
 // ─── SERVER PAGE ─────────────────────────────────────────────────────────────
 
 export default async function IndexPage() {
-  const session = await getSession();
+  const [session, brand] = await Promise.all([getSession(), getBrandConfig()]);
   const isAuthenticated = Boolean(session);
-  const dashboardHref = isAuthenticated ? "/dashboard" : "/login";
 
   const waLink =
     "https://wa.me/6281234567890?text=Halo%20Mba%2C%20saya%20mau%20aktivasi%20MbaKasir%20dengan%20promo%20750rb%2Ftahun%21";
@@ -96,16 +96,10 @@ export default async function IndexPage() {
       <header className={styles.header}>
         <div className={styles.headerShell}>
           <Link href="/" className={styles.brand}>
-            <div className={styles.brandMark} aria-hidden="true">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-            </div>
+            <BrandBadge logoUrl={brand.logoUrl} alt={brand.appName} size={44} />
             <div>
-              <span className={styles.brandName}>MbaKasir</span>
-              <span className={styles.brandSub}>Intelligence Pro</span>
+              <span className={styles.brandName}>{brand.appName}</span>
+              <span className={styles.brandSub}>{brand.tagline ?? "Teman UMKM Indonesia"}</span>
             </div>
           </Link>
 
@@ -437,15 +431,14 @@ export default async function IndexPage() {
       <footer className={styles.footer}>
         <div className={styles.footerShell}>
           <div className={styles.footerBrand}>
-            <div className={styles.footerMark} aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-            </div>
+            <BrandBadge
+              logoUrl={brand.logoUrl}
+              alt={brand.appName}
+              size={40}
+              style={{ boxShadow: "0 10px 22px rgba(17, 17, 17, 0.12)" }}
+            />
             <div>
-              <p className={styles.footerBrandName}>MbaKasir Intelligence Pro</p>
+              <p className={styles.footerBrandName}>{brand.appName}</p>
               <p className={styles.footerTagline}>Dibuat dengan dedikasi untuk kemajuan UMKM Lokal. 🧡</p>
             </div>
           </div>
@@ -466,7 +459,7 @@ export default async function IndexPage() {
           </div>
 
           <p className={styles.footerCopy}>
-            © {new Date().getFullYear()} MbaKasir Intelligence Pro. All rights reserved.
+            © {new Date().getFullYear()} {brand.appName}. All rights reserved.
           </p>
         </div>
       </footer>

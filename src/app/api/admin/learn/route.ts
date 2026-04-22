@@ -3,12 +3,12 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 function slug(title: string) {
-  return title
+  const s = title
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, "")
     .trim()
-    .replace(/\s+/g, "-")
-    .slice(0, 80);
+    .replace(/\s+/g, "-");
+  return s ? `mba-${s}`.slice(0, 80) : "mba-article";
 }
 
 export async function GET() {
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
-  const { title, content, excerpt, emoji, targetRole, isPublished, sortOrder } = body;
+  const { title, content, excerpt, emoji, targetRole, isPublished, sortOrder, isPublic } = body;
   if (!title || !content) {
     return NextResponse.json({ error: "title dan content wajib diisi" }, { status: 400 });
   }
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       emoji: emoji || "📄",
       targetRole: targetRole || "AGENT",
       isPublished: isPublished ?? false,
+      isPublic: isPublic ?? false,
       sortOrder: sortOrder ?? 0,
     },
   });

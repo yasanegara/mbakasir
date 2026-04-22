@@ -402,6 +402,25 @@ export default function BrandConfigClient({
             style={{ resize: "vertical" }}
           />
         </div>
+
+        <div style={{ gridColumn: "1 / -1" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+             <label className="input-label" htmlFor="brand-ai-key" style={{ marginBottom: 0 }}>Gemini API Key</label>
+             <span style={{ fontSize: "10px", background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>AI FEATURE</span>
+          </div>
+          <input
+            id="brand-ai-key"
+            type="password"
+            className="input-field"
+            value={config.geminiApiKey ?? ""}
+            onChange={(e) => update("geminiApiKey", e.target.value || null)}
+            placeholder="Masukkan API Key dari Google AI Studio..."
+            style={{ fontFamily: config.geminiApiKey ? "monospace" : "inherit" }}
+          />
+          <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "4px", display: "block" }}>
+            Dapatkan kunci gratis di <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" style={{ color: "hsl(var(--primary))", fontWeight: 600 }}>Google AI Studio</a>. Kunci ini digunakan untuk fitur "MbaKasir AI Writer".
+          </span>
+        </div>
       </div>
 
       {/* Upload widgets */}

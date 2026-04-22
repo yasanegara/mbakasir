@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import BrandBadge from "@/components/brand/BrandBadge";
 import { useAuth, useToast } from "@/contexts/AppProviders";
+import { useBrand } from "@/contexts/BrandContext";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -11,6 +13,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { refetch } = useAuth();
   const { toast } = useToast();
+  const brand = useBrand();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,9 +46,6 @@ export default function LoginPage() {
     if (role === "owner") {
       setEmail("owner@demo.id");
       setPassword("Owner@Demo2026!");
-    } else if (role === "agent") {
-      setEmail("agen.demo@mbakasir.id");
-      setPassword("Agent@Demo2026!");
     } else {
       setEmail("kasir@demo.id");
       setPassword("Kasir@1234!");
@@ -67,22 +67,12 @@ export default function LoginPage() {
     }}>
       <div className="card" style={{ width: "100%", maxWidth: "400px" }}>
         <div style={{ textAlign: "center", marginBottom: "30px" }}>
-          <div style={{
-            width: "48px",
-            height: "48px",
-            borderRadius: "12px",
-            background: "var(--gradient-primary)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "24px",
-            margin: "0 auto 16px"
-          }}>
-            💳
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
+            <BrandBadge logoUrl={brand.logoUrl} alt={brand.appName} size={56} />
           </div>
-          <h1 style={{ fontSize: "24px" }}>MbaKasir</h1>
+          <h1 style={{ fontSize: "24px" }}>{brand.appName}</h1>
           <p style={{ color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
-            Teman UMKM Indonesia — Login
+            {brand.tagline ?? "Teman UMKM Indonesia"} — Login
           </p>
         </div>
 
@@ -145,20 +135,11 @@ export default function LoginPage() {
              <button 
                type="button" 
                className="btn btn-ghost btn-block" 
-               onClick={() => handleDemoLogin("kasir")}
+               onClick={() => handleDemoLogin("Kasir")}
                disabled={isLoading}
                style={{ justifyContent: "center", borderStyle: "dashed" }}
              >
                🛒 Gunakan Demo Kasir
-             </button>
-             <button 
-               type="button" 
-               className="btn btn-ghost btn-block" 
-               onClick={() => handleDemoLogin("agent")}
-               disabled={isLoading}
-               style={{ justifyContent: "center", borderStyle: "solid", marginTop: "8px" }}
-             >
-               💼 Gunakan Demo Mitra (Agent)
              </button>
            </div>
         </div>

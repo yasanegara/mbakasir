@@ -958,3 +958,90 @@ h1, h2, h3, h4, h5, h6 {
     display: none !important;
   }
 }
+
+/* ─── MARKDOWN CONTENT STYLING ───────────────────────────────── */
+
+.markdown-body {
+  line-height: 1.7;
+  font-size: 15px;
+  color: hsl(var(--text-primary));
+}
+
+.markdown-body p {
+  margin-bottom: 1.5rem !important;
+  display: block;
+}
+
+.markdown-body h1, 
+.markdown-body h2, 
+.markdown-body h3 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 800;
+}
+
+.markdown-body h1:first-child,
+.markdown-body h2:first-child,
+.markdown-body h3:first-child {
+  margin-top: 0;
+}
+
+.markdown-body ul, 
+.markdown-body ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-body li {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-body blockquote {
+  border-left: 4px solid hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+  padding: 12px 20px;
+  margin: 1.5rem 0;
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  color: hsl(var(--text-secondary));
+}
+
+.markdown-body pre {
+  background: hsl(var(--bg-elevated));
+  border: 1px solid hsl(var(--border));
+  padding: 16px;
+  border-radius: 12px;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  font-family: monospace;
+}
+
+.markdown-body code {
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: monospace;
+}
+
+.markdown-body pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 2rem 0;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin: 1.5rem 0;
+  box-shadow: var(--shadow-md);
+}

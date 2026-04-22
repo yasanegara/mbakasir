@@ -1,21 +1,16 @@
 import { redirect } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import PosTerminalManager from "@/components/settings/PosTerminalManager";
 import AgentSettingsClient from "@/components/settings/AgentSettingsClient";
 import AgentVoucherManager from "@/components/settings/AgentVoucherManager";
 import TokenSettingsClient from "@/components/settings/TokenSettingsClient";
 import AgentPackageManager from "@/components/admin/AgentPackageManager";
 import BrandConfigClient from "@/components/admin/BrandConfigClient";
 import StoreProfileClient from "@/components/settings/StoreProfileClient";
+import CashierCredentialsClient from "@/components/settings/CashierCredentialsClient";
 import { getSession } from "@/lib/auth";
 import { ensureDefaultPosTerminal } from "@/lib/pos-terminals";
 import { prisma } from "@/lib/prisma";
 import { ensureTokenConfig } from "@/lib/token-settings";
-import {
-  calculateTokenCostForQuantity,
-  formatTokenConversion,
-  getTokenConversion,
-} from "@/lib/token-settings-shared";
 import { formatRupiahFull } from "@/lib/utils";
 import { getBrandConfig } from "@/lib/brand-config";
 
@@ -110,6 +105,34 @@ export default async function SettingsPage() {
           />
           <AgentVoucherManager />
         </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (session.role === "CASHIER" && session.tenantId) {
+    const cashier = await prisma.user.findFirst({
+      where: {
+        id: session.sub,
+        tenantId: session.tenantId,
+        role: "CASHIER",
+        isActive: true,
+      },
+      select: {
+        name: true,
+        pin: true,
+      },
+    });
+
+    if (!cashier) {
+      redirect("/login");
+    }
+
+    return (
+      <DashboardLayout title="PIN & Password">
+        <CashierCredentialsClient
+          cashierName={cashier.name}
+          hasPin={Boolean(cashier.pin)}
+        />
       </DashboardLayout>
     );
   }

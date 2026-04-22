@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import crypto from "crypto";
+import { randomBytes } from "node:crypto";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -11,8 +13,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const links = await prisma.agentRegistrationLink.findMany({
-      where: { superAdminId: session.sub },
       orderBy: { createdAt: "desc" },
+      include: {
+        superAdmin: {
+          select: { name: true, email: true }
+        }
+      }
     });
     return Response.json({ links });
   } catch (err) {
@@ -29,9 +35,9 @@ export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
     let token = data.customSlug || "";
-    
+
     if (!token) {
-      token = crypto.randomBytes(8).toString("hex");
+      token = randomBytes(8).toString("hex");
     }
 
     // Cek apakah custom slug ini sudah ada

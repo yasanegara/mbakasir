@@ -13,6 +13,8 @@ interface Doc {
   emoji: string | null;
   targetRole: string;
   isPublished: boolean;
+  isPublic: boolean;
+  version: number;
   sortOrder: number;
   createdAt: string;
 }
@@ -24,7 +26,9 @@ const EMPTY_FORM = {
   emoji: "📄",
   targetRole: "AGENT",
   isPublished: false,
+  isPublic: false,
   sortOrder: 0,
+  slug: "",
 };
 
 const TEMPLATE_MARKDOWN = `# Judul Artikel
@@ -64,6 +68,9 @@ export default function LearnAdminClient() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiInstruction, setAiInstruction] = useState("");
   const [tab, setTab] = useState<"list" | "editor">("list");
   const [previewMode, setPreviewMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -95,8 +102,10 @@ export default function LearnAdminClient() {
       excerpt: doc.excerpt || "",
       emoji: doc.emoji || "📄",
       targetRole: doc.targetRole,
-      isPublished: doc.isPublished,
-      sortOrder: doc.sortOrder,
+      isPublished: doc.isPublished ?? false,
+      isPublic: doc.isPublic ?? false,
+      sortOrder: doc.sortOrder ?? 0,
+      slug: doc.slug ?? "",
     });
     setTab("editor");
     setPreviewMode(false);
@@ -185,10 +194,48 @@ export default function LearnAdminClient() {
     }, 10);
   };
 
+  const handleAiGenerate = async () => {
+    if (!form.title.trim()) {
+      toast("Isi judul dulu ya Bos biar Mba tau mau nulis apa!", "error");
+      return;
+    }
+    
+    setIsGenerating(true);
+    try {
+      const res = await fetch("/api/admin/learn/generate", {
+        method: "POST",
+        body: JSON.stringify({ title: form.title, instruction: aiInstruction }),
+      });
+      const data = await res.json();
+      
+      if (data.error) throw new Error(data.error);
+      
+      setForm(f => ({ ...f, content: data.content }));
+      setShowAiModal(false);
+      setAiInstruction("");
+      toast("Boom! Artikel sudah Mba tuliskan. Cek di editor ya!", "success");
+    } catch (err: any) {
+      toast(err.message || "Gagal generate artikel", "error");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const roleColor: Record<string, string> = {
     AGENT: "hsl(var(--primary))",
     TENANT: "hsl(var(--success))",
-    ALL: "hsl(var(--warning))",
+     ALL: "hsl(var(--warning))",
+  };
+  
+  const slugify = (text: string) => {
+    const s = text.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+    return s ? `mba-${s}`.slice(0, 80) : "";
+  };
+
+  const copyLink = (slug: string) => {
+    const url = `${window.location.origin}/learn?s=${slug}`;
+    navigator.clipboard.writeText(url);
+    toast("Link artikel disalin!", "success");
   };
 
   return (
@@ -245,8 +292,8 @@ export default function LearnAdminClient() {
                   <span style={{ fontSize: "28px", flexShrink: 0 }}>{doc.emoji}</span>
                   <div style={{ flex: 1, minWidth: "200px" }}>
                     <div style={{ fontWeight: 700, fontSize: "15px" }}>{doc.title}</div>
-                    <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "2px" }}>
-                      /{doc.slug}
+                     <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "2px", fontWeight: 500, fontFamily: "monospace" }}>
+                      v{doc.version || 1} &nbsp;·&nbsp; /{doc.slug}
                     </div>
                     {doc.excerpt && (
                       <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginTop: "4px", lineHeight: 1.4 }}>
@@ -261,11 +308,17 @@ export default function LearnAdminClient() {
                         {doc.targetRole}
                       </span>
                       <span className={doc.isPublished ? "badge badge-success" : "badge"} style={{ fontSize: "11px" }}>
-                        {doc.isPublished ? "✅ Publik" : "⚫ Draft"}
+                        {doc.isPublished ? "✅ Publikasi" : "⚫ Draft"}
                       </span>
+                      {doc.isPublic && (
+                        <span className="badge badge-info" style={{ fontSize: "11px" }}>
+                          🌍 Eksternal
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                    <button className="btn btn-sm btn-ghost" onClick={() => copyLink(doc.slug)}>🔗 Copy Link</button>
                     <button 
                       className={`btn btn-sm ${doc.isPublished ? "btn-ghost" : "btn-primary"}`} 
                       onClick={() => togglePublish(doc)}
@@ -297,7 +350,14 @@ export default function LearnAdminClient() {
                   className="input-field"
                   placeholder="Judul dokumen..."
                   value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm((f) => ({ 
+                      ...f, 
+                      title: val,
+                      slug: (!f.slug || f.slug === slugify(f.title)) ? slugify(val) : f.slug
+                    }));
+                  }}
                 />
               </div>
               <div>
@@ -309,6 +369,30 @@ export default function LearnAdminClient() {
                   onChange={(e) => setForm((f) => ({ ...f, emoji: e.target.value }))}
                   style={{ width: "80px" }}
                 />
+              </div>
+              <div style={{ flex: 1, display: "flex", alignItems: "flex-end", paddingBottom: "4px" }}>
+                <button 
+                  className="btn btn-ghost"
+                  style={{ color: "hsl(var(--primary))", fontWeight: 700, fontSize: "13px", gap: "8px" }}
+                  onClick={() => setShowAiModal(true)}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? "⏳ Sedang Menulis..." : "✨ Tulis Pakai MbaKasir AI"}
+                </button>
+              </div>
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>
+                  Kode Link (Slug)
+                </label>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "13px", color: "hsl(var(--text-muted))" }}>/</span>
+                  <input
+                    className="input-field"
+                    placeholder="kode-artikel-ini"
+                    value={form.slug}
+                    onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") }))}
+                  />
+                </div>
               </div>
               <div>
                 <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Target Pembaca</label>
@@ -341,7 +425,7 @@ export default function LearnAdminClient() {
                 onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
               />
             </div>
-            <div style={{ marginTop: "16px", display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
               <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>
                 <input
                   type="checkbox"
@@ -349,6 +433,14 @@ export default function LearnAdminClient() {
                   onChange={(e) => setForm((f) => ({ ...f, isPublished: e.target.checked }))}
                 />
                 Langsung Publikasikan
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", fontWeight: 600, color: "hsl(var(--info))" }}>
+                <input
+                  type="checkbox"
+                  checked={form.isPublic}
+                  onChange={(e) => setForm((f) => ({ ...f, isPublic: e.target.checked }))}
+                />
+                🌍 Izinkan Share Luar (Akses Publik)
               </label>
             </div>
           </div>
@@ -462,6 +554,56 @@ export default function LearnAdminClient() {
             <button className="btn btn-primary" disabled={saving} onClick={handleSave}>
               {saving ? "Menyimpan..." : editId ? "💾 Simpan Perubahan" : "✅ Simpan Dokumen"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI PROMPT MODAL ── */}
+      {showAiModal && (
+        <div 
+          className="modal-overlay" 
+          style={{ 
+            zIndex: 1000,
+            position: "fixed",
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px"
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAiModal(false); }}
+        >
+          <div className="card animate-scale-in" style={{ width: "100%", maxWidth: "450px", padding: "32px", background: "hsl(var(--bg-card))", boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontSize: "40px", marginBottom: "16px", textAlign: "center" }}>✨</div>
+            <h2 style={{ textAlign: "center", marginBottom: "8px", fontWeight: 800 }}>MbaKasir AI Writer</h2>
+            <p style={{ textAlign: "center", fontSize: "14px", color: "hsl(var(--text-secondary))", marginBottom: "24px" }}>
+              Mba bakal bantu tulis draf artikel buat Bos. Mau bahas apa spesifiknya?
+            </p>
+            
+            <div style={{ marginBottom: "24px" }}>
+              <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "8px" }}>Instruksi Khusus (Opsional)</label>
+              <textarea
+                className="input-field"
+                placeholder="Contoh: Buat panduan singkat 5 langkah, pakai bahasa yang sangat ceria..."
+                style={{ minHeight: "100px", padding: "12px", fontSize: "14px" }}
+                value={aiInstruction}
+                onChange={(e) => setAiInstruction(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowAiModal(false)}>Batal</button>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 2 }}
+                onClick={handleAiGenerate}
+                disabled={isGenerating}
+              >
+                {isGenerating ? "⏳ Menulis..." : "Mulai Menulis"}
+              </button>
+            </div>
           </div>
         </div>
       )}
