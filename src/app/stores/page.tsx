@@ -9,7 +9,10 @@ import {
   formatTokenConversion,
   getTokenConversion,
 } from "@/lib/token-settings-shared";
-import { formatDateShort } from "@/lib/utils";
+import {
+  buildStoreRegistrationPath,
+  buildStoreTrackingPath,
+} from "@/lib/store-registration-shared";
 import TenantListClient from "./TenantListClient";
 
 export const dynamic = "force-dynamic";
@@ -85,6 +88,10 @@ export default async function AgentStoresPage() {
       select: {
         id: true,
         token: true,
+        defaultLinkType: true,
+        pixelUrl: true,
+        clickCount: true,
+        lastClickedAt: true,
         useCount: true,
         createdAt: true,
         lastUsedAt: true,
@@ -281,7 +288,17 @@ export default async function AgentStoresPage() {
               ? {
                   id: activeRegistrationLink.id,
                   token: activeRegistrationLink.token,
-                  path: `/register/store/${activeRegistrationLink.token}`,
+                  path: buildStoreRegistrationPath(activeRegistrationLink.token),
+                  directPath: buildStoreTrackingPath(activeRegistrationLink.token, "DIRECT"),
+                  landingPath: buildStoreTrackingPath(activeRegistrationLink.token, "LANDING"),
+                  defaultLinkType:
+                    activeRegistrationLink.defaultLinkType === "LANDING"
+                      ? "LANDING"
+                      : "DIRECT",
+                  pixelUrl: activeRegistrationLink.pixelUrl,
+                  clickCount: activeRegistrationLink.clickCount,
+                  lastClickedAt:
+                    activeRegistrationLink.lastClickedAt?.toISOString() ?? null,
                   useCount: activeRegistrationLink.useCount,
                   createdAt: activeRegistrationLink.createdAt.toISOString(),
                   lastUsedAt:

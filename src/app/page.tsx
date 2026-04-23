@@ -1,7 +1,15 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import BrandBadge from "@/components/brand/BrandBadge";
 import { getSession } from "@/lib/auth";
 import { getBrandConfig } from "@/lib/brand-config";
+import { prisma } from "@/lib/prisma";
+import {
+  STORE_AFFILIATE_COOKIE,
+  buildStoreRegistrationHubPath,
+  isStoreRegistrationToken,
+  normalizeStoreRegistrationToken,
+} from "@/lib/store-registration-shared";
 import styles from "./landing.module.css";
 import FaqAccordion from "./landing/FaqAccordion";
 
@@ -74,17 +82,87 @@ const features = [
 ];
 
 
+type Props = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+function getSingleParam(
+  value: string | string[] | undefined
+): string | null {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && value.length > 0) return value[0] ?? null;
+  return null;
+}
+
 // ─── SERVER PAGE ─────────────────────────────────────────────────────────────
 
-export default async function IndexPage() {
-  const [session, brand] = await Promise.all([getSession(), getBrandConfig()]);
+export default async function IndexPage({ searchParams }: Props) {
+  const [session, brand, cookieStore, resolvedSearchParams] = await Promise.all([
+    getSession(),
+    getBrandConfig(),
+    cookies(),
+    searchParams,
+  ]);
   const isAuthenticated = Boolean(session);
+
+  const tokenFromQuery =
+    getSingleParam(resolvedSearchParams.aff) ??
+    getSingleParam(resolvedSearchParams.store) ??
+    getSingleParam(resolvedSearchParams.agent);
+  const tokenFromCookie = cookieStore.get(STORE_AFFILIATE_COOKIE)?.value ?? null;
+  const rawAffiliateToken = tokenFromQuery ?? tokenFromCookie;
+  const affiliateToken = rawAffiliateToken && isStoreRegistrationToken(rawAffiliateToken)
+    ? normalizeStoreRegistrationToken(rawAffiliateToken)
+    : null;
+
+  let referralPixelSrc: string | null = null;
+  if (tokenFromQuery && affiliateToken) {
+    const referralLink = await prisma.storeRegistrationLink.findUnique({
+      where: { token: affiliateToken },
+      select: {
+        pixelUrl: true,
+        isActive: true,
+        agent: {
+          select: {
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    if (referralLink?.isActive && referralLink.agent.isActive && referralLink.pixelUrl) {
+      try {
+        const pixelUrl = new URL(referralLink.pixelUrl);
+        pixelUrl.searchParams.set("event", "landing_view");
+        pixelUrl.searchParams.set("token", affiliateToken);
+        referralPixelSrc = pixelUrl.toString();
+      } catch {
+        referralPixelSrc = null;
+      }
+    }
+  }
 
   const waLink =
     "https://wa.me/6281234567890?text=Halo%20Mba%2C%20saya%20mau%20aktivasi%20MbaKasir%20dengan%20promo%20750rb%2Ftahun%21";
+  const affiliateRegisterHref = buildStoreRegistrationHubPath();
+  const campaignCtaHref = affiliateToken ? affiliateRegisterHref : waLink;
+  const campaignCtaTarget = affiliateToken ? undefined : "_blank";
+  const campaignCtaRel = affiliateToken ? undefined : "noopener noreferrer";
 
   return (
     <main className={styles.page}>
+      {referralPixelSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={referralPixelSrc}
+          alt=""
+          width={1}
+          height={1}
+          style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+          aria-hidden="true"
+        />
+      ) : null}
+
       {/* ── DECORATIVE BG ── */}
       <div className={styles.bgGlow1} aria-hidden="true" />
       <div className={styles.bgGlow2} aria-hidden="true" />
@@ -123,6 +201,31 @@ export default async function IndexPage() {
         </div>
       </header>
 
+      {affiliateToken ? (
+        <div
+          style={{
+            margin: "16px auto 0",
+            maxWidth: "1180px",
+            padding: "12px 16px",
+            borderRadius: "14px",
+            border: "1px solid hsl(var(--primary) / 0.35)",
+            background: "linear-gradient(90deg, hsl(var(--primary) / 0.14), hsl(var(--accent) / 0.12))",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ fontSize: "13px", color: "hsl(var(--text-primary))", fontWeight: 600 }}>
+            Anda masuk melalui link agen resmi. Pendaftaran toko akan otomatis tercatat sebagai afiliasi agen ini.
+          </div>
+          <Link href={affiliateRegisterHref} className="btn btn-primary btn-sm">
+            Daftar Toko Sekarang
+          </Link>
+        </div>
+      ) : null}
+
       {/* ══════════════════════════════════════════════════════════════════
           1. HERO SECTION
       ══════════════════════════════════════════════════════════════════ */}
@@ -145,18 +248,31 @@ export default async function IndexPage() {
           </p>
 
           <div className={styles.heroActions}>
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`btn btn-accent btn-lg ${styles.heroCta}`}
-              id="hero-primary-cta"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
-              </svg>
-              Aktifkan Toko Sekarang (Hanya 750rb/Tahun)
-            </a>
+            {affiliateToken ? (
+              <Link
+                href={affiliateRegisterHref}
+                className={`btn btn-accent btn-lg ${styles.heroCta}`}
+                id="hero-primary-cta"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Daftar Toko Sekarang
+              </Link>
+            ) : (
+              <a
+                href={waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`btn btn-accent btn-lg ${styles.heroCta}`}
+                id="hero-primary-cta"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
+                </svg>
+                Aktifkan Toko Sekarang (Hanya 750rb/Tahun)
+              </a>
+            )}
             <a href="#fitur" className={`btn btn-ghost btn-lg`} id="hero-secondary-cta">
               Lihat Fitur →
             </a>
@@ -327,9 +443,9 @@ export default async function IndexPage() {
               </ul>
 
               <a
-                href={waLink}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={campaignCtaHref}
+                target={campaignCtaTarget}
+                rel={campaignCtaRel}
                 className={`btn btn-ghost btn-xl ${styles.pricingCta}`}
                 id="pricing-monthly-btn"
                 style={{ border: "1px solid hsl(var(--primary)/0.4)" }}
@@ -370,9 +486,9 @@ export default async function IndexPage() {
               </ul>
 
               <a
-                href={waLink}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={campaignCtaHref}
+                target={campaignCtaTarget}
+                rel={campaignCtaRel}
                 className={`btn btn-accent btn-xl ${styles.pricingCta}`}
                 id="pricing-yearly-btn"
               >
@@ -414,13 +530,13 @@ export default async function IndexPage() {
             Bergabung dengan ratusan UMKM yang sudah sat-set jualan bersama MbaKasir. Mulai dari <strong>Rp 75.000/bulan</strong> atau hemat dengan paket <strong>Rp 749.000/tahun</strong> — mulai hari ini.
           </p>
           <a
-            href={waLink}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={campaignCtaHref}
+            target={campaignCtaTarget}
+            rel={campaignCtaRel}
             className={`btn btn-accent btn-xl ${styles.ctaBannerBtn}`}
             id="final-cta-btn"
           >
-            Aktifkan Toko Saya Sekarang 🚀
+            {affiliateToken ? "Daftar Toko Sekarang 🚀" : "Aktifkan Toko Saya Sekarang 🚀"}
           </a>
         </div>
       </section>
@@ -453,7 +569,7 @@ export default async function IndexPage() {
               Kontak Bantuan
             </a>
             <span className={styles.footerDot} aria-hidden="true">·</span>
-            <Link href="/register" className={styles.footerLink}>
+            <Link href="/register/store" className={styles.footerLink}>
               Daftar
             </Link>
           </div>

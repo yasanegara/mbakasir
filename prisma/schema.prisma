@@ -380,7 +380,11 @@ model StoreRegistrationLink {
   agentId       String
   agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
   token         String   @unique
+  defaultLinkType String @default("DIRECT") // DIRECT | LANDING
+  pixelUrl      String?  @db.Text // URL pixel/beacon optional untuk tracking campaign
   isActive      Boolean  @default(true)
+  clickCount    Int      @default(0)
+  lastClickedAt DateTime?
   useCount      Int      @default(0)
   lastUsedAt    DateTime?
   createdAt     DateTime @default(now())

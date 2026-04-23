@@ -1,11 +1,35 @@
 import { randomBytes } from "node:crypto";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { buildStoreRegistrationPath } from "@/lib/store-registration-shared";
+import {
+  buildStoreRegistrationPath,
+  buildStoreTrackingPath,
+  getStoreLinkKindFromQuery,
+} from "@/lib/store-registration-shared";
+
+function normalizePixelUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
 
 function serializeLink(link: {
   id: string;
   token: string;
+  defaultLinkType: string;
+  pixelUrl: string | null;
+  clickCount: number;
+  lastClickedAt: Date | null;
   useCount: number;
   createdAt: Date;
   lastUsedAt: Date | null;
@@ -14,6 +38,12 @@ function serializeLink(link: {
     id: link.id,
     token: link.token,
     path: buildStoreRegistrationPath(link.token),
+    directPath: buildStoreTrackingPath(link.token, "DIRECT"),
+    landingPath: buildStoreTrackingPath(link.token, "LANDING"),
+    defaultLinkType: getStoreLinkKindFromQuery(link.defaultLinkType),
+    pixelUrl: link.pixelUrl,
+    clickCount: link.clickCount,
+    lastClickedAt: link.lastClickedAt?.toISOString() ?? null,
     useCount: link.useCount,
     createdAt: link.createdAt.toISOString(),
     lastUsedAt: link.lastUsedAt?.toISOString() ?? null,
@@ -50,6 +80,10 @@ export async function GET() {
     select: {
       id: true,
       token: true,
+      defaultLinkType: true,
+      pixelUrl: true,
+      clickCount: true,
+      lastClickedAt: true,
       useCount: true,
       createdAt: true,
       lastUsedAt: true,
@@ -71,12 +105,23 @@ export async function POST(req: Request) {
 
   try {
     let slug = null;
+    let defaultLinkType = "DIRECT";
+    let pixelUrl: string | null = null;
     try {
       const body = await req.json();
       if (body?.slug && typeof body.slug === "string") {
         slug = body.slug.trim().toLowerCase().replace(/[^a-z0-9\-]/g, "-");
       }
-    } catch (e) {
+      defaultLinkType = getStoreLinkKindFromQuery(body?.linkType);
+      pixelUrl = normalizePixelUrl(body?.pixelUrl);
+
+      if (body?.pixelUrl && typeof body.pixelUrl === "string" && !pixelUrl) {
+        return Response.json(
+          { error: "URL pixel tidak valid. Gunakan format http:// atau https://." },
+          { status: 400 }
+        );
+      }
+    } catch {
       // Body empty or not JSON, ignore
     }
 
@@ -104,10 +149,16 @@ export async function POST(req: Request) {
         data: {
           agentId: session.agentId,
           token: slug || randomBytes(12).toString("hex"),
+          defaultLinkType,
+          pixelUrl,
         },
         select: {
           id: true,
           token: true,
+          defaultLinkType: true,
+          pixelUrl: true,
+          clickCount: true,
+          lastClickedAt: true,
           useCount: true,
           createdAt: true,
           lastUsedAt: true,

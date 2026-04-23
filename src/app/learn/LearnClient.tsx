@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import BrandBadge from "@/components/brand/BrandBadge";
 import { renderMarkdown } from "@/lib/markdown";
+import { useAuth, useToast } from "@/contexts/AppProviders";
 import {
   buildStoreRegistrationPath,
   isStoreRegistrationToken,
@@ -29,11 +31,15 @@ function LearnArticleView({
   onBack,
   backLabel = "← Kembali ke Daftar",
   registrationToken,
+  canSharePublic = false,
+  onSharePublic,
 }: {
   selected: Doc;
   onBack: () => void;
   backLabel?: string;
   registrationToken?: string | null;
+  canSharePublic?: boolean;
+  onSharePublic?: () => void;
 }) {
   const ctaHref = registrationToken
     ? buildStoreRegistrationPath(registrationToken)
@@ -91,13 +97,36 @@ function LearnArticleView({
               Gunakan **MbaKasir** untuk automasi stok, laporan untung, dan kasir yang anti-ribet. 
               Mari majukan UMKM bareng-bareng!
             </p>
-            <Link 
-              href={ctaHref}
-              className="btn btn-primary"
-              style={{ textDecoration: "none", display: "inline-block", padding: "12px 24px" }}
-            >
-              {registrationToken ? "Daftar Toko via Agen Ini" : "Coba MbaKasir Gratis Sekarang!"}
-            </Link>
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
+              {canSharePublic && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={onSharePublic}
+                >
+                  Share Artikel Publik
+                </button>
+              )}
+
+              <Link
+                href={ctaHref}
+                className="btn btn-primary"
+                style={{
+                  textDecoration: "none",
+                  display: "inline-block",
+                  padding: "12px 26px",
+                  fontWeight: 900,
+                  letterSpacing: "0.01em",
+                  border: "1px solid rgba(255,255,255,0.65)",
+                  borderRadius: "999px",
+                  background: "linear-gradient(135deg, #ffd84d 0%, #ff9f1c 58%, #ff7a00 100%)",
+                  color: "#2b1600",
+                  boxShadow: "0 14px 28px rgba(255, 145, 0, 0.35), 0 4px 10px rgba(255, 180, 40, 0.35)",
+                }}
+              >
+                Daftar Toko Sekarang
+              </Link>
+            </div>
           </div>
         )}
       </div>
@@ -208,9 +237,12 @@ function LearnListView({
 }
 
 function LearnContent() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Doc | null>(null);
+  const [agentShareToken, setAgentShareToken] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
   const requestedSlug = searchParams.get("s");
@@ -218,6 +250,67 @@ function LearnContent() {
   const registrationToken = sharedTokenRaw && isStoreRegistrationToken(sharedTokenRaw)
     ? normalizeStoreRegistrationToken(sharedTokenRaw)
     : null;
+  const resolvedAgentShareToken = user?.role === "AGENT" ? agentShareToken : null;
+  const resolvedRegistrationToken = registrationToken ?? resolvedAgentShareToken;
+
+  useEffect(() => {
+    if (user?.role !== "AGENT") return;
+
+    let isCancelled = false;
+
+    fetch("/api/agent/store-registration-links")
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (isCancelled) return;
+
+        const token = data?.link?.token;
+        if (typeof token === "string" && isStoreRegistrationToken(token)) {
+          setAgentShareToken(normalizeStoreRegistrationToken(token));
+          return;
+        }
+
+        setAgentShareToken(null);
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setAgentShareToken(null);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [user?.agentId, user?.role]);
+
+  const handleSharePublicArticle = (slug: string) => {
+    if (typeof window === "undefined") return;
+
+    const shareUrl = new URL("/learn", window.location.origin);
+    shareUrl.searchParams.set("s", slug);
+
+    if (resolvedRegistrationToken) {
+      shareUrl.searchParams.set("store", resolvedRegistrationToken);
+    }
+
+    navigator.clipboard.writeText(shareUrl.toString())
+      .then(() => {
+        if (resolvedRegistrationToken) {
+          toast("Link artikel publik siap dibagikan", "success");
+          return;
+        }
+
+        toast(
+          "Link disalin tanpa token agen. Buat Link Pendaftaran Toko dulu di menu Kelola Toko agar prospek masuk ke agen Anda.",
+          "warning"
+        );
+      })
+      .catch(() => {
+        toast("Clipboard tidak tersedia. Salin URL dari address bar.", "warning");
+      });
+  };
 
   useEffect(() => {
     fetch("/api/learn")
@@ -251,12 +344,19 @@ function LearnContent() {
               href="/"
               style={{
                 textDecoration: "none",
-                fontWeight: 800,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "12px",
                 color: "hsl(var(--text-primary))",
-                fontSize: "18px",
               }}
             >
-              MbaKasir
+              <BrandBadge logoUrl="/brand/mbakasir-logo.svg" alt="MbaKasir" size={40} />
+              <div style={{ display: "grid", gap: "2px" }}>
+                <span style={{ fontSize: "18px", fontWeight: 900, lineHeight: 1.1 }}>MbaKasir</span>
+                <span style={{ fontSize: "11px", color: "hsl(var(--text-muted))", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Artikel Publik
+                </span>
+              </div>
             </Link>
             <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
               Artikel Eksternal
@@ -274,7 +374,9 @@ function LearnContent() {
                 window.location.href = "/";
               }}
               backLabel="← Kembali"
-              registrationToken={registrationToken}
+              registrationToken={resolvedRegistrationToken}
+              canSharePublic={user?.role === "AGENT" && selected.isPublic}
+              onSharePublic={() => handleSharePublicArticle(selected.slug)}
             />
           ) : (
             <div className="card" style={{ maxWidth: "800px", margin: "0 auto", textAlign: "center", padding: "56px 24px" }}>
@@ -292,7 +394,13 @@ function LearnContent() {
   return (
     <DashboardLayout title={selected ? selected.title : "Pusat Belajar"}>
       {selected ? (
-        <LearnArticleView selected={selected} onBack={() => setSelected(null)} registrationToken={registrationToken} />
+        <LearnArticleView
+          selected={selected}
+          onBack={() => setSelected(null)}
+          registrationToken={resolvedRegistrationToken}
+          canSharePublic={user?.role === "AGENT" && selected.isPublic}
+          onSharePublic={() => handleSharePublicArticle(selected.slug)}
+        />
       ) : (
         <LearnListView docs={docs} loading={loading} onSelect={setSelected} />
       )}
