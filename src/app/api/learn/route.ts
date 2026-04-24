@@ -22,6 +22,7 @@ export async function GET() {
       id: true, title: true, slug: true, excerpt: true,
       emoji: true, targetRole: true, sortOrder: true,
       content: true, isPublic: true, publicCtaTarget: true,
+      category: true, seoKeywords: true,
       createdAt: true, updatedAt: true,
     } as any,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],

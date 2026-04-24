@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { title, instruction, model: requestedModel } = await req.json();
+  const { title, instruction, model: requestedModel, type = "article" } = await req.json();
   if (!title) {
     return NextResponse.json({ error: "Judul wajib diisi" }, { status: 400 });
   }
@@ -74,7 +74,25 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const prompt = `
+    let prompt = "";
+    
+    if (type === "keywords") {
+      prompt = `
+        Tugas: Sebagai pakar SEO (Search Engine Optimization), carikan Keyword (Kata Kunci) terbaik untuk artikel berjudul: "${title}".
+        
+        Hasil yang dibutuhkan:
+        1. High Paying Keywords (Kata kunci dengan nilai CPC/iklan tinggi yang relevan).
+        2. Most Popular Keywords (Kata kunci dengan volume pencarian tinggi).
+        3. Long-tail Keywords (Kata kunci spesifik untuk target UMKM).
+        
+        Aturan:
+        - Berikan hasil dalam bentuk list poin yang padat.
+        - Fokus pada market Indonesia dan UMKM/Bisnis.
+        - Berikan maksimal 10-15 keywords.
+        - Hasil jangan pakai penjelasan panjang, langsung list-nya saja.
+      `;
+    } else {
+      prompt = `
 Bertindaklah sebagai MbaKasir, asisten cerdas untuk UMKM. Gunakan kepribadian: Kakak perempuan yang hangat (ngayomi), sabar, dan sangat menguasai operasional toko.
 
 ${config.aiKnowledgeBase ? `MAKLUMAT WAJIB (Selalu patuhi aturan ini):
@@ -94,7 +112,8 @@ ATURAN PENULISAN:
 5. Struktur: Mulai dengan salam pembuka yang hangat, isi materi yang praktis, dan akhiri dengan semangat.
 
 HASILKAN HANYA KONTEN MARKDOWN-NYA SAJA TANPA PENJELASAN LAIN.
-    `;
+      `;
+    }
 
     const { content, modelName } = await generateWithGeminiFallback(
       config.geminiApiKey,

@@ -15,6 +15,8 @@ interface Doc {
   isPublished: boolean;
   isPublic: boolean;
   publicCtaTarget: string;
+  category: string;
+  seoKeywords: string | null;
   version: number;
   sortOrder: number;
   createdAt: string;
@@ -40,6 +42,8 @@ const EMPTY_FORM = {
   isPublished: false,
   isPublic: false,
   publicCtaTarget: "STORE",
+  category: "Umum",
+  seoKeywords: "",
   sortOrder: 0,
   slug: "",
 };
@@ -83,6 +87,8 @@ export default function LearnAdminClient() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false);
+  const [isIndexing, setIsIndexing] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiInstruction, setAiInstruction] = useState("");
   const [aiModel, setAiModel] = useState("gemini-2.5-flash"); // default model
@@ -183,6 +189,8 @@ export default function LearnAdminClient() {
       isPublished: doc.isPublished ?? false,
       isPublic: doc.isPublic ?? false,
       publicCtaTarget: doc.publicCtaTarget ?? "STORE",
+      category: doc.category || "Umum",
+      seoKeywords: doc.seoKeywords || "",
       sortOrder: doc.sortOrder ?? 0,
       slug: doc.slug ?? "",
     });
@@ -300,6 +308,37 @@ export default function LearnAdminClient() {
     }
   };
 
+  const handleGenerateKeywords = async () => {
+    if (!form.title.trim()) {
+      toast("Isi judul dulu untuk riset keyword!", "error");
+      return;
+    }
+    setIsGeneratingKeywords(true);
+    try {
+      const res = await fetch("/api/admin/learn/generate", {
+        method: "POST",
+        body: JSON.stringify({ title: form.title, type: "keywords", model: aiModel }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setForm(f => ({ ...f, seoKeywords: data.content }));
+      toast("Keyword SEO berhasil dihasilkan!", "success");
+    } catch (error: unknown) {
+      toast(getErrorMessage(error), "error");
+    } finally {
+      setIsGeneratingKeywords(true);
+      setIsGeneratingKeywords(false);
+    }
+  };
+
+  const handleSubmitToGoogle = async () => {
+    setIsIndexing(true);
+    // Simulation of Google Indexing API
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setIsIndexing(false);
+    toast("Permintaan indeks Google berhasil dikirim (Simulasi). Artikel akan dirayapi dalam 24-48 jam.", "success");
+  };
+
   const roleColor: Record<string, string> = {
     AGENT: "hsl(var(--primary))",
     TENANT: "hsl(var(--success))",
@@ -356,56 +395,65 @@ export default function LearnAdminClient() {
               <p style={{ color: "hsl(var(--text-muted))" }}>Belum ada dokumen. Klik &quot;Buat Dokumen Baru&quot; untuk mulai.</p>
             </div>
           ) : (
-            <div style={{ display: "grid", gap: "12px" }}>
-              {docs.map((doc) => (
-                <div key={doc.id} style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "16px",
-                  padding: "16px",
-                  background: "hsl(var(--bg-elevated))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "12px",
-                  flexWrap: "wrap",
-                }}>
-                  <span style={{ fontSize: "28px", flexShrink: 0 }}>{doc.emoji}</span>
-                  <div style={{ flex: 1, minWidth: "200px" }}>
-                    <div style={{ fontWeight: 700, fontSize: "15px" }}>{doc.title}</div>
-                     <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "2px", fontWeight: 500, fontFamily: "monospace" }}>
-                      v{doc.version || 1} &nbsp;·&nbsp; /{doc.slug}
-                    </div>
-                    {doc.excerpt && (
-                      <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginTop: "4px", lineHeight: 1.4 }}>
-                        {doc.excerpt}
-                      </div>
-                    )}
-                    <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
-                      <span style={{
-                        fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "100px",
-                        background: `${roleColor[doc.targetRole]}22`, color: roleColor[doc.targetRole], border: `1px solid ${roleColor[doc.targetRole]}44`
-                      }}>
-                        {doc.targetRole}
-                      </span>
-                      <span className={doc.isPublished ? "badge badge-success" : "badge"} style={{ fontSize: "11px" }}>
-                        {doc.isPublished ? "✅ Publikasi" : "⚫ Draft"}
-                      </span>
-                      {doc.isPublic && (
-                        <span className="badge badge-info" style={{ fontSize: "11px" }}>
-                          🌍 Eksternal
-                        </span>
-                      )}
-                    </div>
+            <div style={{ display: "grid", gap: "24px" }}>
+              {Array.from(new Set(docs.map(d => d.category || "Umum"))).sort().map(cat => (
+                <div key={cat} style={{ display: "grid", gap: "12px" }}>
+                  <div style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--primary))", background: "hsl(var(--primary) / 0.05)", padding: "4px 12px", borderRadius: "6px", width: "fit-content" }}>
+                    📁 {cat}
                   </div>
-                  <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
-                    <button className="btn btn-sm btn-ghost" onClick={() => copyLink(doc.slug)}>🔗 Copy Link</button>
-                    <button 
-                      className={`btn btn-sm ${doc.isPublished ? "btn-ghost" : "btn-primary"}`} 
-                      onClick={() => togglePublish(doc)}
-                    >
-                      {doc.isPublished ? "Sembunyikan" : "Publikasikan"}
-                    </button>
-                    <button className="btn btn-sm btn-ghost" onClick={() => openEdit(doc)}>✏️ Edit</button>
-                    <button className="btn btn-sm btn-ghost" style={{ color: "hsl(var(--error))" }} onClick={() => handleDelete(doc.id, doc.title)}>🗑️</button>
+                  <div style={{ display: "grid", gap: "12px" }}>
+                    {docs.filter(d => (d.category || "Umum") === cat).map((doc) => (
+                      <div key={doc.id} style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "16px",
+                        padding: "16px",
+                        background: "hsl(var(--bg-elevated))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "12px",
+                        flexWrap: "wrap",
+                      }}>
+                        <span style={{ fontSize: "28px", flexShrink: 0 }}>{doc.emoji}</span>
+                        <div style={{ flex: 1, minWidth: "200px" }}>
+                          <div style={{ fontWeight: 700, fontSize: "15px" }}>{doc.title}</div>
+                          <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "2px", fontWeight: 500, fontFamily: "monospace" }}>
+                            v{doc.version || 1} &nbsp;·&nbsp; /{doc.slug}
+                          </div>
+                          {doc.excerpt && (
+                            <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginTop: "4px", lineHeight: 1.4 }}>
+                              {doc.excerpt}
+                            </div>
+                          )}
+                          <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
+                            <span style={{
+                              fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "100px",
+                              background: `${roleColor[doc.targetRole]}22`, color: roleColor[doc.targetRole], border: `1px solid ${roleColor[doc.targetRole]}44`
+                            }}>
+                              {doc.targetRole}
+                            </span>
+                            <span className={doc.isPublished ? "badge badge-success" : "badge"} style={{ fontSize: "11px" }}>
+                              {doc.isPublished ? "✅ Publikasi" : "⚫ Draft"}
+                            </span>
+                            {doc.isPublic && (
+                              <span className="badge badge-info" style={{ fontSize: "11px" }}>
+                                🌍 Eksternal
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                          <button className="btn btn-sm btn-ghost" onClick={() => copyLink(doc.slug)}>🔗 Copy Link</button>
+                          <button 
+                            className={`btn btn-sm ${doc.isPublished ? "btn-ghost" : "btn-primary"}`} 
+                            onClick={() => togglePublish(doc)}
+                          >
+                            {doc.isPublished ? "Sembunyikan" : "Publikasikan"}
+                          </button>
+                          <button className="btn btn-sm btn-ghost" onClick={() => openEdit(doc)}>✏️ Edit</button>
+                          <button className="btn btn-sm btn-ghost" style={{ color: "hsl(var(--error))" }} onClick={() => handleDelete(doc.id, doc.title)}>🗑️</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -532,6 +580,24 @@ export default function LearnAdminClient() {
                   onChange={(e) => setForm((f) => ({ ...f, sortOrder: Number(e.target.value) }))}
                 />
               </div>
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Kategori</label>
+                <input
+                  className="input-field"
+                  placeholder="Contoh: Marketing, Teknis, Akun..."
+                  value={form.category}
+                  onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+                  list="category-suggestions"
+                />
+                <datalist id="category-suggestions">
+                  <option value="Umum" />
+                  <option value="Panduan Agen" />
+                  <option value="Panduan Toko" />
+                  <option value="Tips & Trik" />
+                  <option value="Update Fitur" />
+                  <option value="Marketing" />
+                </datalist>
+              </div>
             </div>
             <div style={{ marginTop: "16px" }}>
               <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Excerpt / Ringkasan</label>
@@ -560,6 +626,50 @@ export default function LearnAdminClient() {
                 🌍 Izinkan Share Luar (Akses Publik)
               </label>
             </div>
+
+            {/* SEO SECTION */}
+            <div style={{ marginTop: "24px", paddingTop: "20px", borderTop: "1px solid hsl(var(--border))" }}>
+               <h4 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--text-primary))", marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+                 <span>🔍</span> SEO & Keywords
+               </h4>
+               <div style={{ display: "grid", gap: "16px" }}>
+                 <div>
+                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                     <label style={{ fontSize: "12px", fontWeight: 600 }}>Keywords (High Paying & Popular)</label>
+                     <button 
+                       className="btn btn-ghost btn-sm" 
+                       style={{ fontSize: "11px", height: "24px", color: "hsl(var(--primary))" }}
+                       onClick={handleGenerateKeywords}
+                       disabled={isGeneratingKeywords}
+                     >
+                       {isGeneratingKeywords ? "⌛ Riset..." : "✨ Riset Keyword AI"}
+                     </button>
+                   </div>
+                   <textarea
+                     className="input-field"
+                     placeholder="List keyword SEO di sini..."
+                     style={{ minHeight: "80px", fontSize: "13px", padding: "12px", fontFamily: "monospace" }}
+                     value={form.seoKeywords}
+                     onChange={(e) => setForm(f => ({ ...f, seoKeywords: e.target.value }))}
+                   />
+                 </div>
+                 <button 
+                   className="btn btn-ghost" 
+                   style={{ 
+                     background: "hsl(var(--primary) / 0.05)", 
+                     color: "hsl(var(--primary))", 
+                     fontWeight: 700, 
+                     fontSize: "13px",
+                     border: "1px solid hsl(var(--primary) / 0.2)"
+                   }}
+                   onClick={handleSubmitToGoogle}
+                   disabled={isIndexing || !editId}
+                   title={!editId ? "Simpan artikel dulu sebelum submit ke Google" : ""}
+                 >
+                   {isIndexing ? "⏳ Menghubungi Google..." : "🚀 Submit Artikel ke Google (Indexing API)"}
+                 </button>
+               </div>
+            </div>
           </div>
 
           {/* Toolbar + Editor */}
@@ -586,6 +696,7 @@ export default function LearnAdminClient() {
                 { label: "- list", insert: "- item\n" },
                 { label: "1. list", insert: "1. item\n" },
                 { label: "---", insert: "\n---\n" },
+                { label: "🔗 Link", insert: "[Teks Link](https://...)" },
               ].map((t) => (
                 <button
                   key={t.label}

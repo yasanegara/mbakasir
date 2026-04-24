@@ -23,6 +23,7 @@ interface Doc {
   targetRole: string;
   isPublic: boolean;
   publicCtaTarget: string;
+  category: string;
   version: number;
   createdAt: string;
 }
@@ -249,61 +250,71 @@ function LearnListView({
           </p>
         </div>
       ) : (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-          gap: "16px",
-        }}>
-          {docs.map((doc) => (
-            <button
-              key={doc.id}
-              onClick={() => onSelect(doc)}
-              style={{
-                textAlign: "left",
-                padding: "24px",
-                background: "hsl(var(--bg-card))",
-                border: "1px solid hsl(var(--border))",
-                borderRadius: "16px",
-                cursor: "pointer",
-                transition: "border-color 0.2s, transform 0.15s, box-shadow 0.2s",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "hsl(var(--primary)/0.5)";
-                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)";
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px hsl(var(--primary)/0.1)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = "hsl(var(--border))";
-                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
-              }}
-            >
-              <span style={{ fontSize: "36px" }}>{doc.emoji || "📄"}</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: "16px", lineHeight: 1.3, marginBottom: "6px" }}>
-                  {doc.title}
-                </div>
-                {doc.excerpt && (
-                  <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", lineHeight: 1.5 }}>
-                    {doc.excerpt}
-                  </div>
-                )}
-              </div>
+        <div style={{ display: "grid", gap: "40px" }}>
+          {Array.from(new Set(docs.map(d => d.category))).map(cat => (
+            <div key={cat}>
+              <h2 style={{ fontSize: "18px", fontWeight: 800, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px", color: "hsl(var(--text-primary))" }}>
+                <span style={{ width: "4px", height: "18px", background: "hsl(var(--primary))", borderRadius: "2px" }} />
+                {cat}
+              </h2>
               <div style={{
-                marginTop: "auto",
-                fontSize: "12px",
-                color: "hsl(var(--primary))",
-                fontWeight: 600,
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: "16px",
               }}>
-                Baca selengkapnya →
+                {docs.filter(d => d.category === cat).map((doc) => (
+                  <button
+                    key={doc.id}
+                    onClick={() => onSelect(doc)}
+                    style={{
+                      textAlign: "left",
+                      padding: "24px",
+                      background: "hsl(var(--bg-card))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "16px",
+                      cursor: "pointer",
+                      transition: "border-color 0.2s, transform 0.15s, box-shadow 0.2s",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "12px",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "hsl(var(--primary)/0.5)";
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)";
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px hsl(var(--primary)/0.1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "hsl(var(--border))";
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                    }}
+                  >
+                    <span style={{ fontSize: "36px" }}>{doc.emoji || "📄"}</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: "16px", lineHeight: 1.3, marginBottom: "6px" }}>
+                        {doc.title}
+                      </div>
+                      {doc.excerpt && (
+                        <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", lineHeight: 1.5 }}>
+                          {doc.excerpt}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{
+                      marginTop: "auto",
+                      fontSize: "12px",
+                      color: "hsl(var(--primary))",
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}>
+                      Baca selengkapnya →
+                    </div>
+                  </button>
+                ))}
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
@@ -426,7 +437,13 @@ function LearnContent() {
   const relatedDocs = selected 
     ? docs
         .filter(d => d.id !== selected.id && (d.targetRole === selected.targetRole || d.isPublic))
-        .slice(0, 3)
+        .sort((a, b) => {
+          // Prioritize same category
+          if (a.category === selected.category && b.category !== selected.category) return -1;
+          if (a.category !== selected.category && b.category === selected.category) return 1;
+          return 0;
+        })
+        .slice(0, 4)
     : [];
 
   const handleSelectArticle = (doc: Doc) => {

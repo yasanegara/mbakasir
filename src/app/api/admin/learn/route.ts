@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
-  const { title, content, excerpt, emoji, targetRole, isPublished, sortOrder, isPublic, publicCtaTarget } = body;
+  const { title, content, excerpt, emoji, targetRole, isPublished, sortOrder, isPublic, publicCtaTarget, category, seoKeywords } = body;
   if (!title || !content) {
     return NextResponse.json({ error: "title dan content wajib diisi" }, { status: 400 });
   }
@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
       isPublished: isPublished ?? false,
       isPublic: isPublic ?? false,
       publicCtaTarget: publicCtaTarget || "STORE",
+      category: category || "Umum",
+      seoKeywords: seoKeywords || null,
       sortOrder: sortOrder ?? 0,
     } as any,
   });
