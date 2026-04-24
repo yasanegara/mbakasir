@@ -392,6 +392,7 @@ export default function ShoppingListPage() {
             stock: item.qtyToBuy,
             unit: item.unit,
             isActive: true,
+            showInPos: true,
             hasBoM: false,
             syncStatus: "PENDING",
             updatedAt: now,

@@ -46,6 +46,7 @@ export const DEFAULT_STORE_PROFILE: Omit<LocalStoreProfile, "tenantId" | "update
   footerNote: "Terima kasih atas kunjungan Anda!",
   waReceiptTemplate: DEFAULT_WA_RECEIPT_TEMPLATE,
   waOrderTemplate: DEFAULT_WA_ORDER_TEMPLATE,
+  isCrmEnabled: false,
 };
 
 /**
