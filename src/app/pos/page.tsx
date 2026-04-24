@@ -540,6 +540,9 @@ export default function POSPage() {
           </div>
         </div>
 
+        {/* Overlay gelap saat cart terbuka pada mobile */}
+        <div className={`cart-overlay ${isCartOpen ? "open" : ""}`} onClick={() => setIsCartOpen(false)} />
+
         {/* KANAN: Keranjang (Tampil dikanan pada Desktop/Tablet, Bottom Sheet pada Mobile) */}
         <div className={`pos-cart ${isCartOpen ? "open" : ""}`}>
           {/* Drawer Handle (Mobile Only) */}
@@ -642,10 +645,9 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* MOBILE ONLY: Sticky Bar & Overlay */}
       <FixedPortal>
         {/* Sticky Bar – muncul ketika cart tertutup pada mobile */}
-        {cart.length > 0 && (
+        {cart.length > 0 && !isCartOpen && (
           <div className="cart-sticky-bar animate-slide-up" onClick={() => setIsCartOpen(true)}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: "8px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
@@ -657,13 +659,10 @@ export default function POSPage() {
               </div>
             </div>
             <div style={{ fontSize: "14px", fontWeight: 700, color: "white", display: "flex", alignItems: "center", gap: "6px" }}>
-              Check Out <span style={{ fontSize: "18px" }}>›</span>
+              Bayar / Keranjang <span style={{ fontSize: "18px" }}>›</span>
             </div>
           </div>
         )}
-
-        {/* Overlay gelap saat cart terbuka pada mobile */}
-        <div className={`cart-overlay ${isCartOpen ? "open" : ""}`} onClick={() => setIsCartOpen(false)} />
       </FixedPortal>
 
       {/* SHIFT SUMMARY MODAL */}
