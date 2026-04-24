@@ -135,7 +135,9 @@ export default function PurchaseFormClient({
         
         <div style={{ padding: "16px", background: "hsl(var(--bg-elevated))", border: "1px solid hsl(var(--border))", borderRadius: "12px", marginBottom: "20px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-            <span style={{ color: "hsl(var(--text-secondary))" }}>Harga Satuan Jual Agen:</span>
+            <span style={{ color: "hsl(var(--text-secondary))" }}>
+              {tokenPrice > 0 ? "Harga Satuan dari Agen:" : "Harga Satuan Standar:"}
+            </span>
             <span style={{ fontWeight: 600 }}>{formatRupiahFull(tokenPrice)} / token</span>
           </div>
           {lastPurchasePrice !== undefined && lastPurchasePrice !== null && (

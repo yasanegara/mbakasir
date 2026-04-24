@@ -27,6 +27,16 @@ export interface LocalTenant {
   updatedAt: number;
 }
 
+export interface LocalPosTerminal {
+  id: string;
+  tenantId: string;
+  name: string;
+  code: string;
+  isDefault: boolean;
+  isActive: boolean;
+  targetRevenue: number;
+}
+
 export interface LocalUser {
   id: string;
   localId: string;
@@ -53,9 +63,17 @@ export interface LocalProduct {
   unit: string;
   imageUrl?: string;
   isActive: boolean;
+  showInPos: boolean;
   hasBoM: boolean;
   syncStatus: "PENDING" | "SYNCED" | "CONFLICT";
   updatedAt: number;
+}
+
+export interface LocalProductAssignment {
+  id: string;
+  productId: string; // localId product
+  terminalId: string; // id terminal (karena terminal ID server-side/cuid)
+  stock: number;
 }
 
 export interface LocalRawMaterial {
@@ -97,6 +115,7 @@ export interface LocalSale {
   tenantId: string;
   userId: string;
   shiftLocalId?: string;
+  terminalId?: string; // ID terminal pengirim transaksi
   invoiceNo: string;
   status: "PENDING" | "COMPLETED" | "VOIDED";
   paymentMethod: "CASH" | "TRANSFER" | "QRIS" | "CREDIT";
@@ -107,6 +126,8 @@ export interface LocalSale {
   paidAmount: number;
   changeAmount: number;
   notes?: string;
+  customerName?: string;
+  customerWa?: string;
   voidReason?: string;
   syncStatus: "PENDING" | "SYNCED" | "CONFLICT";
   createdAt: number; // Unix timestamp (ms)
@@ -150,6 +171,7 @@ export interface LocalStoreProfile {
   // Template pesan WhatsApp (bisa diedit manual)
   waReceiptTemplate?: string; // Template struk via WA
   waOrderTemplate?: string;   // Template order/pesanan via WA
+  isCrmEnabled: boolean;
   updatedAt: number;
 }
 
@@ -192,6 +214,8 @@ export class MbakasirDatabase extends Dexie {
   syncQueue!: EntityTable<LocalSyncQueue, "id">;
   shoppingList!: EntityTable<LocalShoppingItem, "id">;
   storeProfile!: EntityTable<LocalStoreProfile, "id">;
+  productAssignments!: EntityTable<LocalProductAssignment, "id">;
+  posTerminals!: EntityTable<LocalPosTerminal, "id">;
 
   constructor() {
     super("MbakasirDB");
@@ -217,6 +241,16 @@ export class MbakasirDatabase extends Dexie {
 
     this.version(3).stores({
       storeProfile: "id, tenantId, updatedAt",
+    });
+
+    this.version(4).stores({
+      productAssignments: "id, productId, terminalId",
+      posTerminals: "id, tenantId, code, isActive",
+    });
+
+    this.version(5).stores({
+      sales: "localId, id, tenantId, userId, shiftLocalId, terminalId, status, paymentMethod, syncStatus, createdAt",
+      productAssignments: "id, productId, terminalId, stock",
     });
   }
 }

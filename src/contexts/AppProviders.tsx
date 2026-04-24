@@ -10,23 +10,23 @@ import {
 } from "react";
 
 // ============================================================
-// THEME CONTEXT — Pro (Biru/Oranye) vs Chic (Rose/Gold)
+// THEME CONTEXT — Pro, Chic, Starbucks, Landing
 // ============================================================
 
-type Theme = "pro" | "chic";
+type Theme = "pro" | "chic" | "starbucks" | "landing";
 type Mode = "dark" | "light";
 
 interface ThemeContextValue {
   theme: Theme;
   mode: Mode;
-  toggleTheme: () => void;
+  setTheme: (t: Theme) => void;
   toggleMode: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "pro",
   mode: "dark",
-  toggleTheme: () => {},
+  setTheme: () => {},
   toggleMode: () => {},
 });
 
@@ -36,9 +36,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("mbakasir_theme") as Theme | null;
-    if (savedTheme === "pro" || savedTheme === "chic") {
+    const validThemes: Theme[] = ["pro", "chic", "starbucks", "landing"];
+    if (savedTheme && validThemes.includes(savedTheme)) {
       setThemeState(savedTheme);
-      document.documentElement.setAttribute("data-theme", savedTheme === "chic" ? "chic" : "");
+      document.documentElement.setAttribute("data-theme", savedTheme === "pro" ? "" : savedTheme);
     }
     
     const savedMode = localStorage.getItem("mbakasir_mode") as Mode | null;
@@ -48,12 +49,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const toggleTheme = useCallback(() => {
-    const newTheme = theme === "pro" ? "chic" : "pro";
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem("mbakasir_theme", newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme === "chic" ? "chic" : "");
-  }, [theme]);
+    // data-theme empty for 'pro' (default)
+    document.documentElement.setAttribute("data-theme", newTheme === "pro" ? "" : newTheme);
+  }, []);
 
   const toggleMode = useCallback(() => {
     const newMode = mode === "dark" ? "light" : "dark";
@@ -63,7 +64,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [mode]);
 
   return (
-    <ThemeContext.Provider value={{ theme, mode, toggleTheme, toggleMode }}>
+    <ThemeContext.Provider value={{ theme, mode, setTheme, toggleMode }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -72,6 +73,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme() {
   return useContext(ThemeContext);
 }
+
+
 
 // ============================================================
 // TOAST CONTEXT — Toast di tengah layar, maks 1.5 detik

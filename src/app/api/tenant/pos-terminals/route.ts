@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       await ensureDefaultPosTerminal(tx, session.tenantId!);
 
       const tenant = await tx.tenant.findUnique({
@@ -196,6 +196,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    return Response.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getSession();
+  if (!session || session.role !== "TENANT" || !session.tenantId) {
+    return Response.json({ error: "Akses ditolak" }, { status: 403 });
+  }
+
+  try {
+    const { id, targetRevenue } = await req.json();
+
+    if (!id) {
+      return Response.json({ error: "ID Terminal diperlukan" }, { status: 400 });
+    }
+
+    const terminal = await prisma.posTerminal.update({
+      where: { 
+        id,
+        tenantId: session.tenantId
+      },
+      data: {
+        targetRevenue: parseFloat(targetRevenue) || 0
+      }
+    });
+
+    return Response.json({ success: true, terminal });
+  } catch (error) {
+    console.error("Update POS Terminal Error:", error);
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

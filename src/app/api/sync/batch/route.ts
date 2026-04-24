@@ -98,6 +98,8 @@ async function processSyncItem(
       return upsertBillOfMaterial(localId, payload, tenantId);
     case "shifts":
       return upsertShift(localId, payload, tenantId);
+    case "productAssignments":
+      return upsertProductAssignment(localId, payload, tenantId);
     default:
       return { localId, success: false, error: `Unknown table: ${table}` };
   }
@@ -127,6 +129,7 @@ async function upsertSale(
       paidAmount: payload.paidAmount as number,
       changeAmount: (payload.changeAmount as number) || 0,
       notes: payload.notes as string | undefined,
+      terminalId: payload.terminalId as string | undefined,
       syncStatus: "SYNCED",
       items: {
         create: ((payload.items as Record<string, unknown>[]) || []).map(
@@ -174,6 +177,7 @@ async function upsertProduct(
       stock: (payload.stock as number) || 0,
       unit: (payload.unit as string) || "pcs",
       isActive: (payload.isActive as boolean) ?? true,
+      showInPos: (payload.showInPos as boolean) ?? true,
       hasBoM: (payload.hasBoM as boolean) || false,
       syncStatus: "SYNCED",
     },
@@ -186,6 +190,7 @@ async function upsertProduct(
       stock: payload.stock as number,
       unit: (payload.unit as string) || "pcs",
       isActive: payload.isActive as boolean,
+      showInPos: (payload.showInPos as boolean) ?? true,
       hasBoM: (payload.hasBoM as boolean) || false,
       syncStatus: "SYNCED",
     },
@@ -325,4 +330,60 @@ async function upsertShift(
   });
 
   return { localId, success: true, serverId: shift.id };
+}
+
+// ─── PRODUCT ASSIGNMENT UPSERT ───────────────────────────────
+
+async function upsertProductAssignment(
+  localId: string,
+  payload: Record<string, unknown>,
+  tenantId?: string
+): Promise<SyncResult> {
+  if (!tenantId) {
+    return { localId, success: false, error: "Tenant context missing" };
+  }
+
+  const [product, terminal] = await Promise.all([
+    prisma.product.findFirst({
+      where: {
+        tenantId,
+        OR: [
+          { id: payload.productId as string },
+          { localId: payload.productId as string },
+        ],
+      },
+      select: { id: true },
+    }),
+    prisma.posTerminal.findFirst({
+      where: { id: payload.terminalId as string, tenantId },
+      select: { id: true },
+    }),
+  ]);
+
+  if (!product) {
+    return { localId, success: false, error: "Produk assignment tidak ditemukan" };
+  }
+
+  if (!terminal) {
+    return { localId, success: false, error: "Terminal assignment tidak ditemukan" };
+  }
+
+  const assignment = await prisma.productAssignment.upsert({
+    where: {
+      productId_terminalId: {
+        productId: product.id,
+        terminalId: terminal.id,
+      },
+    },
+    create: {
+      productId: product.id,
+      terminalId: terminal.id,
+      stock: (payload.stock as number) || 0,
+    },
+    update: {
+      stock: (payload.stock as number) || 0,
+    },
+  });
+
+  return { localId, success: true, serverId: assignment.id };
 }

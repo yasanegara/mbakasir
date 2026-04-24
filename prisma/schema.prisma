@@ -187,6 +187,7 @@ model Product {
   costPrice     Decimal   @default(0) @db.Decimal(15, 2) // HPP
   stock         Decimal   @default(0) @db.Decimal(15, 3) // Float for weight items
   unit          String    @default("pcs")
+  showInPos     Boolean   @default(true)
   imageUrl      String?
   isActive      Boolean   @default(true)
   hasBoM        Boolean   @default(false) // Apakah pakai Bill of Materials
@@ -197,10 +198,23 @@ model Product {
 
   saleItems     SaleItem[]
   bomItems      BillOfMaterial[]
+  assignments   ProductAssignment[]
 
   @@unique([tenantId, sku])
   @@unique([localId])
   @@map("products")
+}
+
+model ProductAssignment {
+  id            String      @id @default(cuid())
+  productId     String
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  terminalId    String
+  terminal      PosTerminal @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  stock         Decimal     @default(0) @db.Decimal(15, 3)
+
+  @@unique([productId, terminalId])
+  @@map("product_assignments")
 }
 
 // ============================================================
@@ -283,6 +297,8 @@ model Sale {
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   shiftId         String?
   shift           Shift?        @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  terminalId      String?
+  terminal        PosTerminal?  @relation(fields: [terminalId], references: [id], onDelete: Cascade)
   invoiceNo       String
   status          SaleStatus    @default(COMPLETED)
   paymentMethod   PaymentMethod @default(CASH)
@@ -434,8 +450,11 @@ model PosTerminal {
   isDefault     Boolean  @default(false)
   isActive      Boolean  @default(true)
   tokenCost     Int      @default(0)
+  targetRevenue Decimal  @default(0) @db.Decimal(15, 2)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  assignments   ProductAssignment[]
+  sales         Sale[]
 
   @@unique([tenantId, code])
   @@map("pos_terminals")

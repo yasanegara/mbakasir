@@ -6,6 +6,8 @@ import BrandBadge from "@/components/brand/BrandBadge";
 import TokenMark from "@/components/ui/TokenMark";
 import { useAuth, useTheme } from "@/contexts/AppProviders";
 import { useBrand } from "@/contexts/BrandContext";
+import { useLiveQuery } from "dexie-react-hooks";
+import { getDb } from "@/lib/db";
 
 // ============================================================
 // SIDEBAR NAVIGASI — Adaptive per Role
@@ -108,6 +110,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/products", label: "Produk", icon: Icon.products, roles: ["TENANT"] },
   { href: "/inventory", label: "Bahan Baku", icon: Icon.inventory, roles: ["TENANT"] },
   { href: "/sales", label: "Riwayat Transaksi", icon: Icon.history, roles: ["TENANT", "CASHIER"] },
+  { href: "/customers", label: "Data Pelanggan", icon: Icon.users, roles: ["TENANT"] },
   { href: "/reports", label: "Laporan", icon: Icon.report, roles: ["TENANT"] },
   { href: "/employees", label: "Karyawan", icon: Icon.employees, roles: ["TENANT"] },
   { href: "/stock-alert", label: "Stok Kritis", icon: Icon.alert, roles: ["TENANT"] },
@@ -115,7 +118,6 @@ const ALL_NAV: NavItem[] = [
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },
   { href: "/learn", label: "Pusat Belajar", icon: Icon.book, roles: ["AGENT", "TENANT"] },
-  { href: "/settings", label: "Pengaturan", icon: Icon.settings, roles: ["SUPERADMIN"] },
   { href: "/admin/agents", label: "Kelola Agen", icon: Icon.users, roles: ["SUPERADMIN"] },
   { href: "/admin/tokens", label: "Mint Token", icon: Icon.token, roles: ["SUPERADMIN"] },
   { href: "/admin/tenants", label: "Semua Toko", icon: Icon.stores, roles: ["SUPERADMIN"] },
@@ -138,14 +140,22 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme, mode, toggleMode } = useTheme();
   const brand = useBrand();
 
-  const visibleNav = ALL_NAV.filter(
-    (item) => user && item.roles.includes(user.role)
-  );
+  const storeProfile = useLiveQuery(() => getDb().storeProfile.get("default"));
+  const isCrmEnabled = storeProfile?.isCrmEnabled === true;
+
+  const visibleNav = ALL_NAV.filter((item) => {
+    const hasRole = user && item.roles.includes(user.role);
+    if (item.href === "/customers") {
+      return hasRole && isCrmEnabled;
+    }
+    return hasRole;
+  });
+
   const settingsLabel = user?.role === "CASHIER" ? "PIN & Password" : "Pengaturan";
-  const showFooterSettings = user?.role === "AGENT" || user?.role === "CASHIER";
+  const showFooterSettings = true;
 
   const roleLabel: Record<string, string> = {
     SUPERADMIN: "Super Admin",
@@ -313,22 +323,47 @@ export default function Sidebar({
           }}
         >
 
-          {/* Theme toggle (Pro/Chic) */}
-          <button
-            onClick={toggleTheme}
-            className="nav-item"
-            title={isCollapsed ? `Ganti ke tema ${theme === "pro" ? "Chic" : "Pro"}` : undefined}
-            style={isCollapsed ? { justifyContent: "center", padding: "10px" } : {}}
-          >
-            <span style={{ fontSize: "18px", flexShrink: 0 }}>
-              {theme === "pro" ? "🔵" : "🌸"}
-            </span>
+          {/* Theme cycle (Pro, Green, Landing, Chic) */}
+          <div style={{
+            padding: "8px",
+            background: "hsl(var(--bg-elevated))",
+            borderRadius: "12px",
+            marginBottom: "4px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "8px"
+          }}>
+            <button
+              onClick={() => {
+                const themesList = ["pro", "starbucks", "landing", "chic"];
+                const currentIndex = themesList.indexOf(theme);
+                const nextIndex = (currentIndex + 1) % themesList.length;
+                setTheme(themesList[nextIndex] as any);
+              }}
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "50%",
+                background: theme === "pro" ? "#1e40af" : 
+                            theme === "starbucks" ? "#00704A" : 
+                            theme === "landing" ? "#f97316" : "#db2777",
+                border: "2px solid white",
+                cursor: "pointer",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                padding: 0,
+                transition: "transform 0.2s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.1)"}
+              onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+              title={`Ganti Aksen (Sekarang: ${theme})`}
+            />
             {!isCollapsed && (
-              <span>
-                Aksen: {theme === "pro" ? "Pro" : "Chic"}
+              <span style={{ fontSize: "10px", fontWeight: 800, color: "hsl(var(--text-muted))", textTransform: "uppercase" }}>
+                Aksen: {theme === "pro" ? "Pro" : theme === "starbucks" ? "Green" : theme === "landing" ? "Landing" : "Chic"}
               </span>
             )}
-          </button>
+          </div>
 
           {/* Settings */}
           {showFooterSettings && (

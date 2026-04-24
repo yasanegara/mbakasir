@@ -11,6 +11,10 @@ import AgentTokenRequestList, {
 } from "@/components/admin/AgentTokenRequestList";
 import PosTerminalManager from "@/components/settings/PosTerminalManager";
 import TenantLicenseCountdownCard from "@/components/tenant/TenantLicenseCountdownCard";
+import TenantGreetingHero from "@/components/tenant/TenantGreetingHero";
+import AddonManager from "@/components/tenant/AddonManager";
+import TopProductsCarousel from "@/components/tenant/TopProductsCarousel";
+import QuickAccess from "@/components/tenant/QuickAccess";
 import { ensureDefaultPosTerminal } from "@/lib/pos-terminals";
 import { ensureTokenConfig } from "@/lib/token-settings";
 import {
@@ -231,52 +235,47 @@ export default async function DashboardPage() {
       <div style={{ display: "grid", gap: "24px" }}>
 
         {/* ── GREETING HERO ─────────────────────────────────────── */}
-        <div style={{
-          background: "var(--gradient-primary)",
-          borderRadius: "20px",
-          padding: "clamp(20px, 4vw, 32px) clamp(20px, 5vw, 36px)",
-          color: "white",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "16px",
-        }}>
-          <div>
-            <p style={{ fontSize: "13px", opacity: 0.8, marginBottom: "4px", fontWeight: 500 }}>
-              {greeting}, 👋
-            </p>
-            <h2 style={{ fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 800, margin: 0 }}>
-              {session.name}
-            </h2>
-            {session.role === "TENANT" && tenantData && (
-              <p style={{ fontSize: "13px", marginTop: "6px", opacity: 0.85 }}>
-                🏪 {tenantData.name} &nbsp;·&nbsp; Agen: {tenantData.agent?.name}
+        {session.role === "TENANT" && tenantData ? (
+          <TenantGreetingHero
+            userName={session.name}
+            tenantName={tenantData.name}
+            agentName={tenantData.agent?.name ?? "Tidak ada agen"}
+            greeting={greeting}
+            premiumUntilIso={tenantData.premiumUntil?.toISOString() ?? null}
+            initialRemainingMs={initialPremiumRemainingMs}
+            sisaToken={storeOwnedTokenBalance}
+            tokenTerpakai={tokenUsed}
+          />
+        ) : (
+          <div style={{
+            background: "var(--gradient-primary)",
+            borderRadius: "20px",
+            padding: "clamp(20px, 4vw, 32px) clamp(20px, 5vw, 36px)",
+            color: "white",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "16px",
+          }}>
+            <div>
+              <p style={{ fontSize: "13px", opacity: 0.8, marginBottom: "4px", fontWeight: 500 }}>
+                {greeting}, 👋
               </p>
-            )}
-            {session.role === "AGENT" && (
-              <p style={{ fontSize: "13px", marginTop: "6px", opacity: 0.85 }}>
-                Role: Agen Reseller
-              </p>
-            )}
+              <h2 style={{ fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 800, margin: 0 }}>
+                {session.name}
+              </h2>
+              {session.role === "AGENT" && (
+                <p style={{ fontSize: "13px", marginTop: "6px", opacity: 0.85 }}>
+                  Role: Agen Reseller
+                </p>
+              )}
+            </div>
           </div>
-          {session.role === "TENANT" && (
-            <Link
-              href="/buy"
-              className="btn"
-              style={{
-                background: "rgba(255,255,255,0.18)",
-                color: "white",
-                border: "1.5px solid rgba(255,255,255,0.35)",
-                backdropFilter: "blur(8px)",
-                fontWeight: 600,
-                flexShrink: 0,
-              }}
-            >
-              🪙 Beli Token
-            </Link>
-          )}
-        </div>
+        )}
+
+        {/* ── TOP PRODUCTS CAROUSEL ───────────────────────────── */}
+        {session.role === "TENANT" && <TopProductsCarousel />}
 
         {/* ── PENGUMUMAN DARI SUPERADMIN ────────────────────────── */}
         {announcements.length > 0 && (
@@ -368,73 +367,7 @@ export default async function DashboardPage() {
         {session.role === "TENANT" && tenantData && (
           <div style={{ display: "grid", gap: "24px" }}>
 
-            {/* STAT CARDS */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: "16px",
-            }}>
-              {/* Token di Agen */}
-              <div className="stat-card" style={{ position: "relative", overflow: "hidden" }}>
-                <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-                  🪙 Saldo Agen
-                </span>
-                <span className="stat-value" style={{ fontSize: "clamp(28px, 5vw, 36px)", color: "hsl(var(--primary))" }}>
-                  {isAgentPusat ? "∞ Unmetered" : agentTokenBalance.toLocaleString("id-ID")}
-                </span>
-                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                  {tokenSymbol} yang masih dipegang agen
-                </span>
-              </div>
 
-              {/* Token Toko */}
-              <div className="stat-card">
-                <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-                  🧾 T. Toko Tersisa
-                </span>
-                <span className="stat-value" style={{ fontSize: "clamp(28px, 5vw, 36px)" }}>
-                  {storeOwnedTokenBalance.toLocaleString("id-ID")}
-                </span>
-                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", lineHeight: 1.5 }}>
-                  {storeTokenCaption}
-                </span>
-              </div>
-
-              {/* Token Terpakai */}
-              <div className="stat-card">
-                <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-                  📊 Token Terpakai
-                </span>
-                <span className="stat-value" style={{ fontSize: "clamp(28px, 5vw, 36px)" }}>
-                  {tokenUsed.toLocaleString("id-ID")}
-                </span>
-                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                  Total konsumsi token toko
-                </span>
-              </div>
-
-              <TenantLicenseCountdownCard
-                premiumUntilIso={tenantData.premiumUntil?.toISOString() ?? null}
-                initialRemainingMs={initialPremiumRemainingMs}
-                renewalTokenCostPerMonth={renewalTokenCostPerMonth}
-                tokenSymbol={tokenSymbol}
-                renewalPriceEstimate={renewalPriceEstimate}
-                renewalBreakdown={renewalBreakdown}
-              />
-
-              {/* Terminal Aktif */}
-              <div className="stat-card">
-                <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-                  🖥️ Terminal POS Aktif
-                </span>
-                <span className="stat-value" style={{ fontSize: "clamp(28px, 5vw, 36px)" }}>
-                  {activeTerminals}
-                </span>
-                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                  dari {tenantData.posTerminals.length} terminal terdaftar
-                </span>
-              </div>
-            </div>
 
             {/* PERINGATAN MASA AKTIF */}
             {isPremiumActive && daysLeft <= 7 && (
@@ -497,84 +430,68 @@ export default async function DashboardPage() {
               </div>
             )}
 
-            {/* AKSES CEPAT */}
-            <div className="card">
-              <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "16px" }}>⚡ Akses Cepat</h3>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-                gap: "10px",
-              }}>
-                {[
-                  { href: "/pos", icon: "🖥️", label: "Kasir (POS)" },
-                  { href: "/products", icon: "📦", label: "Produk" },
-                  { href: "/sales", icon: "📈", label: "Laporan" },
-                  { href: "/shopping-list", icon: "🛒", label: "Daftar Belanja" },
-                  { href: "/inventory", icon: "🧪", label: "Bahan Baku" },
-                  { href: "/settings", icon: "⚙️", label: "Pengaturan" },
-                ].map(({ href, icon, label }) => (
-                  <Link
-                    key={href}
-                    href={href}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "16px 8px",
-                      background: "hsl(var(--bg-elevated))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "14px",
-                      textDecoration: "none",
-                      color: "hsl(var(--text-primary))",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      textAlign: "center",
-                      transition: "border-color 0.2s, background 0.2s",
-                    }}
-                  >
-                    <span style={{ fontSize: "26px" }}>{icon}</span>
-                    {label}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            {/* AKSES CEPAT (Client Component) */}
+            <QuickAccess />
 
-            {/* FITUR AKTIF */}
-            <div className="card">
-              <div style={{ paddingBottom: "14px", borderBottom: "1px solid hsl(var(--border))", marginBottom: "18px" }}>
-                <h3 style={{ fontSize: "16px", fontWeight: 700 }}>🎛️ Fitur Aktif</h3>
-                <p style={{ color: "hsl(var(--text-secondary))", fontSize: "13px", marginTop: "4px" }}>
-                  Modul dan add-on yang aktif pada toko Anda saat ini.
-                </p>
+            {/* ── FITUR & ADDONS ────────────────────────────────── */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              @media (min-width: 800px) {
+                .forced-2col { grid-template-columns: 1fr 1fr !important; }
+              }
+            `}} />
+            <div className="forced-2col" style={{ 
+              display: "grid", 
+              gridTemplateColumns: "1fr", 
+              gap: "24px", 
+              alignItems: "start" 
+            }}>
+              {/* FITUR AKTIF */}
+              <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                <div style={{ paddingBottom: "14px", borderBottom: "1px solid hsl(var(--border))", marginBottom: "18px" }}>
+                  <h3 style={{ fontSize: "16px", fontWeight: 700 }}>🎛️ Fitur Aktif</h3>
+                  <p style={{ color: "hsl(var(--text-secondary))", fontSize: "13px", marginTop: "4px" }}>
+                    Modul dan add-on yang aktif pada toko Anda saat ini.
+                  </p>
+                </div>
+                {activeAddons.length === 0 ? (
+                  <div style={{ padding: "24px", textAlign: "center", border: "1px dashed hsl(var(--border))", borderRadius: "12px" }}>
+                    <p style={{ color: "hsl(var(--text-muted))", fontSize: "14px" }}>Belum ada add-on aktif.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "12px" }}>
+                    {activeAddons.map((addon, i) => (
+                      <div key={i} style={{
+                        padding: "16px 18px",
+                        background: "hsl(var(--bg-elevated))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "12px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                      }}>
+                        <span style={{ fontWeight: 600, fontSize: "14px", lineHeight: "1.4" }}>{addon.name}</span>
+                        <span
+                          className={addon.type.includes("Gratis") ? "badge badge-success" : "badge badge-info"}
+                          style={{ alignSelf: "flex-start", fontSize: "11px" }}
+                        >
+                          {addon.type}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              {activeAddons.length === 0 ? (
-                <div style={{ padding: "24px", textAlign: "center", border: "1px dashed hsl(var(--border))", borderRadius: "12px" }}>
-                  <p style={{ color: "hsl(var(--text-muted))", fontSize: "14px" }}>Belum ada add-on aktif.</p>
+
+              {/* FITUR TERSEDIA (Addon Manager) */}
+              <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                <div style={{ paddingBottom: "14px", borderBottom: "1px solid hsl(var(--border))", marginBottom: "18px" }}>
+                  <h3 style={{ fontSize: "16px", fontWeight: 700 }}>🎁 Fitur Tersedia</h3>
+                  <p style={{ color: "hsl(var(--text-secondary))", fontSize: "13px", marginTop: "4px" }}>
+                    Aktifkan fitur tambahan untuk meningkatkan fungsionalitas toko Anda.
+                  </p>
                 </div>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "12px" }}>
-                  {activeAddons.map((addon, i) => (
-                    <div key={i} style={{
-                      padding: "16px 18px",
-                      background: "hsl(var(--bg-elevated))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "12px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "10px",
-                    }}>
-                      <span style={{ fontWeight: 600, fontSize: "14px", lineHeight: "1.4" }}>{addon.name}</span>
-                      <span
-                        className={addon.type.includes("Gratis") ? "badge badge-success" : "badge badge-info"}
-                        style={{ alignSelf: "flex-start", fontSize: "11px" }}
-                      >
-                        {addon.type}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                <AddonManager />
+              </div>
             </div>
 
             {/* TERMINAL POS */}

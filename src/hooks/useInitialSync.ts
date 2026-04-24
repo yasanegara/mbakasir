@@ -33,28 +33,33 @@ export function useInitialSync() {
 
       try {
         const db = getDb();
-        const tenantCount = await db.tenants.count();
+        const [tenantCount, terminalCount] = await Promise.all([
+          db.tenants.count(),
+          db.posTerminals.count()
+        ]);
         
-        // Pengecekan sederhana: Jika dexie belum terisi tenant, lakukan full hit API.
-        // Untuk optimasi ke depan: gunakan timestamps sync terakhir.
-        if (tenantCount > 0) {
+        if (tenantCount > 0 && terminalCount > 0) {
           if (mounted) {
              setHasSynced(true);
-             setIsSyncing(false); // Sembunyikan spinner seketika (Stale-while-revalidate)
+             setIsSyncing(false);
           }
         }
 
         if (navigator.onLine) {
           const res = await fetch("/api/sync/initial");
-          if (!res.ok) throw new Error("Gagal mengambil data master");
-
           const data = await res.json();
           
-          await db.transaction('rw', [db.tenants, db.products, db.rawMaterials, db.billOfMaterials], async () => {
+          if (!res.ok) {
+            throw new Error(data.error || "Gagal mengambil data master");
+          }
+          
+          await db.transaction('rw', [db.tenants, db.products, db.rawMaterials, db.billOfMaterials, db.posTerminals, db.productAssignments], async () => {
              await db.tenants.put(data.tenant);
              await db.products.bulkPut(data.products);
              await db.rawMaterials.bulkPut(data.rawMaterials);
              await db.billOfMaterials.bulkPut(data.billOfMaterials);
+             if (data.posTerminals) await db.posTerminals.bulkPut(data.posTerminals);
+             if (data.productAssignments) await db.productAssignments.bulkPut(data.productAssignments);
           });
           
           if (mounted) setHasSynced(true);

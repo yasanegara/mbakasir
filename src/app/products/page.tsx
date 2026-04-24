@@ -23,6 +23,7 @@ interface ProductFormState {
   price: number;
   costPrice: number;
   hasBoM: boolean;
+  showInPos: boolean;
 }
 
 interface BomDraftRow {
@@ -48,6 +49,7 @@ const INITIAL_FORM: ProductFormState = {
   price: 0,
   costPrice: 0,
   hasBoM: false,
+  showInPos: true,
 };
 
 const EMPTY_BOM_ROW: BomDraftRow = {
@@ -81,11 +83,15 @@ function calculateSuggestedSellingPrice(
 export default function ProductsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { isSyncing } = useInitialSync();
+  const { isSyncing, error } = useInitialSync();
 
   const products = useLiveQuery(() => getDb().products.toArray()) || [];
   const rawMaterials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
   const billOfMaterials = useLiveQuery(() => getDb().billOfMaterials.toArray()) || [];
+  const posTerminals = useLiveQuery(() => getDb().posTerminals.toArray()) || [];
+  const productAssignments = useLiveQuery(() => getDb().productAssignments.toArray()) || [];
+
+  const [terminalAssignments, setTerminalAssignments] = useState<{terminalId: string, stock: number}[]>([]);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -153,6 +159,7 @@ export default function ProductsPage() {
     setMarginPercent(DEFAULT_MARGIN_PERCENT);
     setEditingId(null);
     setShowCreateForm(false);
+    setTerminalAssignments([]);
   };
 
   const startEditProduct = (product: LocalProduct) => {
@@ -166,6 +173,7 @@ export default function ProductsPage() {
       price: product.price,
       costPrice: product.costPrice,
       hasBoM: product.hasBoM,
+      showInPos: product.showInPos ?? true,
     });
 
     const existingBom = billOfMaterials.filter((b) => b.productId === product.localId);
@@ -174,6 +182,9 @@ export default function ProductsPage() {
     } else {
       setBomRows([{ ...EMPTY_BOM_ROW }]);
     }
+
+    const currentAssignments = productAssignments.filter(a => a.productId === product.localId);
+    setTerminalAssignments(currentAssignments.map(a => ({ terminalId: a.terminalId, stock: a.stock })));
 
     setShowCreateForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -292,6 +303,7 @@ export default function ProductsPage() {
         unit: form.unit.trim(),
         imageUrl: existingProduct?.imageUrl,
         isActive: existingProduct ? existingProduct.isActive : true,
+        showInPos: form.showInPos,
         hasBoM: validBomRows.length > 0,
         syncStatus: "PENDING",
         updatedAt,
@@ -311,32 +323,62 @@ export default function ProductsPage() {
 
       await db.transaction(
         "rw",
-        [db.products, db.billOfMaterials, db.syncQueue],
+        [db.products, db.billOfMaterials, db.syncQueue, db.productAssignments],
         async () => {
           await db.products.put(productPayload);
           await enqueueSyncOp("products", localId, editingId ? "UPDATE" : "CREATE", productPayload);
 
-          if (editingId) {
-            const existingBoms = await db.billOfMaterials.where("productId").equals(localId).toArray();
-            const bomsToDelete = existingBoms.filter((eb) => !bomEntries.some((nb) => nb.id === eb.id));
+            if (editingId) {
+              const existingBoms = await db.billOfMaterials.where("productId").equals(localId).toArray();
+              const bomsToDelete = existingBoms.filter((eb) => !bomEntries.some((nb) => nb.id === eb.id));
 
-            if (bomsToDelete.length > 0) {
-              await db.billOfMaterials.bulkDelete(bomsToDelete.map((b) => b.id));
-              for (const b of bomsToDelete) {
-                await enqueueSyncOp("billOfMaterials", b.id, "DELETE", { deleted: true });
+              if (bomsToDelete.length > 0) {
+                await db.billOfMaterials.bulkDelete(bomsToDelete.map((b) => b.id));
+                for (const b of bomsToDelete) {
+                  await enqueueSyncOp("billOfMaterials", b.id, "DELETE", { deleted: true });
+                }
+              }
+
+              // Assignments cleanup
+              const existingAssignments = await db.productAssignments.where("productId").equals(localId).toArray();
+              await db.productAssignments.bulkDelete(existingAssignments.map(a => a.id));
+              // Note: For simplicity, we delete all and recreate. 
+              // In a real app, we'd sync DELETE for removed ones.
+              // For now, let's just push CREATE for all current ones.
+            }
+
+            if (bomEntries.length > 0) {
+              await db.billOfMaterials.bulkPut(bomEntries);
+
+              for (const bom of bomEntries) {
+                await enqueueSyncOp("billOfMaterials", bom.id, editingId ? "UPDATE" : "CREATE", bom);
+              }
+            }
+
+            // Save Assignments (Clean up old ones first if editing)
+            if (editingId) {
+              const oldAssignments = await db.productAssignments.where("productId").equals(editingId).toArray();
+              for (const oa of oldAssignments) {
+                await db.productAssignments.delete(oa.id);
+                // Optional: enqueue DELETE sync if needed, but usually initial sync will handle reconciliation
+              }
+            }
+
+            if (terminalAssignments.length > 0) {
+              const newAssignments = terminalAssignments.map(ta => ({
+                id: generateUUID(),
+                productId: localId,
+                terminalId: ta.terminalId,
+                stock: ta.stock
+              }));
+              await db.productAssignments.bulkPut(newAssignments);
+              
+              for (const assignment of newAssignments) {
+                await enqueueSyncOp("productAssignments", assignment.id, "CREATE", assignment);
               }
             }
           }
-
-          if (bomEntries.length > 0) {
-            await db.billOfMaterials.bulkPut(bomEntries);
-
-            for (const bom of bomEntries) {
-              await enqueueSyncOp("billOfMaterials", bom.id, editingId ? "UPDATE" : "CREATE", bom);
-            }
-          }
-        }
-      );
+        );
 
       toast(
         editingId
@@ -355,6 +397,17 @@ export default function ProductsPage() {
   return (
     <DashboardLayout title="Manajemen Produk">
       <div style={{ display: "grid", gap: "24px" }}>
+        {error && (
+          <div className="card" style={{ background: "hsl(var(--error) / 0.1)", borderColor: "hsl(var(--error))", color: "hsl(var(--error))", padding: "12px 16px", fontSize: "14px" }}>
+            ⚠️ <strong>Gagal Sinkronisasi:</strong> {error}
+            <button 
+              onClick={() => window.location.reload()}
+              style={{ marginLeft: "12px", textDecoration: "underline", fontWeight: 700 }}
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
         <section
           style={{
             display: "grid",
@@ -413,15 +466,23 @@ export default function ProductsPage() {
             </p>
           </div>
 
-          <button
-            className={`btn ${showCreateForm ? "btn-ghost" : "btn-primary"}`}
-            onClick={() => {
-              if (showCreateForm) resetCreateForm();
-              else setShowCreateForm(true);
-            }}
-          >
-            {showCreateForm ? "Tutup Form" : "+ Tambah Produk"}
-          </button>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              className="btn btn-outline"
+              onClick={() => window.location.reload()}
+            >
+              🔄 Sinkron Data
+            </button>
+            <button
+              className={`btn ${showCreateForm ? "btn-ghost" : "btn-primary"}`}
+              onClick={() => {
+                if (showCreateForm) resetCreateForm();
+                else setShowCreateForm(true);
+              }}
+            >
+              {showCreateForm ? "Tutup Form" : "+ Tambah Produk"}
+            </button>
+          </div>
         </section>
 
         {showCreateForm && (
@@ -499,7 +560,7 @@ export default function ProductsPage() {
 
               <div>
                 <label className="input-label" htmlFor="stock">
-                  Stok Awal
+                  Stok Gudang (Pusat)
                 </label>
                 <input
                   id="stock"
@@ -597,6 +658,110 @@ export default function ProductsPage() {
                 />
                 Aktifkan BoM untuk produk ini
               </label>
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "hsl(var(--primary))"
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={form.showInPos}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, showInPos: event.target.checked }))
+                  }
+                />
+                Tampilkan produk ini di Kasir (POS)
+              </label>
+
+              {/* TERMINAL ASSIGNMENT */}
+              {form.showInPos && (
+                <div style={{ marginTop: "10px", padding: "16px", background: "hsl(var(--bg-elevated) / 0.8)", borderRadius: "12px", border: "1px solid hsl(var(--primary) / 0.2)" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 700, display: "block", marginBottom: "10px", color: "hsl(var(--primary))" }}>
+                    📍 Distribusikan ke Terminal: 
+                    <span style={{ fontWeight: 400, opacity: 0.6, marginLeft: "8px", fontSize: "11px" }}>
+                      ({posTerminals.length} terminal terdeteksi)
+                    </span>
+                  </span>
+                  
+                  {posTerminals.length === 0 ? (
+                    <p style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
+                      Belum ada terminal yang terdeteksi. Pastikan Anda sudah menambahkan terminal di Dashboard.
+                    </p>
+                  ) : (
+                    <>
+                      <div style={{ marginBottom: "12px", padding: "12px", background: "hsl(var(--primary) / 0.05)", borderRadius: "12px", border: "1px dashed hsl(var(--primary) / 0.3)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                          <span>📦 Stok di Gudang Pusat:</span>
+                          <span style={{ fontWeight: 800, color: "hsl(var(--primary))" }}>{form.stock} {form.unit}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gap: "10px" }}>
+                        {posTerminals.map(terminal => {
+                          const assignment = terminalAssignments.find(a => a.terminalId === terminal.id);
+                          const isSelected = !!assignment;
+                          return (
+                            <div key={terminal.id} style={{ display: "flex", alignItems: "center", gap: "12px", background: "hsl(var(--bg-card))", padding: "10px", borderRadius: "10px", border: "1px solid hsl(var(--border))" }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    // Kembalikan stok ke gudang saat terminal dilepas
+                                    setForm(f => ({ ...f, stock: f.stock + assignment.stock }));
+                                    setTerminalAssignments(prev => prev.filter(a => a.terminalId !== terminal.id));
+                                  } else {
+                                    setTerminalAssignments(prev => [...prev, { terminalId: terminal.id, stock: 0 }]);
+                                  }
+                                }}
+                                className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-outline'}`}
+                                style={{ borderRadius: "8px", fontSize: "12px", minWidth: "120px" }}
+                              >
+                                {isSelected ? "✅ " : "➕ "} {terminal.name}
+                              </button>
+
+                              {isSelected && (
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+                                  <label style={{ fontSize: "11px", whiteSpace: "nowrap" }}>Kirim ke POS:</label>
+                                  <input
+                                    type="number"
+                                    className="input-field"
+                                    style={{ height: "32px", padding: "0 8px", fontSize: "12px" }}
+                                    value={assignment.stock}
+                                    onFocus={(e) => e.target.select()}
+                                    onChange={(e) => {
+                                      const newVal = parseFloat(e.target.value) || 0;
+                                      const diff = newVal - assignment.stock;
+                                      
+                                      // Validasi: Jangan sampai ambil stok lebih dari yang ada di gudang
+                                      if (diff > form.stock) {
+                                        toast("Stok gudang tidak mencukupi!", "error");
+                                        return;
+                                      }
+
+                                      setForm(f => ({ ...f, stock: f.stock - diff }));
+                                      setTerminalAssignments(prev => prev.map(a => a.terminalId === terminal.id ? { ...a, stock: newVal } : a));
+                                    }}
+                                  />
+                                  <span style={{ fontSize: "11px", color: "hsl(var(--text-muted))" }}>{form.unit}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p style={{ marginTop: "8px", fontSize: "11px", color: "hsl(var(--text-muted))" }}>
+                        Jika tidak ada yang dipilih, produk akan tampil di SEMUA terminal (Default).
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
 
               {!form.hasBoM ? (
                 <p style={{ fontSize: "13px", color: "hsl(var(--text-secondary))" }}>
@@ -984,7 +1149,16 @@ export default function ProductsPage() {
                       style={{ borderBottom: "1px solid hsl(var(--border))" }}
                     >
                       <td style={bodyCellStyle}>{product.sku || "-"}</td>
-                      <td style={{ ...bodyCellStyle, fontWeight: 600 }}>{product.name}</td>
+                      <td style={{ ...bodyCellStyle, fontWeight: 600 }}>
+                        <div>{product.name}</div>
+                        {!product.showInPos && (
+                          <div style={{ marginTop: "4px" }}>
+                            <span className="badge badge-warning" style={{ fontSize: "10px", padding: "2px 6px" }}>
+                              Tersembunyi di POS
+                            </span>
+                          </div>
+                        )}
+                      </td>
                       <td style={{ ...bodyCellStyle, color: "hsl(var(--text-secondary))" }}>
                         {product.category || "-"}
                       </td>

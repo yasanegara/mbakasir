@@ -30,6 +30,7 @@ export default async function SettingsPage() {
     return (
       <DashboardLayout title="Pengaturan">
         <div style={{ display: "grid", gap: "24px" }}>
+          
           <BrandConfigClient initialConfig={brandConfig} />
           <TokenSettingsClient initialConfig={tokenConfig} />
           <AgentPackageManager tokenSymbol={tokenConfig.tokenSymbol} />
@@ -76,6 +77,7 @@ export default async function SettingsPage() {
     return (
       <DashboardLayout title="Pengaturan Toko">
         <div style={{ display: "grid", gap: "24px" }}>
+          
           <StoreProfileClient
             tenantId={session.tenantId}
             initialStoreName={tenant.name}
@@ -96,6 +98,7 @@ export default async function SettingsPage() {
     return (
       <DashboardLayout title="Pengaturan Agen">
         <div style={{ display: "grid", gap: "24px" }}>
+          
           <AgentSettingsClient
             initialResalePrice={Number(agentData.tokenResalePrice) || 0}
             initialWhatsappNumber={agentData.whatsappNumber || ""}
@@ -129,10 +132,13 @@ export default async function SettingsPage() {
 
     return (
       <DashboardLayout title="PIN & Password">
-        <CashierCredentialsClient
-          cashierName={cashier.name}
-          hasPin={Boolean(cashier.pin)}
-        />
+        <div style={{ display: "grid", gap: "24px" }}>
+          
+          <CashierCredentialsClient
+            cashierName={cashier.name}
+            hasPin={Boolean(cashier.pin)}
+          />
+        </div>
       </DashboardLayout>
     );
   }
@@ -140,6 +146,7 @@ export default async function SettingsPage() {
   return (
     <DashboardLayout title="Pengaturan">
       <div style={{ display: "grid", gap: "24px" }}>
+        
         <section className="card">
           <h2 style={{ fontSize: "20px" }}>Pengaturan Umum</h2>
           <p style={{ marginTop: "8px", color: "hsl(var(--text-secondary))" }}>

@@ -16,6 +16,7 @@ export default function ReportsPage() {
   
   const sales = useLiveQuery(() => getDb().sales.where("status").equals("COMPLETED").toArray()) || [];
   const saleItems = useLiveQuery(() => getDb().saleItems.toArray()) || [];
+  const posTerminals = useLiveQuery(() => getDb().posTerminals.toArray()) || [];
 
   // ==========================
   // KALKULASI LABA / RUGI
@@ -70,6 +71,20 @@ export default function ReportsPage() {
     });
   }, [sales, saleItems]);
 
+  const posPerformance = useMemo(() => {
+    const stats: Record<string, { name: string, revenue: number, count: number }> = {};
+    for (const sale of sales) {
+      const tid = sale.terminalId || "default";
+      if (!stats[tid]) {
+        const terminal = posTerminals.find(t => t.id === tid);
+        stats[tid] = { name: terminal?.name || "Gudang Utama", revenue: 0, count: 0 };
+      }
+      stats[tid].revenue += sale.totalAmount;
+      stats[tid].count += 1;
+    }
+    return Object.values(stats).sort((a, b) => b.revenue - a.revenue);
+  }, [sales, posTerminals]);
+
   return (
     <DashboardLayout title={`Laporan Transaksi - ${period}`}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "24px", marginBottom: "30px" }}>
@@ -101,6 +116,22 @@ export default function ReportsPage() {
            <span style={{ fontSize: "12px", color: "white", opacity: 0.8, marginTop: "8px" }}>Margin: {profitLoss.revenue === 0 ? "0" : Math.round((profitLoss.netProfit / profitLoss.revenue) * 100)}%</span>
         </div>
 
+      </div>
+
+      {/* POS PERFORMANCE BREAKDOWN */}
+      <div style={{ marginBottom: "30px" }}>
+        <h3 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+          🖥️ Performa per POS Terminal
+        </h3>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
+          {posPerformance.map((p, i) => (
+            <div key={i} className="card" style={{ padding: "16px", borderLeft: "4px solid hsl(var(--primary))" }}>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "hsl(var(--text-secondary))" }}>{p.name}</div>
+              <div style={{ fontSize: "20px", fontWeight: 800, margin: "8px 0", color: "hsl(var(--primary))" }}>{formatRupiahFull(p.revenue)}</div>
+              <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))" }}>{p.count} Transaksi Berhasil</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>

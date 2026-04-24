@@ -59,9 +59,18 @@ export async function GET() {
       },
     });
 
-    // Sesuaikan format UUID: Prisma punya id & localId, 
-    // jika product belum punya localId, kita pakai id-nya sbg localId awal
-    const formattedProducts = products.map((p) => ({
+    const posTerminals = await prisma.posTerminal.findMany({
+      where: { tenantId },
+    });
+
+    const productAssignments = await prisma.productAssignment.findMany({
+      where: { product: { tenantId } },
+      include: {
+        product: { select: { localId: true } }
+      }
+    });
+
+    const formattedProducts = products.map((p: any) => ({
       id: p.id,
       localId: p.localId || p.id,
       tenantId: p.tenantId,
@@ -72,6 +81,7 @@ export async function GET() {
       costPrice: Number(p.costPrice),
       stock: Number(p.stock),
       unit: p.unit,
+      showInPos: p.showInPos,
       imageUrl: p.imageUrl || "",
       isActive: p.isActive,
       hasBoM: p.hasBoM,
@@ -79,7 +89,7 @@ export async function GET() {
       updatedAt: p.updatedAt.getTime(),
     }));
 
-    const formattedRawMaterials = rawMaterials.map((r) => ({
+    const formattedRawMaterials = rawMaterials.map((r: any) => ({
       id: r.id,
       localId: r.localId || r.id,
       tenantId: r.tenantId,
@@ -92,11 +102,39 @@ export async function GET() {
       updatedAt: r.updatedAt.getTime(),
     }));
 
-    const formattedBoM = bomList.map((b) => ({
+    const formattedBoM = bomList.map((b: any) => ({
       id: b.id,
       productId: b.product.localId || b.productId,
       rawMaterialId: b.rawMaterial.localId || b.rawMaterialId,
       quantity: Number(b.quantity),
+    }));
+
+    const formattedTerminals = [
+      ...posTerminals.map((t: any) => ({
+        id: t.id,
+        tenantId: t.tenantId,
+        name: t.name,
+        code: t.code,
+        isDefault: t.isDefault,
+        isActive: t.isActive,
+        targetRevenue: Number(t.targetRevenue)
+      })),
+      {
+        id: "test-terminal",
+        tenantId: tenant.id,
+        name: "TEST TERMINAL (DEBUG)",
+        code: "DEBUG",
+        isDefault: false,
+        isActive: true,
+        targetRevenue: 0
+      }
+    ];
+
+    const formattedAssignments = productAssignments.map((a: any) => ({
+      id: a.id,
+      productId: a.product.localId || a.productId,
+      terminalId: a.terminalId,
+      stock: Number(a.stock)
     }));
 
     return Response.json({
@@ -113,6 +151,8 @@ export async function GET() {
       products: formattedProducts,
       rawMaterials: formattedRawMaterials,
       billOfMaterials: formattedBoM,
+      posTerminals: formattedTerminals,
+      productAssignments: formattedAssignments
     });
 
   } catch (error: unknown) {

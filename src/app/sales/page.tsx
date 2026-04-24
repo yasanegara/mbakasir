@@ -20,6 +20,7 @@ export default function SalesHistoryPage() {
   ) || [];
 
   const saleItems = useLiveQuery(() => getDb().saleItems.toArray()) || [];
+  const posTerminals = useLiveQuery(() => getDb().posTerminals.toArray()) || [];
 
   const filtered = useMemo(() => {
     if (!search.trim()) return sales;
@@ -106,7 +107,7 @@ export default function SalesHistoryPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "600px" }}>
                 <thead style={{ background: "hsl(var(--bg-elevated))", borderBottom: "1px solid hsl(var(--border))" }}>
                   <tr>
-                    {["No. Invoice", "Waktu", "Metode", "Total", "Kembalian", "Status", "Sync"].map((h) => (
+                    {["No. Invoice", "POS", "Waktu", "Metode", "Total", "Kembalian", "Status", "Sync"].map((h) => (
                       <th key={h} style={{ padding: "12px 16px", fontSize: "13px", fontWeight: 600, color: "hsl(var(--text-secondary))", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
@@ -120,6 +121,14 @@ export default function SalesHistoryPage() {
                           {sale.invoiceNo}
                           <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", fontFamily: "inherit", fontWeight: 400, marginTop: "2px" }}>
                             {itemsInSale.length} item produk
+                          </div>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <div style={{ fontSize: "13px", fontWeight: 700, color: "hsl(var(--primary))" }}>
+                            {posTerminals.find(t => t.id === sale.terminalId)?.name || "Gudang Utama"}
+                          </div>
+                          <div style={{ fontSize: "10px", color: "hsl(var(--text-muted))" }}>
+                            ID: {sale.terminalId?.slice(-6) || "N/A"}
                           </div>
                         </td>
                         <td style={{ padding: "12px 16px", fontSize: "12px", color: "hsl(var(--text-secondary))", whiteSpace: "nowrap" }}>
@@ -139,6 +148,11 @@ export default function SalesHistoryPage() {
                         </td>
                         <td style={{ padding: "12px 16px", fontWeight: 700, fontSize: "14px", color: "hsl(var(--primary))", whiteSpace: "nowrap" }}>
                           {formatRupiahFull(sale.totalAmount)}
+                          {sale.discountAmount > 0 && (
+                            <div style={{ fontSize: "10px", color: "hsl(var(--error))", fontWeight: 600, marginTop: "2px" }}>
+                              🏷️ Diskon: {formatRupiahFull(sale.discountAmount)}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: "12px 16px", fontSize: "13px", color: "hsl(var(--text-secondary))", whiteSpace: "nowrap" }}>
                           {sale.changeAmount > 0 ? formatRupiahFull(sale.changeAmount) : "—"}

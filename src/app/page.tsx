@@ -413,7 +413,7 @@ export default async function IndexPage({ searchParams }: Props) {
             Bayar bulanan atau hemat lebih banyak dengan paket tahunan. Semua fitur sama!
           </p>
 
-          <div className={styles.pricingWrap} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", maxWidth: "900px", margin: "0 auto", gap: "24px" }}>
+          <div className={styles.pricingWrap}>
 
             {/* BULANAN */}
             <div className={styles.pricingCard} style={{ opacity: 0.92 }}>
