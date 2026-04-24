@@ -37,6 +37,8 @@ function LearnArticleView({
   ctaDesc,
   canSharePublic = false,
   onSharePublic,
+  relatedDocs = [],
+  onSelectRelated,
 }: {
   selected: Doc;
   onBack: () => void;
@@ -47,6 +49,8 @@ function LearnArticleView({
   ctaDesc?: React.ReactNode;
   canSharePublic?: boolean;
   onSharePublic?: () => void;
+  relatedDocs?: Doc[];
+  onSelectRelated?: (doc: Doc) => void;
 }) {
 
   return (
@@ -83,6 +87,52 @@ function LearnArticleView({
           className="markdown-body"
           dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.content) }}
         />
+
+        {relatedDocs.length > 0 && (
+          <div style={{ marginTop: "48px", paddingTop: "32px", borderTop: "1px solid hsl(var(--border))" }}>
+            <h3 style={{ fontSize: "18px", fontWeight: 800, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+              <span>📖</span> Artikel Terkait Lainnya
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
+              {relatedDocs.map((doc) => (
+                <button
+                  key={doc.id}
+                  onClick={() => onSelectRelated?.(doc)}
+                  style={{
+                    textAlign: "left",
+                    padding: "16px",
+                    background: "hsl(var(--bg-card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "16px",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "12px",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "hsl(var(--primary)/0.5)";
+                    (e.currentTarget as HTMLButtonElement).style.background = "hsl(var(--primary)/0.03)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "hsl(var(--border))";
+                    (e.currentTarget as HTMLButtonElement).style.background = "hsl(var(--bg-card))";
+                  }}
+                >
+                  <span style={{ fontSize: "24px", flexShrink: 0 }}>{doc.emoji || "📄"}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: "14px", lineHeight: 1.3, marginBottom: "4px", color: "hsl(var(--text-primary))" }}>
+                      {doc.title}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", fontWeight: 500 }}>
+                      Baca panduan →
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {selected.isPublic && (
           <div style={{
@@ -351,6 +401,21 @@ function LearnContent() {
     }
   }
 
+  const relatedDocs = selected 
+    ? docs
+        .filter(d => d.id !== selected.id && (d.targetRole === selected.targetRole || d.isPublic))
+        .slice(0, 3)
+    : [];
+
+  const handleSelectArticle = (doc: Doc) => {
+    setSelected(doc);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("s", doc.slug);
+      window.history.pushState({}, "", url.toString());
+    }
+  };
+
   if (requestedSlug && (loading || selected?.isPublic)) {
     return (
       <main
@@ -403,6 +468,8 @@ function LearnContent() {
               ctaDesc={ctaDesc}
               canSharePublic={!isShareDisabled && user?.role === "AGENT" && selected.isPublic}
               onSharePublic={() => handleSharePublicArticle(selected.slug)}
+              relatedDocs={relatedDocs}
+              onSelectRelated={handleSelectArticle}
             />
           ) : (
             <div className="card" style={{ maxWidth: "800px", margin: "0 auto", textAlign: "center", padding: "56px 24px" }}>
@@ -429,9 +496,11 @@ function LearnContent() {
           ctaDesc={ctaDesc}
           canSharePublic={!isShareDisabled && user?.role === "AGENT" && selected.isPublic}
           onSharePublic={() => handleSharePublicArticle(selected.slug)}
+          relatedDocs={relatedDocs}
+          onSelectRelated={handleSelectArticle}
         />
       ) : (
-        <LearnListView docs={docs} loading={loading} onSelect={setSelected} />
+        <LearnListView docs={docs} loading={loading} onSelect={handleSelectArticle} />
       )}
     </DashboardLayout>
   );
