@@ -31,7 +31,11 @@ export default function LoginPage() {
       if (res.ok) {
         toast("Login berhasil", "success");
         await refetch();
-        router.push("/dashboard");
+        if (data.role === "CASHIER") {
+          router.push("/pos");
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         toast(data.error || "Gagal login", "error");
       }
@@ -54,10 +58,15 @@ export default function LoginPage() {
       setPassword("Kasir@1234!");
     }
     // Set a slight timeout to allow state to update before submitting
-    setTimeout(() => {
-      const form = document.getElementById("login-form") as HTMLFormElement;
-      if (form) form.requestSubmit();
-    }, 100);
+    // UNLESS it's a cashier demo, we want them to feel the login button then the PIN
+    if (role !== "kasir") {
+      setTimeout(() => {
+        const form = document.getElementById("login-form") as HTMLFormElement;
+        if (form) form.requestSubmit();
+      }, 100);
+    } else {
+      toast("Data demo terisi. Silakan klik Masuk untuk lanjut ke PIN Kasir.", "info");
+    }
   };
 
   return (
