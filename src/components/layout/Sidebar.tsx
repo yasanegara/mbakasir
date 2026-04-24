@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BrandBadge from "@/components/brand/BrandBadge";
+import TokenMark from "@/components/ui/TokenMark";
 import { useAuth, useTheme } from "@/contexts/AppProviders";
 import { useBrand } from "@/contexts/BrandContext";
 
@@ -42,9 +43,7 @@ const Icon = {
     </svg>
   ),
   token: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
-      <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-    </svg>
+    <TokenMark className="nav-icon" />
   ),
   users: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
@@ -116,7 +115,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },
   { href: "/learn", label: "Pusat Belajar", icon: Icon.book, roles: ["AGENT", "TENANT"] },
-  { href: "/settings", label: "Pengaturan", icon: Icon.settings, roles: ["SUPERADMIN", "TENANT"] },
+  { href: "/settings", label: "Pengaturan", icon: Icon.settings, roles: ["SUPERADMIN"] },
   { href: "/admin/agents", label: "Kelola Agen", icon: Icon.users, roles: ["SUPERADMIN"] },
   { href: "/admin/tokens", label: "Mint Token", icon: Icon.token, roles: ["SUPERADMIN"] },
   { href: "/admin/tenants", label: "Semua Toko", icon: Icon.stores, roles: ["SUPERADMIN"] },
@@ -146,6 +145,7 @@ export default function Sidebar({
     (item) => user && item.roles.includes(user.role)
   );
   const settingsLabel = user?.role === "CASHIER" ? "PIN & Password" : "Pengaturan";
+  const showFooterSettings = user?.role === "AGENT" || user?.role === "CASHIER";
 
   const roleLabel: Record<string, string> = {
     SUPERADMIN: "Super Admin",
@@ -331,15 +331,17 @@ export default function Sidebar({
           </button>
 
           {/* Settings */}
-          <Link
-            href="/settings"
-            className={`nav-item${pathname === "/settings" ? " active" : ""}`}
-            title={isCollapsed ? settingsLabel : undefined}
-            style={isCollapsed ? { justifyContent: "center", padding: "10px" } : {}}
-          >
-            {Icon.settings}
-            {!isCollapsed && <span>{settingsLabel}</span>}
-          </Link>
+          {showFooterSettings && (
+            <Link
+              href="/settings"
+              className={`nav-item${pathname === "/settings" ? " active" : ""}`}
+              title={isCollapsed ? settingsLabel : undefined}
+              style={isCollapsed ? { justifyContent: "center", padding: "10px" } : {}}
+            >
+              {Icon.settings}
+              {!isCollapsed && <span>{settingsLabel}</span>}
+            </Link>
+          )}
 
           {/* Logout */}
           <button

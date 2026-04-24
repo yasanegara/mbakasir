@@ -1,9 +1,16 @@
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import {
+  getAgentTokenPurchaseRequestDelegate,
+  prisma,
+} from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import AgentTokenRequestList, {
+  type AgentTokenRequestItem,
+} from "@/components/admin/AgentTokenRequestList";
 import PosTerminalManager from "@/components/settings/PosTerminalManager";
+import TenantLicenseCountdownCard from "@/components/tenant/TenantLicenseCountdownCard";
 import { ensureDefaultPosTerminal } from "@/lib/pos-terminals";
 import { ensureTokenConfig } from "@/lib/token-settings";
 import {
@@ -11,6 +18,7 @@ import {
   formatTokenConversion,
   getTokenConversion,
 } from "@/lib/token-settings-shared";
+import { formatRupiahFull } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -22,6 +30,10 @@ export default async function DashboardPage() {
   let tokenBalance = 0;
   let activeAddons: { name: string; type: string }[] = [];
   let agentRequests: any[] = [];
+  let pendingAgentTokenRequestCount = 0;
+  let pendingAgentTokenRequestTotalTokens = 0;
+  let superAdminAgentRequests: AgentTokenRequestItem[] = [];
+  const agentTokenRequestDelegate = getAgentTokenPurchaseRequestDelegate(prisma);
   
   const now = new Date();
   const announcements = await prisma.announcement.findMany({
@@ -49,14 +61,57 @@ export default async function DashboardPage() {
     agentRequests = reqs;
   }
 
+  if (session.role === "SUPERADMIN" && agentTokenRequestDelegate) {
+    const [pendingCount, pendingAggregate, recentRequests] = await Promise.all([
+      agentTokenRequestDelegate.count({
+        where: { status: "PENDING" },
+      }),
+      agentTokenRequestDelegate.aggregate({
+        where: { status: "PENDING" },
+        _sum: { tokenAmount: true },
+      }),
+      agentTokenRequestDelegate.findMany({
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          packageName: true,
+          tokenAmount: true,
+          totalPrice: true,
+          createdAt: true,
+          agent: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    pendingAgentTokenRequestCount = pendingCount;
+    pendingAgentTokenRequestTotalTokens = pendingAggregate._sum.tokenAmount || 0;
+    superAdminAgentRequests = recentRequests.map((request: any) => ({
+      id: request.id,
+      packageName: request.packageName,
+      tokenAmount: request.tokenAmount,
+      totalPrice: Number(request.totalPrice),
+      createdAt: request.createdAt,
+      agent: request.agent,
+    }));
+  }
+
   let tokenConfigObj: any = null;
   let tenantData: any = null;
   let posConversionObj: any = null;
+  let licenseConversionObj: any = null;
+  let approvedPurchasedTokens = 0;
 
   if (session.role === "TENANT" && session.tenantId) {
     await ensureDefaultPosTerminal(prisma, session.tenantId);
 
-    const [tokenConfig, dbTenant] = await Promise.all([
+    const [tokenConfig, dbTenant, approvedPurchaseSummary] = await Promise.all([
       ensureTokenConfig(),
       prisma.tenant.findUnique({
         where: { id: session.tenantId },
@@ -73,30 +128,94 @@ export default async function DashboardPage() {
             select: { id: true, name: true, code: true, isDefault: true, isActive: true, tokenCost: true, createdAt: true }
           }
         }
-      })
+      }),
+      prisma.tokenPurchaseRequest.aggregate({
+        where: {
+          tenantId: session.tenantId,
+          status: "APPROVED",
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
     ]);
 
     tenantData = dbTenant;
     tokenConfigObj = tokenConfig;
+    approvedPurchasedTokens = approvedPurchaseSummary._sum.amount || 0;
 
     activeAddons.push({ name: "Manajemen Resep (BoM)", type: "Fitur Gratis" });
 
     tenantData?.posTerminals.filter((p: any) => !p.isDefault).forEach((pos: any) => {
-      activeAddons.push({ name: `Terminal POS Tambahan: ${pos.name}`, type: `Add-on Berbayar (${pos.tokenCost} Token)` });
+      activeAddons.push({
+        name: `Terminal POS Tambahan: ${pos.name}`,
+        type: `Add-on Berbayar (${pos.tokenCost} ${tokenConfig.tokenSymbol}/bulan)`,
+      });
     });
 
     posConversionObj = getTokenConversion(tokenConfig, "POS_SLOT");
+    licenseConversionObj = getTokenConversion(tokenConfig, "LICENSE_MONTH");
   }
 
   // Helpers untuk tampilan
   const agentTokenBalance = tenantData?.agent?.tokenBalance ?? 0;
   const tokenUsed = tenantData?.tokenUsed ?? 0;
+  const tokenSymbol = tokenConfigObj?.tokenSymbol ?? "T.";
   const premiumUntil = tenantData?.premiumUntil ? new Date(tenantData.premiumUntil) : null;
+  const initialPremiumRemainingMs = premiumUntil
+    ? Math.max(0, premiumUntil.getTime() - Date.now())
+    : 0;
   const isPremiumActive = premiumUntil ? premiumUntil > new Date() : false;
   const daysLeft = premiumUntil
     ? Math.max(0, Math.ceil((premiumUntil.getTime() - Date.now()) / 86400000))
     : 0;
   const activeTerminals = tenantData?.posTerminals?.filter((p: any) => p.isActive)?.length ?? 0;
+  const addonCostPerMonth =
+    tenantData?.posTerminals?.reduce((sum: number, terminal: any) => {
+      if (!terminal.isDefault && terminal.isActive) {
+        return sum + terminal.tokenCost;
+      }
+
+      return sum;
+    }, 0) ?? 0;
+  const licenseCostPerMonth = licenseConversionObj
+    ? calculateTokenCostForQuantity(licenseConversionObj, 1)
+    : 0;
+  const renewalTokenCostPerMonth = licenseCostPerMonth + addonCostPerMonth;
+  const renewalPriceEstimate =
+    renewalTokenCostPerMonth > 0 && tenantData?.agent?.tokenResalePrice
+      ? renewalTokenCostPerMonth * Number(tenantData.agent.tokenResalePrice)
+      : null;
+  const storeOwnedTokenBalance = Math.max(0, approvedPurchasedTokens - tokenUsed);
+  const manualActivationGap = Math.max(0, tokenUsed - approvedPurchasedTokens);
+  const renewalBreakdownParts: string[] = [];
+
+  if (licenseCostPerMonth > 0) {
+    renewalBreakdownParts.push(`${licenseCostPerMonth} ${tokenSymbol} lisensi inti`);
+  }
+
+  if (addonCostPerMonth > 0) {
+    renewalBreakdownParts.push(`${addonCostPerMonth} ${tokenSymbol} add-on aktif`);
+  }
+
+  const renewalBreakdown =
+    renewalBreakdownParts.length > 0
+      ? renewalBreakdownParts.join(" + ")
+      : null;
+  const renewalEstimateLabel =
+    renewalTokenCostPerMonth > 0
+      ? `${renewalTokenCostPerMonth.toLocaleString("id-ID")} ${tokenSymbol}${
+          renewalPriceEstimate && renewalPriceEstimate > 0
+            ? ` (${formatRupiahFull(renewalPriceEstimate)})`
+            : ""
+        }`
+      : null;
+  const storeTokenCaption =
+    approvedPurchasedTokens <= 0
+      ? "Belum ada pembelian token toko yang disetujui agen"
+      : manualActivationGap > 0
+        ? `Estimasi minimum. Ada ${manualActivationGap.toLocaleString("id-ID")} ${tokenSymbol} aktivasi manual di luar riwayat pembelian`
+        : `Sisa dari ${approvedPurchasedTokens.toLocaleString("id-ID")} ${tokenSymbol} pembelian yang sudah disetujui agen`;
 
   const greetingHour = new Date().getHours();
   const greeting =
@@ -193,6 +312,55 @@ export default async function DashboardPage() {
           </div>
         )}
 
+        {/* ── SUPERADMIN DASHBOARD ─────────────────────────────── */}
+        {session.role === "SUPERADMIN" && (
+          <div style={{ display: "grid", gap: "24px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "16px",
+              }}
+            >
+              <div className="stat-card" style={{ background: "var(--gradient-primary)" }}>
+                <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>
+                  🔔 Permintaan Token Agen
+                </span>
+                <span className="stat-value" style={{ color: "white", WebkitTextFillColor: "white" }}>
+                  {pendingAgentTokenRequestCount}
+                </span>
+                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>
+                  antrean pembelian yang masih pending
+                </span>
+              </div>
+              <div className="stat-card">
+                <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
+                  🪙 Total Token Diminta
+                </span>
+                <span className="stat-value">
+                  {pendingAgentTokenRequestTotalTokens.toLocaleString("id-ID")}
+                </span>
+                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
+                  akumulasi dari semua request pending
+                </span>
+              </div>
+            </div>
+
+            <AgentTokenRequestList
+              title={`Notifikasi Pembelian Agen (${pendingAgentTokenRequestCount})`}
+              description="Setiap kali agen memesan paket token ke pusat, antreannya muncul di sini. Saat Anda melakukan mint dengan jumlah token yang sama, request tertua yang cocok akan selesai otomatis."
+              requests={superAdminAgentRequests}
+              emptyMessage="Belum ada permintaan token dari agen."
+              actionHref="/admin/tokens"
+              actionLabel="Buka Mint Token"
+              additionalPendingCount={Math.max(
+                0,
+                pendingAgentTokenRequestCount - superAdminAgentRequests.length
+              )}
+            />
+          </div>
+        )}
+
         {/* ── TENANT DASHBOARD ──────────────────────────────────── */}
         {session.role === "TENANT" && tenantData && (
           <div style={{ display: "grid", gap: "24px" }}>
@@ -203,16 +371,29 @@ export default async function DashboardPage() {
               gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: "16px",
             }}>
-              {/* Token Tersedia */}
+              {/* Token di Agen */}
               <div className="stat-card" style={{ position: "relative", overflow: "hidden" }}>
                 <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-                  🪙 Token Tersedia
+                  🪙 Saldo Agen
                 </span>
                 <span className="stat-value" style={{ fontSize: "clamp(28px, 5vw, 36px)", color: "hsl(var(--primary))" }}>
                   {agentTokenBalance.toLocaleString("id-ID")}
                 </span>
                 <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                  {tokenConfigObj?.tokenSymbol} di akun Agen
+                  {tokenSymbol} yang masih dipegang agen
+                </span>
+              </div>
+
+              {/* Token Toko */}
+              <div className="stat-card">
+                <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
+                  🧾 T. Toko Tersisa
+                </span>
+                <span className="stat-value" style={{ fontSize: "clamp(28px, 5vw, 36px)" }}>
+                  {storeOwnedTokenBalance.toLocaleString("id-ID")}
+                </span>
+                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", lineHeight: 1.5 }}>
+                  {storeTokenCaption}
                 </span>
               </div>
 
@@ -229,33 +410,14 @@ export default async function DashboardPage() {
                 </span>
               </div>
 
-              {/* Masa Aktif */}
-              <div className="stat-card" style={{
-                borderColor: isPremiumActive
-                  ? daysLeft <= 7
-                    ? "hsl(var(--warning)/0.5)"
-                    : "hsl(var(--success)/0.4)"
-                  : "hsl(var(--error)/0.4)",
-              }}>
-                <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-                  {isPremiumActive ? "✅ Aktif Hingga" : "⛔ Tidak Aktif"}
-                </span>
-                <span className="stat-value" style={{
-                  fontSize: "clamp(20px, 3.5vw, 26px)",
-                  color: isPremiumActive
-                    ? daysLeft <= 7 ? "hsl(var(--warning))" : "hsl(var(--success))"
-                    : "hsl(var(--error))",
-                }}>
-                  {isPremiumActive
-                    ? daysLeft > 0 ? `${daysLeft} hari lagi` : "Hari ini"
-                    : "Kadaluarsa"}
-                </span>
-                <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                  {premiumUntil
-                    ? premiumUntil.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
-                    : "Belum diaktifkan"}
-                </span>
-              </div>
+              <TenantLicenseCountdownCard
+                premiumUntilIso={tenantData.premiumUntil?.toISOString() ?? null}
+                initialRemainingMs={initialPremiumRemainingMs}
+                renewalTokenCostPerMonth={renewalTokenCostPerMonth}
+                tokenSymbol={tokenSymbol}
+                renewalPriceEstimate={renewalPriceEstimate}
+                renewalBreakdown={renewalBreakdown}
+              />
 
               {/* Terminal Aktif */}
               <div className="stat-card">
@@ -288,7 +450,9 @@ export default async function DashboardPage() {
                     Masa aktif hampir habis — {daysLeft} hari lagi
                   </div>
                   <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginTop: "2px" }}>
-                    Segera beli token untuk perpanjang akses sebelum toko terkunci.
+                    {renewalEstimateLabel
+                      ? `Siapkan sekitar ${renewalEstimateLabel} untuk perpanjangan 1 bulan berikutnya sebelum toko terkunci.`
+                      : "Segera beli token untuk perpanjang akses sebelum toko terkunci."}
                   </div>
                 </div>
                 <Link href="/buy" className="btn btn-sm" style={{
@@ -319,7 +483,9 @@ export default async function DashboardPage() {
                     Toko Anda tidak aktif
                   </div>
                   <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginTop: "2px" }}>
-                    Beli token dan minta agen untuk mengaktifkan langganan.
+                    {renewalEstimateLabel
+                      ? `Siapkan minimal ${renewalEstimateLabel} lalu minta agen mengaktifkan kembali langganan Anda.`
+                      : "Beli token dan minta agen untuk mengaktifkan langganan."}
                   </div>
                 </div>
                 <Link href="/buy" className="btn btn-sm btn-primary" style={{ marginLeft: "auto", flexShrink: 0 }}>

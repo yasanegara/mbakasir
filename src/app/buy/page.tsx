@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import TokenMark from "@/components/ui/TokenMark";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureTokenConfig } from "@/lib/token-settings";
@@ -48,11 +49,7 @@ export default async function BuyPage() {
         
         <section className="card" style={{ textAlign: "center" }}>
           <div style={{ marginBottom: "16px", color: "hsl(var(--primary))" }}>
-             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />
-                <path d="M12 18V6" />
-             </svg>
+            <TokenMark size={48} strokeWidth={1.75} />
           </div>
           <h2 style={{ fontSize: "22px" }}>Beli Token {tokenConfig.tokenSymbol}</h2>
           <p style={{ marginTop: "8px", color: "hsl(var(--text-secondary))", fontSize: "14px", lineHeight: "1.6" }}>

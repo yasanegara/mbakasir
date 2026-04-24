@@ -22,6 +22,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
   const [packages, setPackages] = useState<AgentPackage[]>([]);
   const [pusatInfo, setPusatInfo] = useState({ phone: "", name: "", bank: "" });
   const [isLoading, setIsLoading] = useState(false);
+  const [submittingPackageId, setSubmittingPackageId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchPackages = async () => {
@@ -52,20 +53,73 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
     }
   }, [isOpen]);
 
-  const handleOrder = (pkg: AgentPackage) => {
-    const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan paket token:\n\nPaket: ${pkg.name}\nJumlah: ${pkg.tokenAmount} ${tokenSymbol}\nHarga: ${formatRupiahFull(pkg.price)}\n\nSaya akan segera transfer ke rekening ${pusatInfo.bank}. Terima kasih!`;
-    const url = buildWhatsappUrl(pusatInfo.phone, message);
-    if (!url) {
-      toast("Nomor WhatsApp Pusat belum tersedia.", "error");
-      return;
+  const handleOrder = async (pkg: AgentPackage) => {
+    let whatsappWindow: Window | null = null;
+
+    if (pusatInfo.phone) {
+      whatsappWindow = window.open("", "_blank");
+      if (whatsappWindow) {
+        whatsappWindow.document.title = "Membuka WhatsApp...";
+        whatsappWindow.document.body.innerHTML =
+          "<p style=\"font-family: sans-serif; padding: 16px;\">Menyiapkan WhatsApp...</p>";
+        whatsappWindow.opener = null;
+      }
     }
 
-    toast(`Pesanan paket ${pkg.name} disiapkan. Mengalihkan ke WhatsApp Pusat...`, "success");
-    
-    // Memberi sedikit jeda agar toast sempat terbaca sebelum pindah tab
-    setTimeout(() => {
+    setSubmittingPackageId(pkg.id);
+
+    try {
+      const requestRes = await fetch("/api/agent/purchase-token-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageId: pkg.id }),
+      });
+      const requestData = await requestRes.json();
+
+      if (!requestRes.ok) {
+        throw new Error(
+          requestData.error || "Gagal mengirim permintaan pembelian ke pusat"
+        );
+      }
+
+      toast(
+        `Permintaan ${pkg.name} masuk ke dashboard superadmin.`,
+        "success"
+      );
+
+      const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan paket token:\n\nPaket: ${pkg.name}\nJumlah: ${pkg.tokenAmount} ${tokenSymbol}\nHarga: ${formatRupiahFull(pkg.price)}\n\nSaya akan segera transfer ke rekening ${pusatInfo.bank}. Terima kasih!`;
+      const url = buildWhatsappUrl(pusatInfo.phone, message);
+
+      if (!url) {
+        if (whatsappWindow && !whatsappWindow.closed) {
+          whatsappWindow.close();
+        }
+        toast(
+          "Nomor WhatsApp Pusat belum tersedia. Permintaan tetap tercatat di dashboard superadmin.",
+          "warning"
+        );
+        return;
+      }
+
+      toast(`Pesanan paket ${pkg.name} disiapkan. Mengalihkan ke WhatsApp Pusat...`, "success");
+
+      if (whatsappWindow && !whatsappWindow.closed) {
+        whatsappWindow.location.replace(url);
+        return;
+      }
+
       window.open(url, "_blank");
-    }, 500);
+    } catch (error) {
+      if (whatsappWindow && !whatsappWindow.closed) {
+        whatsappWindow.close();
+      }
+      toast(
+        error instanceof Error ? error.message : "Kesalahan jaringan",
+        "error"
+      );
+    } finally {
+      setSubmittingPackageId(null);
+    }
   };
 
   if (!isOpen) {
@@ -131,8 +185,9 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                   className="btn btn-primary"
                   onClick={() => handleOrder(pkg)}
                   style={{ whiteSpace: "nowrap" }}
+                  disabled={submittingPackageId !== null}
                 >
-                  Pesan
+                  {submittingPackageId === pkg.id ? "Mengirim..." : "Pesan"}
                 </button>
               </div>
             ))}

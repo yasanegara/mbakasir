@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useBrand } from "@/contexts/BrandContext";
+import TokenMark from "@/components/ui/TokenMark";
 
 export default function GlobalWidgets() {
   const brand = useBrand();
@@ -84,7 +85,7 @@ export default function GlobalWidgets() {
              <div className="flex items-start justify-between">
                 <div>
                   <h4 className="text-[14px] font-bold flex items-center gap-2" style={{ color: "hsl(var(--text-primary))" }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "hsl(var(--primary))" }}><path d="M12 2v20 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                    <TokenMark size={16} strokeWidth={2.25} style={{ color: "hsl(var(--primary))", flexShrink: 0 }} />
                     <span>Install {brand.appName}</span>
                   </h4>
                   <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: "hsl(var(--text-secondary))" }}>

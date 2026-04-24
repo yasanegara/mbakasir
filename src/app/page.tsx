@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import BrandBadge from "@/components/brand/BrandBadge";
+import TokenMark from "@/components/ui/TokenMark";
 import { getSession } from "@/lib/auth";
 import { getBrandConfig } from "@/lib/brand-config";
 import { prisma } from "@/lib/prisma";
@@ -40,10 +41,7 @@ const problems = [
   },
   {
     icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23" />
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-      </svg>
+      <TokenMark size={28} />
     ),
     title: "Aplikasi Kasir Lain Mahal Banget",
     desc: "Harga Rp 3 juta/tahun, butuh internet kencang, dan support-nya lambat. Padahal fiturnya belum tentu pas buat UMKM seperti usaha Anda.",

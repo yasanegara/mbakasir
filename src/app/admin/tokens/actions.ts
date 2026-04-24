@@ -1,7 +1,10 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
-import { TokenLedgerType } from "@prisma/client";
+import { getAgentTokenPurchaseRequestDelegate, prisma } from "@/lib/prisma";
+import {
+  AgentTokenPurchaseRequestStatus,
+  TokenLedgerType,
+} from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 export async function mintTokensAction(agentId: string, amount: number) {
@@ -48,10 +51,32 @@ export async function mintTokensAction(agentId: string, amount: number) {
           }
         }
       });
+
+      const agentTokenRequestDelegate = getAgentTokenPurchaseRequestDelegate(tx);
+
+      if (agentTokenRequestDelegate) {
+        const matchingPendingRequest = await agentTokenRequestDelegate.findFirst({
+          where: {
+            agentId: agent.id,
+            status: AgentTokenPurchaseRequestStatus.PENDING,
+            tokenAmount: amount,
+          },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        });
+
+        if (matchingPendingRequest) {
+          await agentTokenRequestDelegate.update({
+            where: { id: matchingPendingRequest.id },
+            data: { status: AgentTokenPurchaseRequestStatus.COMPLETED },
+          });
+        }
+      }
     });
 
     // Revalidate halaman untuk merefresh data
     revalidatePath("/admin/tokens");
+    revalidatePath("/dashboard");
     
     return { success: true };
   } catch (error: any) {

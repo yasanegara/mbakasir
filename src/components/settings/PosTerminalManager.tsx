@@ -75,7 +75,7 @@ export default function PosTerminalManager({
       setTokenUsed((current) => current + data.tokenCost);
       setNewTerminalName("");
       toast(
-        `POS ${data.terminal.name} berhasil dibuat. Saldo ${tokenSymbol} jaringan diperbarui.`,
+        `POS ${data.terminal.name} berhasil dibuat. Saldo ${tokenSymbol} agen diperbarui.`,
         "success"
       );
     } catch {
@@ -118,11 +118,11 @@ export default function PosTerminalManager({
 
         <div className="stat-card">
           <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
-            Saldo Jaringan
+            Saldo Agen
           </span>
           <span className="stat-value">{agentBalance.toLocaleString("id-ID")}</span>
           <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-            saldo {tokenSymbol} milik agen {agentName}
+            cadangan {tokenSymbol} yang masih dipegang agen {agentName}
           </span>
         </div>
 

@@ -56,6 +56,12 @@ enum SyncStatus {
   CONFLICT  // Konflik deteksi saat sync
 }
 
+enum AgentTokenPurchaseRequestStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
 // ============================================================
 // SUPERADMIN — Pengelola Pusat
 // ============================================================
@@ -100,6 +106,7 @@ model Agent {
   storeRegistrationLinks StoreRegistrationLink[]
   vouchers     AgentVoucher[]
   purchaseRequests TokenPurchaseRequest[]
+  agentTokenPurchaseRequests AgentTokenPurchaseRequest[]
   registrationLinkId String?
   registrationLink AgentRegistrationLink? @relation("AgentRegisteredVia", fields: [registrationLinkId], references: [id])
 
@@ -533,6 +540,20 @@ model AgentPackage {
   updatedAt       DateTime @updatedAt
 
   @@map("agent_packages")
+}
+
+model AgentTokenPurchaseRequest {
+  id          String                          @id @default(cuid())
+  agentId     String
+  agent       Agent                           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  packageName String
+  tokenAmount Int
+  totalPrice  Decimal                         @db.Decimal(15, 2)
+  status      AgentTokenPurchaseRequestStatus @default(PENDING)
+  createdAt   DateTime                        @default(now())
+  updatedAt   DateTime                        @updatedAt
+
+  @@map("agent_token_purchase_requests")
 }
 
 // ============================================================

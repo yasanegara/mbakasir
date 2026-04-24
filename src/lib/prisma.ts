@@ -12,6 +12,7 @@ const REQUIRED_PRISMA_MODEL_DELEGATES = [
   "storeRegistrationLink",
   "posTerminal",
   "tokenPurchaseRequest",
+  "agentTokenPurchaseRequest",
 ] as const;
 
 type RequiredPrismaModelDelegate =
@@ -19,6 +20,19 @@ type RequiredPrismaModelDelegate =
 
 type PrismaClientWithRequiredDelegates = PrismaClient &
   Record<RequiredPrismaModelDelegate, unknown>;
+
+type AgentTokenPurchaseRequestDelegate = {
+  count: (...args: any[]) => Promise<any>;
+  aggregate: (...args: any[]) => Promise<any>;
+  findMany: (...args: any[]) => Promise<any>;
+  create: (...args: any[]) => Promise<any>;
+  findFirst: (...args: any[]) => Promise<any>;
+  update: (...args: any[]) => Promise<any>;
+};
+
+type PrismaLikeWithAgentTokenPurchaseRequest = {
+  agentTokenPurchaseRequest?: AgentTokenPurchaseRequestDelegate;
+};
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -49,7 +63,7 @@ function hasRequiredModelDelegates(
   );
 }
 
-const CURRENT_SCHEMA_VERSION = 13;
+const CURRENT_SCHEMA_VERSION = 14;
 
 if (globalForPrisma.prismaVersion !== CURRENT_SCHEMA_VERSION) {
   globalForPrisma.prisma = undefined;
@@ -63,4 +77,13 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
   globalForPrisma.prismaVersion = CURRENT_SCHEMA_VERSION;
+}
+
+export function getAgentTokenPurchaseRequestDelegate<T extends object>(
+  client: T
+): AgentTokenPurchaseRequestDelegate | null {
+  return (
+    (client as T & PrismaLikeWithAgentTokenPurchaseRequest)
+      .agentTokenPurchaseRequest ?? null
+  );
 }

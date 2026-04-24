@@ -1,11 +1,27 @@
-import { prisma } from "@/lib/prisma";
+import {
+  getAgentTokenPurchaseRequestDelegate,
+  prisma,
+} from "@/lib/prisma";
 import { ensureTokenConfig } from "@/lib/token-settings";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import AgentTokenRequestList from "@/components/admin/AgentTokenRequestList";
 import { formatRupiahFull } from "@/lib/utils";
 import MintTokenClient from "./MintTokenClient";
 import BurnRatePanel from "./BurnRatePanel";
 
 export const dynamic = "force-dynamic";
+
+type PendingAgentTokenRequest = {
+  id: string;
+  packageName: string;
+  tokenAmount: number;
+  totalPrice: number | { toString(): string };
+  createdAt: Date;
+  agent: {
+    name: string;
+    email: string;
+  };
+};
 
 // ============================================================
 // SUPERADMIN DASHBOARD: MINT TOKEN + BURN RATE ANALYTICS
@@ -13,8 +29,9 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminTokensPage() {
   const tokenConfig = await ensureTokenConfig();
+  const agentTokenRequestDelegate = getAgentTokenPurchaseRequestDelegate(prisma);
 
-  const [agents, ledger] = await Promise.all([
+  const [agents, ledger, rawPendingRequests] = await Promise.all([
     prisma.agent.findMany({
       where: { email: { not: "agen.demo@mbakasir.id" } },
       orderBy: { createdAt: "desc" },
@@ -37,7 +54,27 @@ export default async function AdminTokensPage() {
       },
       orderBy: { createdAt: "asc" },
     }),
+    agentTokenRequestDelegate
+      ? agentTokenRequestDelegate.findMany({
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            packageName: true,
+            tokenAmount: true,
+            totalPrice: true,
+            createdAt: true,
+            agent: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
   ]);
+  const pendingRequests = rawPendingRequests as PendingAgentTokenRequest[];
 
   const tokenPrice = Number(tokenConfig.pricePerToken);
   const sym = tokenConfig.tokenSymbol;
@@ -118,6 +155,22 @@ export default async function AdminTokensPage() {
 
   return (
     <DashboardLayout title="Mint Token & Analitik">
+      {pendingRequests.length > 0 && (
+        <AgentTokenRequestList
+          title={`Antrean Permintaan Token dari Agen (${pendingRequests.length})`}
+          description="Gunakan antrean ini sebagai acuan saat memverifikasi transfer. Jika Anda mint token dengan jumlah yang sama seperti permintaan di bawah, request tertua yang cocok akan tertandai selesai otomatis."
+          requests={pendingRequests.map((request) => ({
+            id: request.id,
+            packageName: request.packageName,
+            tokenAmount: request.tokenAmount,
+            totalPrice: Number(request.totalPrice),
+            createdAt: request.createdAt,
+            agent: request.agent,
+          }))}
+          emptyMessage="Belum ada permintaan token dari agen."
+        />
+      )}
+
       {/* ── Burn Rate Analytics Panel ── */}
       <BurnRatePanel analytics={analytics} />
 

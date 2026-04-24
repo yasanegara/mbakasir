@@ -47,6 +47,32 @@ export default async function TransaksiAgenPage() {
     select: { tokenBalance: true, tokenResalePrice: true }
   });
 
+  const serializedTenants = tenants.map((tenant) => ({
+    id: tenant.id,
+    name: tenant.name,
+    premiumUntil: tenant.premiumUntil?.toISOString() ?? null,
+    tokenUsed: tenant.tokenUsed,
+    posTerminals: tenant.posTerminals.map((pos) => ({
+      id: pos.id,
+      name: pos.name,
+      isActive: pos.isActive,
+      isDefault: pos.isDefault,
+    })),
+  }));
+
+  const serializedRequests = requests.map((request) => ({
+    id: request.id,
+    agentId: request.agentId,
+    tenantId: request.tenantId,
+    amount: request.amount,
+    totalPrice: Number(request.totalPrice),
+    voucherCode: request.voucherCode,
+    status: request.status,
+    createdAt: request.createdAt.toISOString(),
+    updatedAt: request.updatedAt.toISOString(),
+    tenant: request.tenant,
+  }));
+
   return (
     <DashboardLayout title="Manajemen Pembelian & Aktivasi">
       
@@ -61,8 +87,8 @@ export default async function TransaksiAgenPage() {
 
         {/* Client component yang merender Request (Approve) & Manual Activate (Mint) */}
         <ActionManagerClient 
-          requests={requests} 
-          tenants={tenants}
+          requests={serializedRequests} 
+          tenants={serializedTenants}
           tokenConfig={tokenConfig}
           agentId={session.agentId as string}
         />
