@@ -408,6 +408,20 @@ export default function POSPage() {
             {pinError && (
               <p style={{ color: "hsl(var(--error))", fontSize: "13px", marginBottom: "12px" }}>{pinError}</p>
             )}
+            {user.email === "kasir@demo.id" && (
+              <div style={{ 
+                marginTop: "4px", 
+                marginBottom: "16px",
+                padding: "8px",
+                background: "hsl(var(--primary) / 0.1)",
+                borderRadius: "8px",
+                fontSize: "12px",
+                color: "hsl(var(--primary))",
+                fontWeight: 600
+              }}>
+                💡 PIN Demo: <span style={{ letterSpacing: "2px" }}>123456</span>
+              </div>
+            )}
             <button
               className="btn btn-primary btn-block btn-lg"
               disabled={pinInput.length !== 6}
