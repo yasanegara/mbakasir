@@ -23,7 +23,7 @@ export async function GET() {
       emoji: true, targetRole: true, sortOrder: true,
       content: true, isPublic: true, publicCtaTarget: true,
       createdAt: true, updatedAt: true,
-    },
+    } as any,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   

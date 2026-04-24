@@ -341,7 +341,7 @@ function LearnContent() {
 
   if (selected) {
     if (selected.publicCtaTarget === "AGENT") {
-      ctaHref = defaultAgentRegistrationToken ? `/register/agent/${defaultAgentRegistrationToken}` : "/";
+      ctaHref = defaultAgentRegistrationToken ? `/agent/${defaultAgentRegistrationToken}` : "/";
       ctaLabel = "Daftar Agen Sekarang";
       ctaTitle = "Mau Punya Penghasilan Tambahan?";
       ctaDesc = "Jadilah Agen MbaKasir, bantu UMKM di sekitarmu go digital dan dapatkan keuntungan dari setiap toko yang bergabung!";

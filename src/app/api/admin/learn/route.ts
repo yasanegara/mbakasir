@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       isPublic: isPublic ?? false,
       publicCtaTarget: publicCtaTarget || "STORE",
       sortOrder: sortOrder ?? 0,
-    },
+    } as any,
   });
   return NextResponse.json(doc, { status: 201 });
 }
