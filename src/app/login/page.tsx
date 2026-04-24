@@ -140,9 +140,16 @@ export default function LoginPage() {
                className="btn btn-ghost btn-block" 
                onClick={() => handleDemoLogin("kasir")}
                disabled={isLoading}
-               style={{ justifyContent: "center", borderStyle: "dashed" }}
+               style={{ 
+                 justifyContent: "center", 
+                 borderStyle: "dashed",
+                 flexDirection: "column",
+                 height: "auto",
+                 padding: "12px"
+               }}
              >
-               🛒 Gunakan Demo Kasir
+               <div style={{ fontWeight: 600 }}>🛒 Gunakan Demo Kasir</div>
+               <div style={{ fontSize: "11px", opacity: 0.7, marginTop: "2px" }}>PIN: 123456</div>
              </button>
            </div>
         </div>

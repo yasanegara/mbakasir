@@ -526,7 +526,131 @@ export default function POSPage() {
           </div>
         </div>
 
+        {/* KANAN: Keranjang (Tampil dikanan pada Desktop/Tablet, Bottom Sheet pada Mobile) */}
+        <div className={`pos-cart ${isCartOpen ? "open" : ""}`}>
+          {/* Drawer Handle (Mobile Only) */}
+          <div className="mobile-drawer-handle" style={{ width: "100%", justifyContent: "center", paddingTop: "12px", paddingBottom: "0px", cursor: "pointer" }} onClick={() => setIsCartOpen(false)}>
+             <div style={{ width: "40px", height: "5px", background: "rgba(0,0,0,0.15)", borderRadius: "10px" }} />
+          </div>
+          <div style={{ 
+            padding: "20px", 
+            background: "linear-gradient(to bottom, hsl(var(--bg-elevated)), hsl(var(--bg-surface)))", 
+            borderBottom: "1px solid hsl(var(--border))", 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center" 
+          }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 800, letterSpacing: "-0.01em", textTransform: "uppercase", opacity: 0.9 }}>
+              🛒 Keranjang Belanja
+            </h2>
+            <button className="btn btn-ghost btn-icon btn-sm mobile-close-btn" style={{ width: "32px", height: "32px", display: "none" }} onClick={() => setIsCartOpen(false)}>✕</button>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            {cart.length === 0 ? (
+              <div style={{ textAlign: "center", color: "hsl(var(--text-muted))", marginTop: "40px" }}>Keranjang masih kosong</div>
+            ) : (
+              cart.map((item) => (
+                <div key={item.product.localId} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{item.product.name}</div>
+                    <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))" }}>{formatRupiahFull(item.product.price)}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "hsl(var(--bg-elevated))", borderRadius: "100px", padding: "4px" }}>
+                    <button className="btn btn-ghost btn-icon" style={{ width: "28px", height: "28px", padding: 0, borderRadius: "50%" }} onClick={() => updateQty(item.product.localId, -1)}>-</button>
+                    <span style={{ fontSize: "14px", fontWeight: 600, width: "24px", textAlign: "center" }}>{item.qty}</span>
+                    <button className="btn btn-ghost btn-icon" style={{ width: "28px", height: "28px", padding: 0, borderRadius: "50%" }} onClick={() => updateQty(item.product.localId, 1)}>+</button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div style={{ padding: "20px", background: "hsl(var(--bg-elevated))", borderTop: "1px solid hsl(var(--border))" }}>
+             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "14px", color: "hsl(var(--text-secondary))" }}>
+               <span>Subtotal:</span><span>{formatRupiahFull(subtotal)}</span>
+             </div>
+             {discountAmount > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "14px", color: "hsl(var(--error))" }}>
+                  <span>Diskon:</span><span>- {formatRupiahFull(discountAmount)}</span>
+                </div>
+             )}
+             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px", fontSize: "18px", fontWeight: 700 }}>
+               <span>Total Bayar:</span>
+               <span style={{ color: "hsl(var(--primary))" }}>{formatRupiahFull(totalAmount)}</span>
+             </div>
+             <div style={{ marginBottom: "14px" }}>
+               <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", width: "100%", marginBottom: "8px" }} onClick={() => setShowCustomerForm((v) => !v)}>
+                 {showCustomerForm ? "▲ Sembunyikan Info/Voucher" : "💬 Tambah Info Pelanggan & Diskon"}
+               </button>
+               {showCustomerForm && (
+                 <div style={{ display: "grid", gap: "8px", padding: "12px", background: "hsl(var(--bg-card))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}>
+                   <CurrencyInput label="Diskon / Voucher (Rp)" value={discountAmount} onChange={setDiscountAmount} />
+                   <div style={{ height: "4px" }} />
+                   <input className="input-field" style={{ fontSize: "13px", padding: "8px 12px" }} placeholder="Nama pelanggan (opsional)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+                   <input className="input-field" style={{ fontSize: "13px", padding: "8px 12px" }} placeholder="No. WA untuk struk" type="tel" value={customerWa} onChange={(e) => setCustomerWa(e.target.value)} />
+                   {customerWa && <p style={{ fontSize: "11px", color: "hsl(var(--text-muted))" }}>📩 Struk akan dikirim via WhatsApp setelah transaksi berhasil.</p>}
+                 </div>
+               )}
+             </div>
+             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
+               <button className={`btn ${paymentMethod === "CASH" ? "btn-primary" : "btn-ghost"}`} onClick={() => setPaymentMethod("CASH")}>💵 Tunai</button>
+               <button className={`btn ${paymentMethod === "QRIS" ? "btn-primary" : "btn-ghost"}`} onClick={() => { setPaymentMethod("QRIS"); setPaidAmount(0); }}>📲 QRIS</button>
+             </div>
+             {/* QRIS Image */}
+             {paymentMethod === "QRIS" && storeQrisImage && (
+               <div style={{ textAlign: "center", marginBottom: "14px" }}>
+                 <img
+                   src={storeQrisImage}
+                   alt="QRIS Pembayaran"
+                   style={{ maxWidth: "200px", width: "100%", borderRadius: "12px", border: "1px solid hsl(var(--border))", display: "inline-block" }}
+                 />
+               </div>
+             )}
+             {paymentMethod === "CASH" && (
+                <div style={{ marginBottom: "16px" }}>
+                  <CurrencyInput label="Tunai Diterima" value={paidAmount} onChange={setPaidAmount} autoFocus />
+                  {totalAmount > 0 && (
+                     <div style={{ display: "flex", gap: "8px", marginTop: "12px", overflowX: "auto", paddingBottom: "4px" }}>
+                        {getSuggestedAmounts(totalAmount).map((amt) => (
+                           <button key={amt} className="btn btn-sm btn-ghost" onClick={() => setPaidAmount(amt)} style={{ flexShrink: 0, fontSize: "12px" }}>
+                              {amt === totalAmount ? "Uang Pas" : formatRupiah(amt)}
+                           </button>
+                        ))}
+                     </div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", fontSize: "14px" }}>
+                    <span style={{ color: "hsl(var(--text-secondary))" }}>Kembalian:</span>
+                    <span style={{ fontWeight: 600, color: changeAmount > 0 ? "hsl(var(--success))" : "inherit" }}>{formatRupiahFull(changeAmount)}</span>
+                  </div>
+                </div>
+             )}
+             <button className="btn btn-primary btn-xl btn-block" disabled={cart.length === 0 || !isPaidSufficient} onClick={handleCheckout}>Bayar</button>
+          </div>
+        </div>
       </div>
+
+      {/* MOBILE ONLY: Sticky Bar & Overlay */}
+      <FixedPortal>
+        {/* Sticky Bar – muncul ketika cart tertutup pada mobile */}
+        {cart.length > 0 && (
+          <div className="cart-sticky-bar animate-slide-up" onClick={() => setIsCartOpen(true)}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: "8px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", color: "white" }}>
+                <span style={{ fontSize: "12px", opacity: 0.9, lineHeight: 1 }}>{cart.reduce((a,c)=>a+c.qty, 0)} Item</span>
+                <span style={{ fontSize: "16px", fontWeight: 800 }}>{formatRupiahFull(totalAmount)}</span>
+              </div>
+            </div>
+            <div style={{ fontSize: "14px", fontWeight: 700, color: "white", display: "flex", alignItems: "center", gap: "6px" }}>
+              Check Out <span style={{ fontSize: "18px" }}>›</span>
+            </div>
+          </div>
+        )}
+
+        {/* Overlay gelap saat cart terbuka pada mobile */}
+        <div className={`cart-overlay ${isCartOpen ? "open" : ""}`} onClick={() => setIsCartOpen(false)} />
+      </FixedPortal>
 
       {/* SHIFT SUMMARY MODAL */}
       {showShiftSummary && activeShift && user && (
@@ -614,129 +738,6 @@ export default function POSPage() {
           </div>
         </div>
       )}
-
-      {/* MOBILE: Cart Sheet + Sticky Bar + Overlay – semua dalam Portal */}
-      <FixedPortal>
-        {/* Bottom Sheet Cart */}
-        <div className={`pos-cart ${isCartOpen ? "open" : ""}`}>
-          {/* Drawer Handle */}
-          <div className="mobile-drawer-handle" style={{ width: "100%", justifyContent: "center", paddingTop: "12px", paddingBottom: "0px", cursor: "pointer" }} onClick={() => setIsCartOpen(false)}>
-             <div style={{ width: "40px", height: "5px", background: "rgba(0,0,0,0.15)", borderRadius: "10px" }} />
-          </div>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid hsl(var(--border))", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 style={{ fontSize: "18px" }}>Keranjang</h2>
-            <button className="btn btn-ghost btn-icon btn-sm" style={{ width: "32px", height: "32px" }} onClick={() => setIsCartOpen(false)}>✕</button>
-          </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            {cart.length === 0 ? (
-              <div style={{ textAlign: "center", color: "hsl(var(--text-muted))", marginTop: "40px" }}>Keranjang masih kosong</div>
-            ) : (
-              cart.map((item) => (
-                <div key={item.product.localId} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{item.product.name}</div>
-                    <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))" }}>{formatRupiahFull(item.product.price)}</div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "hsl(var(--bg-elevated))", borderRadius: "100px", padding: "4px" }}>
-                    <button className="btn btn-ghost btn-icon" style={{ width: "28px", height: "28px", padding: 0, borderRadius: "50%" }} onClick={() => updateQty(item.product.localId, -1)}>-</button>
-                    <span style={{ fontSize: "14px", fontWeight: 600, width: "24px", textAlign: "center" }}>{item.qty}</span>
-                    <button className="btn btn-ghost btn-icon" style={{ width: "28px", height: "28px", padding: 0, borderRadius: "50%" }} onClick={() => updateQty(item.product.localId, 1)}>+</button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          <div style={{ padding: "20px", background: "hsl(var(--bg-elevated))", borderTop: "1px solid hsl(var(--border))" }}>
-             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "14px", color: "hsl(var(--text-secondary))" }}>
-               <span>Subtotal:</span><span>{formatRupiahFull(subtotal)}</span>
-             </div>
-             {discountAmount > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "14px", color: "hsl(var(--error))" }}>
-                  <span>Diskon:</span><span>- {formatRupiahFull(discountAmount)}</span>
-                </div>
-             )}
-             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px", fontSize: "18px", fontWeight: 700 }}>
-               <span>Total Bayar:</span>
-               <span style={{ color: "hsl(var(--primary))" }}>{formatRupiahFull(totalAmount)}</span>
-             </div>
-             <div style={{ marginBottom: "14px" }}>
-               <button className="btn btn-ghost btn-sm" style={{ fontSize: "12px", width: "100%", marginBottom: "8px" }} onClick={() => setShowCustomerForm((v) => !v)}>
-                 {showCustomerForm ? "▲ Sembunyikan Info/Voucher" : "💬 Tambah Info Pelanggan & Diskon"}
-               </button>
-               {showCustomerForm && (
-                 <div style={{ display: "grid", gap: "8px", padding: "12px", background: "hsl(var(--bg-card))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}>
-                   <CurrencyInput label="Diskon / Voucher (Rp)" value={discountAmount} onChange={setDiscountAmount} />
-                   <div style={{ height: "4px" }} />
-                   <input className="input-field" style={{ fontSize: "13px", padding: "8px 12px" }} placeholder="Nama pelanggan (opsional)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
-                   <input className="input-field" style={{ fontSize: "13px", padding: "8px 12px" }} placeholder="No. WA untuk struk" type="tel" value={customerWa} onChange={(e) => setCustomerWa(e.target.value)} />
-                   {customerWa && <p style={{ fontSize: "11px", color: "hsl(var(--text-muted))" }}>📩 Struk akan dikirim via WhatsApp setelah transaksi berhasil.</p>}
-                 </div>
-               )}
-             </div>
-             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
-               <button className={`btn ${paymentMethod === "CASH" ? "btn-primary" : "btn-ghost"}`} onClick={() => setPaymentMethod("CASH")}>💵 Tunai</button>
-               <button className={`btn ${paymentMethod === "QRIS" ? "btn-primary" : "btn-ghost"}`} onClick={() => { setPaymentMethod("QRIS"); setPaidAmount(0); }}>📲 QRIS</button>
-             </div>
-             {/* QRIS Image – tampil saat metode QRIS dipilih */}
-             {paymentMethod === "QRIS" && storeQrisImage && (
-               <div style={{ textAlign: "center", marginBottom: "14px" }}>
-                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                 <img
-                   src={storeQrisImage}
-                   alt="QRIS Pembayaran"
-                   style={{ maxWidth: "200px", width: "100%", borderRadius: "12px", border: "1px solid hsl(var(--border))", display: "inline-block" }}
-                 />
-                 <p style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "6px" }}>Scan QRIS untuk pembayaran</p>
-               </div>
-             )}
-             {paymentMethod === "QRIS" && !storeQrisImage && (
-               <div style={{ textAlign: "center", marginBottom: "14px", padding: "16px", background: "hsl(var(--bg-elevated))", borderRadius: "10px", border: "1px dashed hsl(var(--border))" }}>
-                 <p style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>📲 Belum ada QRIS. Upload di <strong>Pengaturan → QRIS Statis</strong></p>
-               </div>
-             )}
-             {paymentMethod === "CASH" && (
-                <div style={{ marginBottom: "16px" }}>
-                  <CurrencyInput label="Tunai Diterima" value={paidAmount} onChange={setPaidAmount} autoFocus />
-                  {totalAmount > 0 && (
-                     <div style={{ display: "flex", gap: "8px", marginTop: "12px", overflowX: "auto", paddingBottom: "4px" }}>
-                        {getSuggestedAmounts(totalAmount).map((amt) => (
-                           <button key={amt} className="btn btn-sm btn-ghost" onClick={() => setPaidAmount(amt)} style={{ flexShrink: 0, fontSize: "12px" }}>
-                              {amt === totalAmount ? "Uang Pas" : formatRupiah(amt)}
-                           </button>
-                        ))}
-                     </div>
-                  )}
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", fontSize: "14px" }}>
-                    <span style={{ color: "hsl(var(--text-secondary))" }}>Kembalian:</span>
-                    <span style={{ fontWeight: 600, color: changeAmount > 0 ? "hsl(var(--success))" : "inherit" }}>{formatRupiahFull(changeAmount)}</span>
-                  </div>
-                </div>
-             )}
-             <button className="btn btn-primary btn-xl btn-block" disabled={cart.length === 0 || !isPaidSufficient} onClick={handleCheckout}>Bayar</button>
-          </div>
-        </div>
-
-        {/* Sticky Bar – muncul ketika cart tertutup */}
-        {!isCartOpen && cart.length > 0 && (
-          <div className="cart-sticky-bar animate-slide-up" onClick={() => setIsCartOpen(true)}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: "8px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center", color: "white" }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", color: "white" }}>
-                <span style={{ fontSize: "12px", opacity: 0.9, lineHeight: 1 }}>{cart.reduce((a,c)=>a+c.qty, 0)} Item</span>
-                <span style={{ fontSize: "16px", fontWeight: 800 }}>{formatRupiahFull(totalAmount)}</span>
-              </div>
-            </div>
-            <div style={{ fontSize: "14px", fontWeight: 700, color: "white", display: "flex", alignItems: "center", gap: "6px" }}>
-              Check Out <span style={{ fontSize: "18px" }}>›</span>
-            </div>
-          </div>
-        )}
-
-        {/* Overlay gelap saat cart terbuka */}
-        <div className={`cart-overlay ${isCartOpen ? "open" : ""}`} onClick={() => setIsCartOpen(false)} />
-      </FixedPortal>
 
       {/* STRUK CETAK — hanya tampil saat window.print() */}
       {lastReceipt && (
