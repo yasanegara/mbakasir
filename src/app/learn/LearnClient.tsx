@@ -54,7 +54,7 @@ function LearnArticleView({
 }) {
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+    <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
       <button
         className="btn btn-ghost btn-sm"
         style={{ marginBottom: "20px" }}
@@ -62,38 +62,32 @@ function LearnArticleView({
       >
         {backLabel}
       </button>
-      <div className="card">
-        <div style={{
-          paddingBottom: "20px",
-          borderBottom: "1px solid hsl(var(--border))",
-          marginBottom: "24px",
-        }}>
-          <div style={{ fontSize: "48px", marginBottom: "12px" }}>{selected.emoji || "📄"}</div>
-          <h1 style={{ fontSize: "clamp(22px, 4vw, 28px)", fontWeight: 800, lineHeight: 1.3 }}>
-            {selected.title}
-          </h1>
-          {selected.excerpt && (
-            <p style={{ fontSize: "15px", color: "hsl(var(--text-secondary))", marginTop: "8px", lineHeight: 1.6 }}>
-              {selected.excerpt}
-            </p>
-          )}
-          <p style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "10px" }}>
-            Versi {selected.version || 1} &nbsp;·&nbsp; Diperbarui: {new Date(selected.createdAt).toLocaleDateString("id-ID", {
-              day: "numeric", month: "long", year: "numeric"
-            })}
-          </p>
-        </div>
-        <div
-          className="markdown-body"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.content) }}
-        />
 
+      <div style={{
+        display: "flex",
+        gap: "32px",
+        flexDirection: "row",
+        alignItems: "flex-start",
+      }} className="learn-article-container">
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media (max-width: 900px) {
+            .learn-article-container { flex-direction: column-reverse !important; }
+            .learn-article-sidebar { width: 100% !important; border-right: none !important; padding-right: 0 !important; margin-top: 32px; border-top: 1px solid hsl(var(--border)); padding-top: 32px; }
+          }
+        `}} />
+
+        {/* SIDEBAR: Related Articles */}
         {relatedDocs.length > 0 && (
-          <div style={{ marginTop: "48px", paddingTop: "32px", borderTop: "1px solid hsl(var(--border))" }}>
-            <h3 style={{ fontSize: "18px", fontWeight: 800, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
-              <span>📖</span> Artikel Terkait Lainnya
+          <aside className="learn-article-sidebar" style={{
+            width: "280px",
+            flexShrink: 0,
+            position: "sticky",
+            top: "24px",
+          }}>
+            <h3 style={{ fontSize: "16px", fontWeight: 800, marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>📖</span> Artikel Terkait
             </h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
+            <div style={{ display: "grid", gap: "12px" }}>
               {relatedDocs.map((doc) => (
                 <button
                   key={doc.id}
@@ -103,12 +97,13 @@ function LearnArticleView({
                     padding: "16px",
                     background: "hsl(var(--bg-card))",
                     border: "1px solid hsl(var(--border))",
-                    borderRadius: "16px",
+                    borderRadius: "14px",
                     cursor: "pointer",
                     transition: "all 0.2s",
                     display: "flex",
                     alignItems: "flex-start",
-                    gap: "12px",
+                    gap: "10px",
+                    width: "100%",
                   }}
                   onMouseEnter={(e) => {
                     (e.currentTarget as HTMLButtonElement).style.borderColor = "hsl(var(--primary)/0.5)";
@@ -119,69 +114,96 @@ function LearnArticleView({
                     (e.currentTarget as HTMLButtonElement).style.background = "hsl(var(--bg-card))";
                   }}
                 >
-                  <span style={{ fontSize: "24px", flexShrink: 0 }}>{doc.emoji || "📄"}</span>
+                  <span style={{ fontSize: "20px", flexShrink: 0 }}>{doc.emoji || "📄"}</span>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: "14px", lineHeight: 1.3, marginBottom: "4px", color: "hsl(var(--text-primary))" }}>
+                    <div style={{ fontWeight: 700, fontSize: "13px", lineHeight: 1.4, color: "hsl(var(--text-primary))" }}>
                       {doc.title}
-                    </div>
-                    <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", fontWeight: 500 }}>
-                      Baca panduan →
                     </div>
                   </div>
                 </button>
               ))}
             </div>
-          </div>
+          </aside>
         )}
 
-        {selected.isPublic && (
-          <div style={{
-            marginTop: "48px",
-            padding: "32px",
-            background: "hsl(var(--primary) / 0.05)",
-            border: "1px dashed hsl(var(--primary) / 0.3)",
-            borderRadius: "24px",
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: "32px", marginBottom: "12px" }}>🚀</div>
-            <h3 style={{ fontWeight: 800, fontSize: "20px", marginBottom: "8px", color: "hsl(var(--text-primary))" }}>
-              {ctaTitle || "Mau Kelola Toko Secerdas Ini?"}
-            </h3>
-            <p style={{ fontSize: "15px", color: "hsl(var(--text-secondary))", marginBottom: "20px", lineHeight: 1.6 }}>
-              {ctaDesc || "Gunakan MbaKasir untuk automasi stok, laporan untung, dan kasir yang anti-ribet. Mari majukan UMKM bareng-bareng!"}
-            </p>
-            <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
-              {canSharePublic && (
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={onSharePublic}
-                >
-                  Share Artikel Publik
-                </button>
+        {/* MAIN CONTENT */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="card">
+            <div style={{
+              paddingBottom: "20px",
+              borderBottom: "1px solid hsl(var(--border))",
+              marginBottom: "24px",
+            }}>
+              <div style={{ fontSize: "48px", marginBottom: "12px" }}>{selected.emoji || "📄"}</div>
+              <h1 style={{ fontSize: "clamp(22px, 4vw, 28px)", fontWeight: 800, lineHeight: 1.3 }}>
+                {selected.title}
+              </h1>
+              {selected.excerpt && (
+                <p style={{ fontSize: "15px", color: "hsl(var(--text-secondary))", marginTop: "8px", lineHeight: 1.6 }}>
+                  {selected.excerpt}
+                </p>
               )}
-
-              <Link
-                href={ctaHref || "/"}
-                className="btn btn-primary"
-                style={{
-                  textDecoration: "none",
-                  display: "inline-block",
-                  padding: "12px 26px",
-                  fontWeight: 900,
-                  letterSpacing: "0.01em",
-                  border: "1px solid rgba(255,255,255,0.65)",
-                  borderRadius: "999px",
-                  background: "linear-gradient(135deg, #ffd84d 0%, #ff9f1c 58%, #ff7a00 100%)",
-                  color: "#2b1600",
-                  boxShadow: "0 14px 28px rgba(255, 145, 0, 0.35), 0 4px 10px rgba(255, 180, 40, 0.35)",
-                }}
-              >
-                {ctaLabel || "Daftar Toko Sekarang"}
-              </Link>
+              <p style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "10px" }}>
+                Versi {selected.version || 1} &nbsp;·&nbsp; Diperbarui: {new Date(selected.createdAt).toLocaleDateString("id-ID", {
+                  day: "numeric", month: "long", year: "numeric"
+                })}
+              </p>
             </div>
+            <div
+              className="markdown-body"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(selected.content) }}
+            />
+
+            {selected.isPublic && (
+              <div style={{
+                marginTop: "48px",
+                padding: "32px",
+                background: "hsl(var(--primary) / 0.05)",
+                border: "1px dashed hsl(var(--primary) / 0.3)",
+                borderRadius: "24px",
+                textAlign: "center",
+              }}>
+                <div style={{ fontSize: "32px", marginBottom: "12px" }}>🚀</div>
+                <h3 style={{ fontWeight: 800, fontSize: "20px", marginBottom: "8px", color: "hsl(var(--text-primary))" }}>
+                  {ctaTitle || "Mau Kelola Toko Secerdas Ini?"}
+                </h3>
+                <p style={{ fontSize: "15px", color: "hsl(var(--text-secondary))", marginBottom: "20px", lineHeight: 1.6 }}>
+                  {ctaDesc || "Gunakan MbaKasir untuk automasi stok, laporan untung, dan kasir yang anti-ribet. Mari majukan UMKM bareng-bareng!"}
+                </p>
+                <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
+                  {canSharePublic && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={onSharePublic}
+                    >
+                      Share Artikel Publik
+                    </button>
+                  )}
+
+                  <Link
+                    href={ctaHref || "/"}
+                    className="btn btn-primary"
+                    style={{
+                      textDecoration: "none",
+                      display: "inline-block",
+                      padding: "12px 26px",
+                      fontWeight: 900,
+                      letterSpacing: "0.01em",
+                      border: "1px solid rgba(255,255,255,0.65)",
+                      borderRadius: "999px",
+                      background: "linear-gradient(135deg, #ffd84d 0%, #ff9f1c 58%, #ff7a00 100%)",
+                      color: "#2b1600",
+                      boxShadow: "0 14px 28px rgba(255, 145, 0, 0.35), 0 4px 10px rgba(255, 180, 40, 0.35)",
+                    }}
+                  >
+                    {ctaLabel || "Daftar Toko Sekarang"}
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
