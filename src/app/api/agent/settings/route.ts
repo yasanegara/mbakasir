@@ -19,6 +19,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (session.email === "agen.demo@mbakasir.id") {
+    return Response.json(
+      { error: "Akun demo tidak diperbolehkan mengubah pengaturan ini." },
+      { status: 403 }
+    );
+  }
+
   try {
     const rawData = await req.json();
     const parsed = updateSettingsSchema.safeParse(rawData);

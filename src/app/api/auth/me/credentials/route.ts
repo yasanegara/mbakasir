@@ -28,6 +28,10 @@ export async function PATCH(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (session.email === "kasir@demo.id") {
+    return Response.json({ error: "Akun demo tidak diperbolehkan mengubah PIN/Password" }, { status: 403 });
+  }
+
   const body = await req.json();
   const payload = {
     currentPassword:

@@ -31,6 +31,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return Response.json({ error: "Karyawan tidak ditemukan" }, { status: 404 });
   }
 
+  const DEMO_EMAILS = ["owner@demo.id", "kasir@demo.id"];
+  if (DEMO_EMAILS.includes(existing.email)) {
+    return Response.json({ error: "Akun demo tidak diperbolehkan untuk diubah pengaturannya." }, { status: 403 });
+  }
+
   // Jangan izinkan menonaktifkan owner (TENANT role)
   if (existing.role === "TENANT" && parsed.data.isActive === false) {
     return Response.json({ error: "Tidak bisa menonaktifkan akun owner" }, { status: 400 });
@@ -67,6 +72,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   });
   if (!existing) {
     return Response.json({ error: "Karyawan tidak ditemukan" }, { status: 404 });
+  }
+
+  if (["owner@demo.id", "kasir@demo.id"].includes(existing.email)) {
+    return Response.json({ error: "Akun demo tidak diperbolehkan untuk dihapus." }, { status: 403 });
   }
 
   if (existing.role === "TENANT") {
