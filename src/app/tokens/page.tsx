@@ -168,7 +168,9 @@ export default function AgentTokensPage() {
       <div className="stat-card" style={{ marginBottom: "24px", maxWidth: "400px" }}>
         <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Saldo {tokenConfig.tokenName} Anda</span>
         <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-           <span className="stat-value">{balance.toLocaleString()}</span>
+           <span className="stat-value">
+             {user?.email === "pusat@mbakasir.local" ? "∞ Unmetered" : balance.toLocaleString()}
+           </span>
            <span style={{ fontSize: "14px", color: "hsl(var(--text-muted))" }}>{tokenConfig.tokenSymbol}</span>
         </div>
         {licenseConversion && (

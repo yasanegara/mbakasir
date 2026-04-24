@@ -52,6 +52,7 @@ export default async function AgentStoresPage() {
       where: { id: session.agentId },
       select: {
         name: true,
+        email: true,
         tokenBalance: true,
         tenants: {
           orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -233,7 +234,7 @@ export default async function AgentStoresPage() {
               className="stat-value"
               style={{ color: "white", WebkitTextFillColor: "white" }}
             >
-              {agent.tokenBalance.toLocaleString("id-ID")}
+              {agent.email === "pusat@mbakasir.local" ? "∞ Unmetered" : agent.tokenBalance.toLocaleString("id-ID")}
             </span>
             <span style={{ fontSize: "12px", color: "white", opacity: 0.82 }}>
               {licenseConversion

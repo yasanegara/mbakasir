@@ -22,6 +22,7 @@ interface Doc {
   emoji: string | null;
   targetRole: string;
   isPublic: boolean;
+  publicCtaTarget: string;
   version: number;
   createdAt: string;
 }
@@ -30,20 +31,23 @@ function LearnArticleView({
   selected,
   onBack,
   backLabel = "← Kembali ke Daftar",
-  registrationToken,
+  ctaHref,
+  ctaLabel,
+  ctaTitle,
+  ctaDesc,
   canSharePublic = false,
   onSharePublic,
 }: {
   selected: Doc;
   onBack: () => void;
   backLabel?: string;
-  registrationToken?: string | null;
+  ctaHref?: string;
+  ctaLabel?: string;
+  ctaTitle?: string;
+  ctaDesc?: React.ReactNode;
   canSharePublic?: boolean;
   onSharePublic?: () => void;
 }) {
-  const ctaHref = registrationToken
-    ? buildStoreRegistrationPath(registrationToken)
-    : "/";
 
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto" }}>
@@ -91,11 +95,10 @@ function LearnArticleView({
           }}>
             <div style={{ fontSize: "32px", marginBottom: "12px" }}>🚀</div>
             <h3 style={{ fontWeight: 800, fontSize: "20px", marginBottom: "8px", color: "hsl(var(--text-primary))" }}>
-              Mau Kelola Toko Secerdas Ini?
+              {ctaTitle || "Mau Kelola Toko Secerdas Ini?"}
             </h3>
             <p style={{ fontSize: "15px", color: "hsl(var(--text-secondary))", marginBottom: "20px", lineHeight: 1.6 }}>
-              Gunakan **MbaKasir** untuk automasi stok, laporan untung, dan kasir yang anti-ribet. 
-              Mari majukan UMKM bareng-bareng!
+              {ctaDesc || "Gunakan MbaKasir untuk automasi stok, laporan untung, dan kasir yang anti-ribet. Mari majukan UMKM bareng-bareng!"}
             </p>
             <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
               {canSharePublic && (
@@ -109,7 +112,7 @@ function LearnArticleView({
               )}
 
               <Link
-                href={ctaHref}
+                href={ctaHref || "/"}
                 className="btn btn-primary"
                 style={{
                   textDecoration: "none",
@@ -124,7 +127,7 @@ function LearnArticleView({
                   boxShadow: "0 14px 28px rgba(255, 145, 0, 0.35), 0 4px 10px rgba(255, 180, 40, 0.35)",
                 }}
               >
-                Daftar Toko Sekarang
+                {ctaLabel || "Daftar Toko Sekarang"}
               </Link>
             </div>
           </div>
@@ -243,6 +246,7 @@ function LearnContent() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Doc | null>(null);
   const [agentShareToken, setAgentShareToken] = useState<string | null>(null);
+  const [defaultAgentRegistrationToken, setDefaultAgentRegistrationToken] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
   const requestedSlug = searchParams.get("s");
@@ -316,8 +320,9 @@ function LearnContent() {
     fetch("/api/learn")
       .then((r) => r.json())
       .then((data) => {
-        const docsArray = Array.isArray(data) ? data : [];
+        const docsArray = Array.isArray(data) ? data : data.docs || [];
         setDocs(docsArray);
+        setDefaultAgentRegistrationToken(data.defaultAgentRegistrationToken || null);
         setLoading(false);
 
         // Auto-select if slug matches
@@ -327,6 +332,24 @@ function LearnContent() {
         }
       });
   }, [requestedSlug]);
+
+  let ctaHref = "/";
+  let ctaLabel = "Daftar Toko Sekarang";
+  let ctaTitle = "Mau Kelola Toko Secerdas Ini?";
+  let ctaDesc = "Gunakan MbaKasir untuk automasi stok, laporan untung, dan kasir yang anti-ribet. Mari majukan UMKM bareng-bareng!";
+  let isShareDisabled = false;
+
+  if (selected) {
+    if (selected.publicCtaTarget === "AGENT") {
+      ctaHref = defaultAgentRegistrationToken ? `/register/agent/${defaultAgentRegistrationToken}` : "/";
+      ctaLabel = "Daftar Agen Sekarang";
+      ctaTitle = "Mau Punya Penghasilan Tambahan?";
+      ctaDesc = "Jadilah Agen MbaKasir, bantu UMKM di sekitarmu go digital dan dapatkan keuntungan dari setiap toko yang bergabung!";
+      isShareDisabled = true;
+    } else {
+      ctaHref = resolvedRegistrationToken ? buildStoreRegistrationPath(resolvedRegistrationToken) : "/";
+    }
+  }
 
   if (requestedSlug && (loading || selected?.isPublic)) {
     return (
@@ -374,8 +397,11 @@ function LearnContent() {
                 window.location.href = "/";
               }}
               backLabel="← Kembali"
-              registrationToken={resolvedRegistrationToken}
-              canSharePublic={user?.role === "AGENT" && selected.isPublic}
+              ctaHref={ctaHref}
+              ctaLabel={ctaLabel}
+              ctaTitle={ctaTitle}
+              ctaDesc={ctaDesc}
+              canSharePublic={!isShareDisabled && user?.role === "AGENT" && selected.isPublic}
               onSharePublic={() => handleSharePublicArticle(selected.slug)}
             />
           ) : (
@@ -397,8 +423,11 @@ function LearnContent() {
         <LearnArticleView
           selected={selected}
           onBack={() => setSelected(null)}
-          registrationToken={resolvedRegistrationToken}
-          canSharePublic={user?.role === "AGENT" && selected.isPublic}
+          ctaHref={ctaHref}
+          ctaLabel={ctaLabel}
+          ctaTitle={ctaTitle}
+          ctaDesc={ctaDesc}
+          canSharePublic={!isShareDisabled && user?.role === "AGENT" && selected.isPublic}
           onSharePublic={() => handleSharePublicArticle(selected.slug)}
         />
       ) : (

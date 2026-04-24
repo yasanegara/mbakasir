@@ -50,14 +50,16 @@ export default async function DashboardPage() {
   if (session.role === "AGENT" && session.agentId) {
     const agent = await prisma.agent.findUnique({
       where: { id: session.agentId },
-      select: { tokenBalance: true }
+      select: { email: true, tokenBalance: true }
     });
+    const isPusat = agent?.email === "pusat@mbakasir.local";
     const reqs = await prisma.tokenPurchaseRequest.findMany({
       where: { agentId: session.agentId, status: "PENDING" },
       orderBy: { createdAt: "desc" },
       include: { tenant: { select: { name: true } } }
     });
     tokenBalance = agent?.tokenBalance || 0;
+    (session as any).isPusat = isPusat;
     agentRequests = reqs;
   }
 
@@ -121,7 +123,7 @@ export default async function DashboardPage() {
           premiumUntil: true,
           agent: {
             // @ts-ignore
-            select: { name: true, tokenBalance: true, tokenResalePrice: true }
+            select: { name: true, email: true, tokenBalance: true, tokenResalePrice: true }
           },
           posTerminals: {
             orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
@@ -159,6 +161,7 @@ export default async function DashboardPage() {
 
   // Helpers untuk tampilan
   const agentTokenBalance = tenantData?.agent?.tokenBalance ?? 0;
+  const isAgentPusat = tenantData?.agent?.email === "pusat@mbakasir.local";
   const tokenUsed = tenantData?.tokenUsed ?? 0;
   const tokenSymbol = tokenConfigObj?.tokenSymbol ?? "T.";
   const premiumUntil = tenantData?.premiumUntil ? new Date(tenantData.premiumUntil) : null;
@@ -377,7 +380,7 @@ export default async function DashboardPage() {
                   🪙 Saldo Agen
                 </span>
                 <span className="stat-value" style={{ fontSize: "clamp(28px, 5vw, 36px)", color: "hsl(var(--primary))" }}>
-                  {agentTokenBalance.toLocaleString("id-ID")}
+                  {isAgentPusat ? "∞ Unmetered" : agentTokenBalance.toLocaleString("id-ID")}
                 </span>
                 <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
                   {tokenSymbol} yang masih dipegang agen
@@ -609,7 +612,7 @@ export default async function DashboardPage() {
                   🪙 Sisa Token Anda
                 </span>
                 <span className="stat-value" style={{ color: "white", WebkitTextFillColor: "white" }}>
-                  {tokenBalance.toLocaleString("id-ID")}
+                  {(session as any).isPusat ? "∞ Unmetered" : tokenBalance.toLocaleString("id-ID")}
                 </span>
                 <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>
                   Siap didistribusikan ke toko

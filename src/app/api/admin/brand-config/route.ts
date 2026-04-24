@@ -38,6 +38,7 @@ const brandConfigSchema = z.object({
   supportMessage: z.string().trim().max(300).nullable().optional().or(z.literal("")),
   geminiApiKey: z.string().trim().nullable().optional().or(z.literal("")),
   aiKnowledgeBase: z.string().trim().nullable().optional().or(z.literal("")),
+  bankDetails: z.string().trim().nullable().optional().or(z.literal("")),
 });
 
 async function requireSuperAdmin() {
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       supportMessage: parsed.data.supportMessage || null,
       geminiApiKey: parsed.data.geminiApiKey || null,
       aiKnowledgeBase: parsed.data.aiKnowledgeBase || null,
+      bankDetails: parsed.data.bankDetails || null,
     });
 
     return Response.json({ success: true, config });

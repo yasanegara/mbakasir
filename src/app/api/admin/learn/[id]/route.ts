@@ -19,6 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(body.targetRole !== undefined && { targetRole: body.targetRole }),
       ...(body.isPublished !== undefined && { isPublished: body.isPublished }),
       ...(body.isPublic !== undefined && { isPublic: body.isPublic }),
+      ...(body.publicCtaTarget !== undefined && { publicCtaTarget: body.publicCtaTarget }),
       ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder }),
       ...(body.slug !== undefined && { slug: body.slug }),
       version: { increment: 1 },

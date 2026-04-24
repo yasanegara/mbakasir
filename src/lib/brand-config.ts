@@ -114,7 +114,7 @@ export async function upsertBrandConfig(
     supportPhone: config.supportPhone ?? DEFAULT_BRAND.supportPhone,
     supportMessage: config.supportMessage ?? DEFAULT_BRAND.supportMessage,
     geminiApiKey: config.geminiApiKey,
-    aiKnowledgeBase: config.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
+      aiKnowledgeBase: config.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
     bankDetails: config.bankDetails ?? DEFAULT_BRAND.bankDetails,
   };
 }

@@ -14,6 +14,7 @@ interface Doc {
   targetRole: string;
   isPublished: boolean;
   isPublic: boolean;
+  publicCtaTarget: string;
   version: number;
   sortOrder: number;
   createdAt: string;
@@ -38,6 +39,7 @@ const EMPTY_FORM = {
   targetRole: "AGENT",
   isPublished: false,
   isPublic: false,
+  publicCtaTarget: "STORE",
   sortOrder: 0,
   slug: "",
 };
@@ -92,10 +94,17 @@ export default function LearnAdminClient() {
 
   const fetchDocs = async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/learn");
-    const data = await res.json();
-    setDocs(Array.isArray(data) ? data : []);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/admin/learn");
+      if (!res.ok) throw new Error("Status " + res.status);
+      const data = await res.json();
+      setDocs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("fetchDocs error:", err);
+      toast("Gagal memuat daftar dokumen", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -103,11 +112,24 @@ export default function LearnAdminClient() {
 
     async function loadDocs() {
       setLoading(true);
-      const res = await fetch("/api/admin/learn");
-      const data = await res.json();
-      if (isCancelled) return;
-      setDocs(Array.isArray(data) ? data : []);
-      setLoading(false);
+      try {
+        const res = await fetch("/api/admin/learn");
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("API Error Response:", text);
+          toast("Gagal memuat dokumen: " + res.status, "error");
+          setLoading(false);
+          return;
+        }
+        const data = await res.json();
+        if (isCancelled) return;
+        setDocs(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Fetch Error:", error);
+        toast("Terjadi kesalahan koneksi", "error");
+      } finally {
+        setLoading(false);
+      }
     }
 
     void loadDocs();
@@ -160,6 +182,7 @@ export default function LearnAdminClient() {
       targetRole: doc.targetRole,
       isPublished: doc.isPublished ?? false,
       isPublic: doc.isPublic ?? false,
+      publicCtaTarget: doc.publicCtaTarget ?? "STORE",
       sortOrder: doc.sortOrder ?? 0,
       slug: doc.slug ?? "",
     });
@@ -487,6 +510,17 @@ export default function LearnAdminClient() {
                   <option value="AGENT">Agen saja</option>
                   <option value="TENANT">Owner Toko saja</option>
                   <option value="ALL">Semua pengguna</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>Arahkan CTA Artikel Publik Ke</label>
+                <select
+                  className="input-field"
+                  value={form.publicCtaTarget}
+                  onChange={(e) => setForm((f) => ({ ...f, publicCtaTarget: e.target.value }))}
+                >
+                  <option value="STORE">Pendaftaran Toko (Default)</option>
+                  <option value="AGENT">Pendaftaran Agen</option>
                 </select>
               </div>
               <div>

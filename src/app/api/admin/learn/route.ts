@@ -12,14 +12,19 @@ function slug(title: string) {
 }
 
 export async function GET() {
-  const session = await getSession();
-  if (!session || session.role !== "SUPERADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "SUPERADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const docs = await prisma.learnDocument.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    });
+    return NextResponse.json(docs);
+  } catch (err) {
+    console.error("GET /api/admin/learn Error:", err);
+    return NextResponse.json({ error: "Internal Server Error", details: String(err) }, { status: 500 });
   }
-  const docs = await prisma.learnDocument.findMany({
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-  });
-  return NextResponse.json(docs);
 }
 
 export async function POST(req: NextRequest) {
@@ -28,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
-  const { title, content, excerpt, emoji, targetRole, isPublished, sortOrder, isPublic } = body;
+  const { title, content, excerpt, emoji, targetRole, isPublished, sortOrder, isPublic, publicCtaTarget } = body;
   if (!title || !content) {
     return NextResponse.json({ error: "title dan content wajib diisi" }, { status: 400 });
   }
@@ -51,6 +56,7 @@ export async function POST(req: NextRequest) {
       targetRole: targetRole || "AGENT",
       isPublished: isPublished ?? false,
       isPublic: isPublic ?? false,
+      publicCtaTarget: publicCtaTarget || "STORE",
       sortOrder: sortOrder ?? 0,
     },
   });

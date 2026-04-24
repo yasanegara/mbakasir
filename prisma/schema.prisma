@@ -570,6 +570,7 @@ model LearnDocument {
   targetRole  String   @default("AGENT") // AGENT | TENANT | ALL
   isPublished Boolean  @default(false)
   isPublic    Boolean  @default(false)
+  publicCtaTarget String @default("STORE") // STORE | AGENT
   version     Int      @default(1)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())

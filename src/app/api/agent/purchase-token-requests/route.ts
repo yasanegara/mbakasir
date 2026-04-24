@@ -6,9 +6,13 @@ import {
   getAgentTokenPurchaseRequestDelegate,
   prisma,
 } from "@/lib/prisma";
+import { ensureTokenConfig } from "@/lib/token-settings";
 
 const agentPurchaseRequestSchema = z.object({
-  packageId: z.string().trim().min(1, "Paket token wajib dipilih"),
+  packageId: z.string().optional(),
+  amount: z.number().optional(),
+}).refine(data => data.packageId || data.amount, {
+  message: "Paket token atau jumlah token wajib diisi",
 });
 
 export async function POST(req: NextRequest) {
@@ -33,37 +37,56 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     const parsed = agentPurchaseRequestSchema.parse(data);
 
-    const [agent, pkg] = await Promise.all([
+    const [agent, pkg, tokenConfig] = await Promise.all([
       prisma.agent.findUnique({
         where: { id: session.agentId },
         select: { id: true },
       }),
-      prisma.agentPackage.findUnique({
-        where: { id: parsed.packageId },
-        select: {
-          id: true,
-          name: true,
-          tokenAmount: true,
-          price: true,
-          isActive: true,
-        },
-      }),
+      parsed.packageId 
+        ? prisma.agentPackage.findUnique({
+            where: { id: parsed.packageId },
+            select: {
+              id: true,
+              name: true,
+              tokenAmount: true,
+              price: true,
+              isActive: true,
+            },
+          })
+        : Promise.resolve(null),
+      ensureTokenConfig(),
     ]);
 
     if (!agent) {
       return Response.json({ error: "Akun agen tidak ditemukan" }, { status: 404 });
     }
 
-    if (!pkg || !pkg.isActive) {
-      return Response.json({ error: "Paket token tidak tersedia" }, { status: 404 });
+    let packageName = "";
+    let tokenAmount = 0;
+    let totalPrice = 0;
+
+    if (parsed.packageId) {
+      if (!pkg || !pkg.isActive) {
+        return Response.json({ error: "Paket token tidak tersedia" }, { status: 404 });
+      }
+      packageName = pkg.name;
+      tokenAmount = pkg.tokenAmount;
+      totalPrice = Number(pkg.price);
+    } else if (parsed.amount) {
+      if (parsed.amount <= 0) {
+        return Response.json({ error: "Jumlah token tidak valid" }, { status: 400 });
+      }
+      packageName = "Custom Amount";
+      tokenAmount = parsed.amount;
+      totalPrice = parsed.amount * Number(tokenConfig.pricePerToken);
     }
 
     const request = await agentTokenRequestDelegate.create({
       data: {
         agentId: agent.id,
-        packageName: pkg.name,
-        tokenAmount: pkg.tokenAmount,
-        totalPrice: pkg.price,
+        packageName,
+        tokenAmount,
+        totalPrice,
       },
       select: {
         id: true,
