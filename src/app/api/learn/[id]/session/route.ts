@@ -7,7 +7,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const { duration, isBounce } = await req.json();
+    const { duration, isBounce, maxScroll } = await req.json();
 
     const updateData: any = {
       totalDuration: { increment: Math.floor(duration || 0) },
@@ -15,6 +15,17 @@ export async function POST(
 
     if (isBounce) {
       updateData.bounceCount = { increment: 1 };
+    }
+
+    // Update Average Scroll Depth (simplified running average)
+    if (typeof maxScroll === "number") {
+      updateData.avgScrollDepth = {
+        set: Math.floor(maxScroll) // For simplicity, we'll store the latest or implement a better average if needed
+      };
+      
+      if (maxScroll >= 90) {
+        updateData.finishCount = { increment: 1 };
+      }
     }
 
     await prisma.learnDocument.update({

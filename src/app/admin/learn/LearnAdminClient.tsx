@@ -22,6 +22,8 @@ interface Doc {
   viewCount: number;
   totalDuration: number;
   bounceCount: number;
+  avgScrollDepth: number;
+  finishCount: number;
   lastViewedAt: string | null;
   createdAt: string;
 }
@@ -519,6 +521,7 @@ export default function LearnAdminClient() {
                     <th style={{ textAlign: "center", padding: "12px", fontSize: "13px" }}>Akses</th>
                     <th style={{ textAlign: "right", padding: "12px", fontSize: "13px" }}>Total Views</th>
                     <th style={{ textAlign: "right", padding: "12px", fontSize: "13px" }}>Avg. Read</th>
+                    <th style={{ textAlign: "right", padding: "12px", fontSize: "13px" }}>Finish Rate</th>
                     <th style={{ textAlign: "right", padding: "12px", fontSize: "13px" }}>Bounce</th>
                     <th style={{ textAlign: "right", padding: "12px", fontSize: "13px" }}>Persentase</th>
                   </tr>
@@ -549,6 +552,16 @@ export default function LearnAdminClient() {
                           <td style={{ padding: "12px", textAlign: "right", fontWeight: 800 }}>{doc.viewCount || 0}</td>
                           <td style={{ padding: "12px", textAlign: "right", fontSize: "13px" }}>
                             {avgRead > 60 ? `${Math.floor(avgRead/60)}m ${avgRead%60}s` : `${avgRead}s`}
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "right", fontSize: "13px" }}>
+                             <div style={{ display: "grid", gap: "2px", textAlign: "right" }}>
+                               <span style={{ fontWeight: 800, color: "hsl(var(--success))" }}>
+                                 {doc.viewCount > 0 ? ((doc.finishCount / doc.viewCount) * 100).toFixed(0) : "0"}%
+                               </span>
+                               <span style={{ fontSize: "10px", color: "hsl(var(--text-muted))" }}>
+                                 Depth: {doc.avgScrollDepth}%
+                               </span>
+                             </div>
                           </td>
                           <td style={{ padding: "12px", textAlign: "right", fontSize: "13px" }}>
                              <span style={{ color: Number(bounceRate) > 50 ? "hsl(var(--error))" : "inherit" }}>

@@ -56,19 +56,43 @@ function LearnArticleView({
   useEffect(() => {
     if (!selected?.id) return;
     
-    // 1. Mark View
-    fetch(`/api/learn/${selected.id}/view`, { method: "POST" }).catch(err => console.error("View count error:", err));
+    // 1. Mark View (Unique per browser session/localStorage)
+    const storageKey = `mba_read_${selected.id}`;
+    const hasRead = localStorage.getItem(storageKey);
+    
+    if (!hasRead) {
+      fetch(`/api/learn/${selected.id}/view`, { method: "POST" })
+        .then(() => localStorage.setItem(storageKey, "1"))
+        .catch(err => console.error("View count error:", err));
+    }
 
-    // 2. Track Duration & Bounce
+    // 2. Track Duration, Bounce & Scroll
     const startTime = Date.now();
+    let maxScroll = 0;
+
+    const handleScroll = () => {
+      const winHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollPercent = Math.min(100, Math.ceil((scrollTop / (docHeight - winHeight)) * 100));
+      if (scrollPercent > maxScroll) maxScroll = scrollPercent;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
     
     return () => {
+      window.removeEventListener("scroll", handleScroll);
       const endTime = Date.now();
       const durationSeconds = Math.floor((endTime - startTime) / 1000);
       const isBounce = durationSeconds < 10; // Bounce if less than 10s
 
       if (durationSeconds > 0) {
-        const body = JSON.stringify({ duration: durationSeconds, isBounce });
+        const body = JSON.stringify({ 
+          duration: durationSeconds, 
+          isBounce,
+          maxScroll,
+        });
+        
         // Use sendBeacon for reliability when closing tab
         if (navigator.sendBeacon) {
           navigator.sendBeacon(`/api/learn/${selected.id}/session`, body);

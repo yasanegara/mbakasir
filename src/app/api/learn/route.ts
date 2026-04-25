@@ -24,6 +24,7 @@ export async function GET() {
       content: true, isPublic: true, publicCtaTarget: true,
       category: true, seoKeywords: true, viewCount: true,
       totalDuration: true, bounceCount: true,
+      avgScrollDepth: true, finishCount: true,
       createdAt: true, updatedAt: true,
     } as any,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
