@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { useAuth } from "@/contexts/AppProviders";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -11,6 +12,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 // ============================================================
 
 export default function TenantLockWrapper({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const { user } = useAuth();
   
   // Karena user adalah tenant/cashier, kita ambil tenant id dari user session
@@ -52,7 +54,7 @@ export default function TenantLockWrapper({ children }: { children: React.ReactN
     return () => clearInterval(timer);
   }, [tenant]);
 
-  if (!user || user.role === "SUPERADMIN" || user.role === "AGENT") {
+  if (!user || user.role === "SUPERADMIN" || user.role === "AGENT" || pathname === "/buy") {
     return <>{children}</>; 
   }
 
