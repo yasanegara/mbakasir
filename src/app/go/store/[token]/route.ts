@@ -46,7 +46,10 @@ export async function GET(
   const token = normalizeStoreRegistrationToken(rawToken);
 
   if (!isStoreRegistrationToken(token)) {
-    return NextResponse.redirect(new URL("/", req.url));
+    const errorUrl = req.nextUrl.clone();
+    errorUrl.pathname = "/";
+    errorUrl.search = "";
+    return NextResponse.redirect(errorUrl);
   }
 
   const link = await prisma.storeRegistrationLink.findUnique({
@@ -62,7 +65,10 @@ export async function GET(
   });
 
   if (!link || !link.isActive || !link.agent.isActive) {
-    return NextResponse.redirect(new URL(buildStoreRegistrationPath(token), req.url));
+    const fallbackUrl = req.nextUrl.clone();
+    fallbackUrl.pathname = buildStoreRegistrationPath(token);
+    fallbackUrl.search = "";
+    return NextResponse.redirect(fallbackUrl);
   }
 
   const requestedKindParam = req.nextUrl.searchParams.get("kind");
@@ -90,7 +96,16 @@ export async function GET(
     destination: resolvedKind === "LANDING" ? "landing" : "register",
   });
 
-  const response = NextResponse.redirect(new URL(destinationPath, req.url));
+  const redirectUrl = req.nextUrl.clone();
+  if (resolvedKind === "LANDING") {
+    redirectUrl.pathname = "/";
+    redirectUrl.searchParams.set("aff", token);
+  } else {
+    redirectUrl.pathname = buildStoreRegistrationPath(token);
+    redirectUrl.search = ""; // Clear existing search params for direct register
+  }
+
+  const response = NextResponse.redirect(redirectUrl);
   response.cookies.set(STORE_AFFILIATE_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
