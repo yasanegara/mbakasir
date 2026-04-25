@@ -32,23 +32,27 @@ export async function GET() {
     });
     
     let defaultAgentRegistrationToken = null;
-    const link = await prisma.agentRegistrationLink.findFirst({
+    const activeLink = await prisma.agentRegistrationLink.findFirst({
       where: { isActive: true },
       orderBy: { createdAt: 'asc' }
     });
-    if (link) {
-      defaultAgentRegistrationToken = link.token;
+
+    if (activeLink) {
+      defaultAgentRegistrationToken = activeLink.token;
     } else {
       const sa = await prisma.superAdmin.findFirst();
       if (sa) {
-        const newLink = await prisma.agentRegistrationLink.create({
-          data: {
+        const link = await prisma.agentRegistrationLink.upsert({
+          where: { token: "default-agent" },
+          update: { isActive: true },
+          create: {
             superAdminId: sa.id,
             token: "default-agent",
             label: "Public Article Auto Generated",
+            isActive: true,
           }
         });
-        defaultAgentRegistrationToken = newLink.token;
+        defaultAgentRegistrationToken = link.token;
       }
     }
     
