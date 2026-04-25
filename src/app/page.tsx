@@ -555,6 +555,10 @@ export default async function IndexPage({ searchParams }: Props) {
             <Link href="/register/store" className={styles.footerLink}>
               Daftar
             </Link>
+            <span className={styles.footerDot} aria-hidden="true">·</span>
+            <Link href="/terms" className={styles.footerLink}>
+              Syarat & Ketentuan
+            </Link>
           </div>
 
           <p className={styles.footerCopy}>
