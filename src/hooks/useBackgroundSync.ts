@@ -44,7 +44,30 @@ export function useBackgroundSync() {
 
     try {
       const db = getDb();
+      // ─── PULL: Cek Status Lisensi (Jika sedang online) ───
+      // Kita lakukan ini setiap kali background sync berjalan (30 detik)
+      const statusRes = await fetch("/api/tenant/status");
+      if (statusRes.ok) {
+        const serverTenant = await statusRes.json();
+        const localTenant = await db.tenants.get(user!.tenantId!);
+        
+        if (localTenant) {
+          const hasChanged = 
+            localTenant.status !== serverTenant.status || 
+            localTenant.premiumUntil !== serverTenant.premiumUntil;
+            
+          if (hasChanged) {
+            await db.tenants.update(localTenant.localId, {
+              status: serverTenant.status,
+              premiumUntil: serverTenant.premiumUntil,
+              updatedAt: serverTenant.updatedAt
+            });
+            console.log("[BackgroundSync] Tenant status updated from server:", serverTenant.status);
+          }
+        }
+      }
 
+      // ─── PUSH: Kirim Batch Perubahan Lokal ───────────────
       // Ambil batch pending dari syncQueue
       const pendingItems = await db.syncQueue
         .where("retries")

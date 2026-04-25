@@ -37,14 +37,8 @@ export function useInitialSync() {
           db.tenants.count(),
           db.posTerminals.count()
         ]);
-        
-        if (tenantCount > 0 && terminalCount > 0) {
-          if (mounted) {
-             setHasSynced(true);
-             setIsSyncing(false);
-          }
-        }
 
+        // Selalu coba sync jika online untuk memastikan status lisensi terbaru
         if (navigator.onLine) {
           const res = await fetch("/api/sync/initial");
           const data = await res.json();
@@ -63,6 +57,11 @@ export function useInitialSync() {
           });
           
           if (mounted) setHasSynced(true);
+        } else {
+          // Jika offline, cek apakah data sudah ada
+          if (tenantCount > 0 && terminalCount > 0) {
+            if (mounted) setHasSynced(true);
+          }
         }
       } catch (err: unknown) {
          if (mounted) {
