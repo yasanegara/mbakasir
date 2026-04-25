@@ -96,10 +96,6 @@ export async function GET(
     destination: resolvedKind === "LANDING" ? "landing" : "register",
   });
 
-  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
-  const protocol = req.headers.get("x-forwarded-proto") || "https";
-  const baseUrl = `${protocol}://${host}`;
-
   const redirectUrl = new URL("/", baseUrl);
   if (resolvedKind === "LANDING") {
     redirectUrl.pathname = "/";
