@@ -19,6 +19,10 @@ interface Doc {
   seoKeywords: string | null;
   version: number;
   sortOrder: number;
+  viewCount: number;
+  totalDuration: number;
+  bounceCount: number;
+  lastViewedAt: string | null;
   createdAt: string;
 }
 
@@ -92,7 +96,7 @@ export default function LearnAdminClient() {
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiInstruction, setAiInstruction] = useState("");
   const [aiModel, setAiModel] = useState("gemini-2.5-flash"); // default model
-  const [tab, setTab] = useState<"list" | "editor">("list");
+  const [tab, setTab] = useState<"list" | "editor" | "stats">("list");
   const [previewMode, setPreviewMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -373,6 +377,12 @@ export default function LearnAdminClient() {
         >
           ✏️ Buat Dokumen Baru
         </button>
+        <button
+          className={`btn btn-sm ${tab === "stats" ? "btn-primary" : "btn-ghost"}`}
+          onClick={() => setTab("stats")}
+        >
+          📊 Statistik & Analitik
+        </button>
       </div>
 
       {/* ── DOCUMENT LIST ── */}
@@ -439,6 +449,9 @@ export default function LearnAdminClient() {
                                 🌍 Eksternal
                               </span>
                             )}
+                            <span style={{ fontSize: "11px", color: "hsl(var(--text-muted))", fontWeight: 600 }}>
+                              👁️ {doc.viewCount || 0} views
+                            </span>
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
@@ -459,6 +472,104 @@ export default function LearnAdminClient() {
               ))}
             </div>
           )}
+        </div>
+      )}
+      {/* ── STATISTICS ── */}
+      {tab === "stats" && (
+        <div style={{ display: "grid", gap: "24px" }}>
+          {/* Summary Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+            <div className="card" style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "hsl(var(--text-muted))", textTransform: "uppercase", marginBottom: "8px" }}>Total Pembukaan</div>
+              <div style={{ fontSize: "32px", fontWeight: 900, color: "hsl(var(--primary))" }}>
+                {docs.reduce((acc, d) => acc + (d.viewCount || 0), 0).toLocaleString("id-ID")}
+              </div>
+            </div>
+            <div className="card" style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "hsl(var(--text-muted))", textTransform: "uppercase", marginBottom: "8px" }}>Artikel Publik</div>
+              <div style={{ fontSize: "32px", fontWeight: 900, color: "hsl(var(--info))" }}>
+                {docs.filter(d => d.isPublic).length}
+              </div>
+            </div>
+            <div className="card" style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "hsl(var(--text-muted))", textTransform: "uppercase", marginBottom: "8px" }}>Artikel Internal</div>
+              <div style={{ fontSize: "32px", fontWeight: 900, color: "hsl(var(--success))" }}>
+                {docs.filter(d => !d.isPublic).length}
+              </div>
+            </div>
+            <div className="card" style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "hsl(var(--text-muted))", textTransform: "uppercase", marginBottom: "8px" }}>Avg Views / Artikel</div>
+              <div style={{ fontSize: "32px", fontWeight: 900 }}>
+                {docs.length > 0 ? (docs.reduce((acc, d) => acc + (d.viewCount || 0), 0) / docs.length).toFixed(1) : 0}
+              </div>
+            </div>
+          </div>
+
+          {/* Ranking Table */}
+          <div className="card">
+            <h3 style={{ fontSize: "16px", fontWeight: 800, marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+              🏆 Peringkat Artikel Terpopuler
+            </h3>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid hsl(var(--border))" }}>
+                    <th style={{ textAlign: "left", padding: "12px", fontSize: "13px" }}>Judul Artikel</th>
+                    <th style={{ textAlign: "left", padding: "12px", fontSize: "13px" }}>Kategori</th>
+                    <th style={{ textAlign: "center", padding: "12px", fontSize: "13px" }}>Akses</th>
+                    <th style={{ textAlign: "right", padding: "12px", fontSize: "13px" }}>Total Views</th>
+                    <th style={{ textAlign: "right", padding: "12px", fontSize: "13px" }}>Avg. Read</th>
+                    <th style={{ textAlign: "right", padding: "12px", fontSize: "13px" }}>Bounce</th>
+                    <th style={{ textAlign: "right", padding: "12px", fontSize: "13px" }}>Persentase</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...docs]
+                    .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+                    .map((doc) => {
+                      const totalViewsGlobal = docs.reduce((acc, d) => acc + (d.viewCount || 0), 0);
+                      const percentage = totalViewsGlobal > 0 ? ((doc.viewCount || 0) / totalViewsGlobal * 100).toFixed(1) : "0";
+                      
+                      const avgRead = doc.viewCount > 0 ? Math.floor(doc.totalDuration / doc.viewCount) : 0;
+                      const bounceRate = doc.viewCount > 0 ? ((doc.bounceCount / doc.viewCount) * 100).toFixed(0) : "0";
+                      
+                      return (
+                        <tr key={doc.id} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+                          <td style={{ padding: "12px", fontSize: "14px", fontWeight: 600 }}>
+                            <span style={{ marginRight: "8px" }}>{doc.emoji}</span> {doc.title}
+                          </td>
+                          <td style={{ padding: "12px", fontSize: "13px", color: "hsl(var(--text-secondary))" }}>{doc.category}</td>
+                          <td style={{ padding: "12px", textAlign: "center" }}>
+                            {doc.isPublic ? (
+                              <span style={{ fontSize: "10px", background: "hsl(var(--info)/0.1)", color: "hsl(var(--info))", padding: "2px 6px", borderRadius: "4px", fontWeight: 800 }}>PUBLIK</span>
+                            ) : (
+                              <span style={{ fontSize: "10px", background: "hsl(var(--border))", color: "hsl(var(--text-muted))", padding: "2px 6px", borderRadius: "4px", fontWeight: 800 }}>INTERNAL</span>
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "right", fontWeight: 800 }}>{doc.viewCount || 0}</td>
+                          <td style={{ padding: "12px", textAlign: "right", fontSize: "13px" }}>
+                            {avgRead > 60 ? `${Math.floor(avgRead/60)}m ${avgRead%60}s` : `${avgRead}s`}
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "right", fontSize: "13px" }}>
+                             <span style={{ color: Number(bounceRate) > 50 ? "hsl(var(--error))" : "inherit" }}>
+                               {bounceRate}%
+                             </span>
+                          </td>
+                          <td style={{ padding: "12px", textAlign: "right" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "flex-end" }}>
+                              <div style={{ width: "60px", height: "6px", background: "hsl(var(--border))", borderRadius: "3px", overflow: "hidden" }}>
+                                <div style={{ width: `${percentage}%`, height: "100%", background: "hsl(var(--primary))" }} />
+                              </div>
+                              <span style={{ fontSize: "11px", fontWeight: 700, minWidth: "35px" }}>{percentage}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

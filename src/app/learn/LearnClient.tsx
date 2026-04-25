@@ -53,6 +53,36 @@ function LearnArticleView({
   relatedDocs?: Doc[];
   onSelectRelated?: (doc: Doc) => void;
 }) {
+  useEffect(() => {
+    if (!selected?.id) return;
+    
+    // 1. Mark View
+    fetch(`/api/learn/${selected.id}/view`, { method: "POST" }).catch(err => console.error("View count error:", err));
+
+    // 2. Track Duration & Bounce
+    const startTime = Date.now();
+    
+    return () => {
+      const endTime = Date.now();
+      const durationSeconds = Math.floor((endTime - startTime) / 1000);
+      const isBounce = durationSeconds < 10; // Bounce if less than 10s
+
+      if (durationSeconds > 0) {
+        const body = JSON.stringify({ duration: durationSeconds, isBounce });
+        // Use sendBeacon for reliability when closing tab
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(`/api/learn/${selected.id}/session`, body);
+        } else {
+          fetch(`/api/learn/${selected.id}/session`, {
+            method: "POST",
+            body,
+            headers: { "Content-Type": "application/json" },
+            keepalive: true,
+          }).catch(() => {});
+        }
+      }
+    };
+  }, [selected?.id]);
 
   return (
     <div style={{ maxWidth: "1200px", margin: "0 auto" }}>

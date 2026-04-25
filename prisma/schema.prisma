@@ -594,6 +594,10 @@ model LearnDocument {
   seoKeywords String?  @db.Text
   version     Int      @default(1)
   sortOrder   Int      @default(0)
+  viewCount   Int      @default(0)
+  totalDuration Int    @default(0) // total seconds spent reading
+  bounceCount   Int    @default(0) // views < 10 seconds
+  lastViewedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
