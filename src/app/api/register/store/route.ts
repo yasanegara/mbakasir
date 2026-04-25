@@ -5,7 +5,7 @@ import {
   normalizeEmailAddress,
 } from "@/lib/auth";
 import { findExistingLoginIdentity } from "@/lib/auth-identity";
-import { getDefaultPosName, formatPosCode } from "@/lib/pos-terminals";
+import { getDefaultPosName, formatPosCode, ensureDefaultPosTerminal } from "@/lib/pos-terminals";
 import { prisma } from "@/lib/prisma";
 import {
   isStoreRegistrationToken,
@@ -120,16 +120,8 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      await tx.posTerminal.create({
-        data: {
-          tenantId: tenant.id,
-          name: getDefaultPosName(1),
-          code: formatPosCode(1),
-          isDefault: true,
-          isActive: true,
-          tokenCost: 0,
-        },
-      });
+      // Pastikan ada POS Utama default menggunakan utility agar konsisten
+      await ensureDefaultPosTerminal(tx, tenant.id);
 
       await tx.storeRegistrationLink.update({
         where: {

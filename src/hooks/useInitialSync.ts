@@ -52,8 +52,15 @@ export function useInitialSync() {
              await db.products.bulkPut(data.products);
              await db.rawMaterials.bulkPut(data.rawMaterials);
              await db.billOfMaterials.bulkPut(data.billOfMaterials);
-             if (data.posTerminals) await db.posTerminals.bulkPut(data.posTerminals);
-             if (data.productAssignments) await db.productAssignments.bulkPut(data.productAssignments);
+             
+             if (data.posTerminals) {
+               await db.posTerminals.clear();
+               await db.posTerminals.bulkPut(data.posTerminals);
+             }
+             if (data.productAssignments) {
+               await db.productAssignments.clear();
+               await db.productAssignments.bulkPut(data.productAssignments);
+             }
           });
           
           if (mounted) setHasSynced(true);

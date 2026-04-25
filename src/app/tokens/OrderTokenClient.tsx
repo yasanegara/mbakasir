@@ -19,6 +19,7 @@ interface OrderTokenClientProps {
 
 export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenClientProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [view, setView] = useState<"PACKAGE_LIST" | "CHECKOUT">("PACKAGE_LIST");
   const [packages, setPackages] = useState<AgentPackage[]>([]);
   const [pusatInfo, setPusatInfo] = useState({ phone: "", name: "", bank: "" });
   const [isLoading, setIsLoading] = useState(false);
@@ -26,6 +27,15 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
   const [customAmount, setCustomAmount] = useState<string>("");
   const [tokenPrice, setTokenPrice] = useState<number>(0);
   const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<{
+    name: string;
+    amount: number;
+    price: number;
+    id: string;
+    isCustom: boolean;
+  } | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [timeLeft, setTimeLeft] = useState(7200); // 2 jam dalam detik
   const { toast } = useToast();
 
   const fetchPackages = async () => {
@@ -54,17 +64,48 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
   useEffect(() => {
     if (isOpen) {
       fetchPackages();
+    } else {
+      setView("PACKAGE_LIST");
+      setSelectedOrder(null);
+      setProofFile(null);
     }
   }, [isOpen]);
 
-  const handleOrder = async (pkg?: AgentPackage, amount?: number) => {
-    let whatsappWindow: Window | null = null;
+  // Countdown timer effect
+  useEffect(() => {
+    if (view === "CHECKOUT" && timeLeft > 0) {
+      const timer = setInterval(() => {
+        setTimeLeft((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [view, timeLeft]);
 
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSelectPackage = (pkg?: AgentPackage, amount?: number) => {
     const isCustom = !pkg && amount;
-    const orderName = isCustom ? `Custom (${amount} ${tokenSymbol})` : pkg!.name;
-    const orderAmount = isCustom ? amount : pkg!.tokenAmount;
-    const orderPrice = isCustom ? amount * tokenPrice : pkg!.price;
-    const orderId = isCustom ? "CUSTOM" : pkg!.id;
+    const order = {
+      name: isCustom ? `Custom (${amount} ${tokenSymbol})` : pkg!.name,
+      amount: isCustom ? amount : pkg!.tokenAmount,
+      price: isCustom ? amount * tokenPrice : pkg!.price,
+      id: isCustom ? "CUSTOM" : pkg!.id,
+      isCustom: !!isCustom
+    };
+    setSelectedOrder(order);
+    setView("CHECKOUT");
+    setTimeLeft(7200); // Reset timer ke 2 jam
+  };
+
+  const handleFinalOrder = async () => {
+    if (!selectedOrder) return;
+    
+    let whatsappWindow: Window | null = null;
 
     if (pusatInfo.phone) {
       whatsappWindow = window.open("", "_blank");
@@ -76,17 +117,17 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
       }
     }
 
-    if (isCustom) {
+    if (selectedOrder.isCustom) {
       setIsSubmittingCustom(true);
     } else {
-      setSubmittingPackageId(pkg!.id);
+      setSubmittingPackageId(selectedOrder.id);
     }
 
     try {
       const requestRes = await fetch("/api/agent/purchase-token-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isCustom ? { amount: orderAmount } : { packageId: orderId }),
+        body: JSON.stringify(selectedOrder.isCustom ? { amount: selectedOrder.amount } : { packageId: selectedOrder.id }),
       });
       const requestData = await requestRes.json();
 
@@ -97,11 +138,11 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
       }
 
       toast(
-        `Permintaan ${orderName} masuk ke dashboard superadmin.`,
+        `Permintaan ${selectedOrder.name} masuk ke dashboard superadmin.`,
         "success"
       );
 
-      const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan token:\n\nItem: ${orderName}\nJumlah: ${orderAmount} ${tokenSymbol}\nHarga: ${formatRupiahFull(orderPrice)}\n\nSaya akan segera transfer ke rekening ${pusatInfo.bank}. Terima kasih!`;
+      const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan token:\n\nItem: ${selectedOrder.name}\nJumlah: ${selectedOrder.amount} ${tokenSymbol}\nHarga: ${formatRupiahFull(selectedOrder.price)}\n\nSaya sudah transfer ke rekening ${pusatInfo.bank}. Berikut bukti transfernya (terlampir). Terima kasih!`;
       const url = buildWhatsappUrl(pusatInfo.phone, message);
 
       if (!url) {
@@ -115,7 +156,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
         return;
       }
 
-      toast(`Pesanan ${orderName} disiapkan. Mengalihkan ke WhatsApp Pusat...`, "success");
+      toast(`Pesanan ${selectedOrder.name} disiapkan. Mengalihkan ke WhatsApp Pusat...`, "success");
 
       if (whatsappWindow && !whatsappWindow.closed) {
         whatsappWindow.location.replace(url);
@@ -123,6 +164,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
       }
 
       window.open(url, "_blank");
+      setIsOpen(false);
     } catch (error) {
       if (whatsappWindow && !whatsappWindow.closed) {
         whatsappWindow.close();
@@ -162,184 +204,266 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
           ✕
         </button>
 
-        <h2 style={{ fontSize: "20px", marginBottom: "8px" }}>Beli Token {tokenSymbol}</h2>
-        <p style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", marginBottom: "24px" }}>
-          Pilih paket bundling di bawah untuk melakukan pemesanan ke {pusatInfo.name || "Pusat"}.
-        </p>
+        {view === "PACKAGE_LIST" ? (
+          <>
+            <h2 style={{ fontSize: "20px", marginBottom: "8px" }}>Beli Token {tokenSymbol}</h2>
+            <p style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", marginBottom: "24px" }}>
+              Pilih paket bundling di bawah untuk melakukan pemesanan ke {pusatInfo.name || "Pusat"}.
+            </p>
 
-        {isLoading ? (
-          <div style={{ textAlign: "center", padding: "40px" }}>Memuat paket...</div>
-        ) : (
-          <div style={{ display: "grid", gap: "20px" }}>
-            {/* Custom Amount Field - Modernized */}
-            <div style={{ 
-              padding: "24px", 
-              background: "linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(var(--primary) / 0.03) 100%)", 
-              border: "1px solid hsl(var(--primary) / 0.15)", 
-              borderRadius: "20px",
-              boxShadow: "0 8px 24px -8px hsl(var(--primary) / 0.12)"
-            }}>
-              <div style={{ fontWeight: 800, fontSize: "16px", marginBottom: "6px", color: "hsl(var(--primary))", display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "20px" }}>💎</span> Beli Jumlah Custom
-              </div>
-              <p style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginBottom: "20px", lineHeight: 1.5 }}>
-                Masukkan jumlah token yang diinginkan.<br/> 
-                Harga: <strong style={{ color: "hsl(var(--text-primary))" }}>{formatRupiahFull(tokenPrice)}</strong> / {tokenSymbol}
-              </p>
-              
-              <div style={{ display: "flex", gap: "12px", alignItems: "stretch" }}>
-                <div style={{ flex: 1, position: "relative" }}>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value)}
-                    style={{ 
-                      width: "100%",
-                      height: "48px",
-                      padding: "0 48px 0 16px",
-                      fontSize: "18px",
-                      fontWeight: 700,
-                      borderRadius: "12px",
-                      border: "2px solid hsl(var(--border))",
-                      background: "hsl(var(--bg-card))",
-                      outline: "none",
-                      transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                      appearance: "none",
-                      margin: 0,
-                    }}
-                    className="modern-number-input"
-                  />
-                  <style dangerouslySetInnerHTML={{ __html: `
-                    .modern-number-input::-webkit-outer-spin-button,
-                    .modern-number-input::-webkit-inner-spin-button {
-                      -webkit-appearance: none;
-                      margin: 0;
-                    }
-                    .modern-number-input:focus {
-                      border-color: hsl(var(--primary));
-                      box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
-                      transform: translateY(-1px);
-                    }
-                  `}} />
-                  <span style={{ 
-                    position: "absolute", 
-                    right: "16px", 
-                    top: "50%", 
-                    transform: "translateY(-50%)", 
-                    fontSize: "14px", 
-                    fontWeight: 800, 
-                    color: "hsl(var(--primary))",
-                    pointerEvents: "none",
-                    opacity: 0.6
-                  }}>
-                    {tokenSymbol}
-                  </span>
-                </div>
-                <button 
-                  className="btn btn-primary"
-                  disabled={!customAmount || Number(customAmount) <= 0 || isSubmittingCustom}
-                  onClick={() => handleOrder(undefined, Number(customAmount))}
-                  style={{ 
-                    padding: "0 24px", 
-                    height: "48px", 
-                    borderRadius: "12px",
-                    fontWeight: 700,
-                    boxShadow: "0 4px 12px hsl(var(--primary) / 0.3)",
-                    transition: "all 0.2s"
-                  }}
-                >
-                  {isSubmittingCustom ? "..." : "Pesan Sekarang"}
-                </button>
-              </div>
-
-              {customAmount && Number(customAmount) > 0 && (
-                <div style={{ 
-                  marginTop: "20px", 
-                  padding: "16px", 
-                  background: "white", 
-                  borderRadius: "14px", 
-                  border: "1px solid hsl(var(--primary) / 0.1)",
-                  display: "flex", 
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  animation: "fadeUp 0.3s ease-out"
-                }}>
-                  <style dangerouslySetInnerHTML={{ __html: `
-                    @keyframes fadeUp {
-                      from { opacity: 0; transform: translateY(10px); }
-                      to { opacity: 1; transform: translateY(0); }
-                    }
-                  `}} />
-                  <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Estimasi Total Bayar:</span>
-                  <span style={{ fontSize: "18px", fontWeight: 900, color: "hsl(var(--primary))" }}>
-                    {formatRupiahFull(Number(customAmount) * tokenPrice)}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div style={{ height: "1px", background: "hsl(var(--border))" }} />
-
-            <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "-8px", color: "hsl(var(--text-secondary))" }}>
-              Atau Pilih Paket Bundling:
-            </div>
-
-            {packages.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px", border: "1px dashed hsl(var(--border))", borderRadius: "12px" }}>
-                Belum ada paket yang tersedia dari Pusat.
-              </div>
+            {isLoading ? (
+              <div style={{ textAlign: "center", padding: "40px" }}>Memuat paket...</div>
             ) : (
-              <div style={{ display: "grid", gap: "12px" }}>
-                {packages.map((pkg) => (
-                  <div 
-                    key={pkg.id} 
-                    style={{ 
-                      padding: "16px", 
-                      background: "hsl(var(--bg-elevated))", 
-                      border: "1px solid hsl(var(--border))", 
-                      borderRadius: "12px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: "16px"
-                    }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ fontWeight: 700, fontSize: "16px" }}>{pkg.name}</div>
-                        <span className="badge badge-primary" style={{ fontSize: "11px" }}>
-                          {pkg.tokenAmount.toLocaleString("id-ID")} {tokenSymbol}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: "12px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
-                        {pkg.description || `Pembelian paket bundling ${pkg.tokenAmount} token.`}
-                      </div>
-                      <div style={{ fontSize: "18px", fontWeight: 800, color: "hsl(var(--text-primary))", marginTop: "8px" }}>
-                        {formatRupiahFull(pkg.price)}
-                      </div>
+              <div style={{ display: "grid", gap: "20px" }}>
+                {/* Custom Amount Field */}
+                <div style={{ 
+                  padding: "24px", 
+                  background: "linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(var(--primary) / 0.03) 100%)", 
+                  border: "1px solid hsl(var(--primary) / 0.15)", 
+                  borderRadius: "20px",
+                  boxShadow: "0 8px 24px -8px hsl(var(--primary) / 0.12)"
+                }}>
+                  <div style={{ fontWeight: 800, fontSize: "16px", marginBottom: "6px", color: "hsl(var(--primary))", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "20px" }}>💎</span> Beli Jumlah Custom
+                  </div>
+                  <p style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginBottom: "20px", lineHeight: 1.5 }}>
+                    Masukkan jumlah token yang diinginkan.<br/> 
+                    Harga: <strong style={{ color: "hsl(var(--text-primary))" }}>{formatRupiahFull(tokenPrice)}</strong> / {tokenSymbol}
+                  </p>
+                  
+                  <div style={{ display: "flex", gap: "12px", alignItems: "stretch" }}>
+                    <div style={{ flex: 1, position: "relative" }}>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                        style={{ 
+                          width: "100%",
+                          height: "48px",
+                          padding: "0 48px 0 16px",
+                          fontSize: "18px",
+                          fontWeight: 700,
+                          borderRadius: "12px",
+                          border: "2px solid hsl(var(--border))",
+                          background: "hsl(var(--bg-card))",
+                          outline: "none",
+                          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                          appearance: "none",
+                          margin: 0,
+                        }}
+                        className="modern-number-input"
+                      />
+                      <style dangerouslySetInnerHTML={{ __html: `
+                        .modern-number-input::-webkit-outer-spin-button,
+                        .modern-number-input::-webkit-inner-spin-button {
+                          -webkit-appearance: none;
+                          margin: 0;
+                        }
+                        .modern-number-input:focus {
+                          border-color: hsl(var(--primary));
+                          box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
+                          transform: translateY(-1px);
+                        }
+                      `}} />
+                      <span style={{ 
+                        position: "absolute", 
+                        right: "16px", 
+                        top: "50%", 
+                        transform: "translateY(-50%)", 
+                        fontSize: "14px", 
+                        fontWeight: 800, 
+                        color: "hsl(var(--primary))",
+                        pointerEvents: "none",
+                        opacity: 0.6
+                      }}>
+                        {tokenSymbol}
+                      </span>
                     </div>
                     <button 
                       className="btn btn-primary"
-                      onClick={() => handleOrder(pkg)}
-                      style={{ whiteSpace: "nowrap" }}
-                      disabled={submittingPackageId !== null}
+                      disabled={!customAmount || Number(customAmount) <= 0 || isSubmittingCustom}
+                      onClick={() => handleSelectPackage(undefined, Number(customAmount))}
+                      style={{ 
+                        padding: "0 24px", 
+                        height: "48px", 
+                        borderRadius: "12px",
+                        fontWeight: 700,
+                        boxShadow: "0 4px 12px hsl(var(--primary) / 0.3)",
+                        transition: "all 0.2s"
+                      }}
                     >
-                      {submittingPackageId === pkg.id ? "Mengirim..." : "Pesan"}
+                      Pesan Sekarang
                     </button>
                   </div>
-                ))}
+
+                  {customAmount && Number(customAmount) > 0 && (
+                    <div style={{ 
+                      marginTop: "20px", 
+                      padding: "16px", 
+                      background: "white", 
+                      borderRadius: "14px", 
+                      border: "1px solid hsl(var(--primary) / 0.1)",
+                      display: "flex", 
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      animation: "fadeUp 0.3s ease-out"
+                    }}>
+                      <style dangerouslySetInnerHTML={{ __html: `
+                        @keyframes fadeUp {
+                          from { opacity: 0; transform: translateY(10px); }
+                          to { opacity: 1; transform: translateY(0); }
+                        }
+                      `}} />
+                      <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Estimasi Total Bayar:</span>
+                      <span style={{ fontSize: "18px", fontWeight: 900, color: "hsl(var(--primary))" }}>
+                        {formatRupiahFull(Number(customAmount) * tokenPrice)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ height: "1px", background: "hsl(var(--border))" }} />
+
+                <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "-8px", color: "hsl(var(--text-secondary))" }}>
+                  Atau Pilih Paket Bundling:
+                </div>
+
+                {packages.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "40px", border: "1px dashed hsl(var(--border))", borderRadius: "12px" }}>
+                    Belum ada paket yang tersedia dari Pusat.
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gap: "12px" }}>
+                    {packages.map((pkg) => (
+                      <div 
+                        key={pkg.id} 
+                        style={{ 
+                          padding: "16px", 
+                          background: "hsl(var(--bg-elevated))", 
+                          border: "1px solid hsl(var(--border))", 
+                          borderRadius: "12px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "16px"
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <div style={{ fontWeight: 700, fontSize: "16px" }}>{pkg.name}</div>
+                            <span className="badge badge-primary" style={{ fontSize: "11px" }}>
+                              {pkg.tokenAmount.toLocaleString("id-ID")} {tokenSymbol}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: "12px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
+                            {pkg.description || `Pembelian paket bundling ${pkg.tokenAmount} token.`}
+                          </div>
+                          <div style={{ fontSize: "18px", fontWeight: 800, color: "hsl(var(--text-primary))", marginTop: "8px" }}>
+                            {formatRupiahFull(pkg.price)}
+                          </div>
+                        </div>
+                        <button 
+                          className="btn btn-primary"
+                          onClick={() => handleSelectPackage(pkg)}
+                          style={{ whiteSpace: "nowrap" }}
+                        >
+                          Pesan
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
+          </>
+        ) : (
+          <div className="animate-fade-in">
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+              <button 
+                onClick={() => setView("PACKAGE_LIST")}
+                style={{ background: "hsl(var(--bg-elevated))", border: "1px solid hsl(var(--border))", borderRadius: "8px", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              >
+                ←
+              </button>
+              <h2 style={{ fontSize: "20px" }}>Checkout Pembelian</h2>
+            </div>
 
-            <div style={{ marginTop: "20px", padding: "16px", background: "hsl(var(--bg-surface))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}>
-              <div style={{ fontSize: "13px", color: "hsl(var(--text-muted))", marginBottom: "8px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Info Rekening Pusat</div>
-              <div style={{ fontSize: "15px", fontWeight: 700, color: "hsl(var(--text-primary))", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                {pusatInfo.bank || "Hubungi Pusat untuk info rekening."}
+            <div style={{ display: "grid", gap: "20px" }}>
+              <div style={{ padding: "16px", background: "hsl(var(--primary) / 0.05)", borderRadius: "12px", border: "1px solid hsl(var(--primary) / 0.1)" }}>
+                <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", textTransform: "uppercase", fontWeight: 700, marginBottom: "8px" }}>Rincian Pesanan</div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <span style={{ fontSize: "15px", fontWeight: 600 }}>{selectedOrder?.name}</span>
+                  <span style={{ fontWeight: 700 }}>{formatRupiahFull(selectedOrder?.price || 0)}</span>
+                </div>
+                <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))" }}>
+                  {selectedOrder?.amount} {tokenSymbol}
+                </div>
               </div>
-              <div style={{ marginTop: "12px", fontSize: "12px", color: "hsl(var(--text-secondary))", borderTop: "1px solid hsl(var(--border))", paddingTop: "12px" }}>
-                Setelah transfer, klik tombol <strong>Pesan</strong> di atas untuk konfirmasi via WhatsApp dengan bukti transfer Anda.
+
+              <div style={{ padding: "16px", background: "hsl(var(--bg-elevated))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", textTransform: "uppercase", fontWeight: 700 }}>Info Rekening Pusat</div>
+                  <div style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--error))", background: "hsl(var(--error) / 0.1)", padding: "4px 8px", borderRadius: "6px" }}>
+                    ⏱️ {formatTime(timeLeft)}
+                  </div>
+                </div>
+                <div style={{ fontSize: "16px", fontWeight: 700, color: "hsl(var(--text-primary))", whiteSpace: "pre-wrap", lineHeight: 1.6, marginBottom: "12px" }}>
+                  {pusatInfo.bank || "Hubungi Pusat untuk info rekening."}
+                </div>
+                <p style={{ fontSize: "12px", color: "hsl(var(--text-secondary))", lineHeight: 1.5 }}>
+                  Silakan transfer sesuai nominal di atas sebelum waktu habis.
+                </p>
               </div>
+
+              <div>
+                <label className="input-label" style={{ display: "block", marginBottom: "8px" }}>Upload Bukti Transfer</label>
+                <div 
+                  style={{ 
+                    border: "2px dashed hsl(var(--border))", 
+                    borderRadius: "12px", 
+                    padding: "20px", 
+                    textAlign: "center",
+                    cursor: "pointer",
+                    position: "relative",
+                    background: proofFile ? "hsl(var(--success) / 0.05)" : "transparent",
+                    borderColor: proofFile ? "hsl(var(--success))" : "hsl(var(--border))"
+                  }}
+                  onClick={() => document.getElementById("proof-upload")?.click()}
+                >
+                  <input 
+                    type="file" 
+                    id="proof-upload" 
+                    hidden 
+                    accept="image/*"
+                    onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                  />
+                  {proofFile ? (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "20px" }}>✅</span>
+                      <div style={{ textAlign: "left" }}>
+                        <div style={{ fontSize: "14px", fontWeight: 700, color: "hsl(var(--success))" }}>Bukti Terpilih</div>
+                        <div style={{ fontSize: "12px", color: "hsl(var(--text-secondary))" }}>{proofFile.name}</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: "24px", marginBottom: "8px" }}>📸</div>
+                      <div style={{ fontSize: "14px", fontWeight: 600 }}>Klik untuk Upload Bukti</div>
+                      <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "4px" }}>Format JPG, PNG (Maks 5MB)</div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <button 
+                className="btn btn-primary"
+                onClick={handleFinalOrder}
+                disabled={!proofFile || submittingPackageId !== null || isSubmittingCustom}
+                style={{ width: "100%", height: "52px", fontSize: "16px", fontWeight: 800, marginTop: "8px" }}
+              >
+                {submittingPackageId || isSubmittingCustom ? "Memproses..." : "Kirim WA & Selesaikan"}
+              </button>
             </div>
           </div>
         )}
