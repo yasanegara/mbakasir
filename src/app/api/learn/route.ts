@@ -5,8 +5,10 @@ import { getBrandConfig } from "@/lib/brand-config";
 
 export async function GET() {
   try {
+    console.log("[API Learn] Starting fetch...");
     const session = await getSession();
     const role = session?.role;
+    console.log("[API Learn] Session role:", role);
 
     const docs = await prisma.learnDocument.findMany({
       where: {
@@ -30,6 +32,7 @@ export async function GET() {
       } as any,
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     });
+    console.log("[API Learn] Found docs:", docs.length);
     
     let defaultAgentRegistrationToken = null;
     const activeLink = await prisma.agentRegistrationLink.findFirst({
@@ -38,8 +41,10 @@ export async function GET() {
     });
 
     if (activeLink) {
+      console.log("[API Learn] Active link found:", activeLink.token);
       defaultAgentRegistrationToken = activeLink.token;
     } else {
+      console.log("[API Learn] No active link, checking fallback...");
       const sa = await prisma.superAdmin.findFirst();
       if (sa) {
         const link = await prisma.agentRegistrationLink.upsert({
@@ -53,6 +58,7 @@ export async function GET() {
           }
         });
         defaultAgentRegistrationToken = link.token;
+        console.log("[API Learn] Fallback link created/updated:", link.token);
       }
     }
     
@@ -60,8 +66,9 @@ export async function GET() {
       docs,
       defaultAgentRegistrationToken
     });
-  } catch (error) {
-    console.error("Error fetching learn docs:", error);
-    return NextResponse.json({ error: "Failed to fetch docs", docs: [] }, { status: 500 });
+  } catch (error: any) {
+    console.error("[API Learn] CRITICAL ERROR:", error);
+    if (error.stack) console.error(error.stack);
+    return NextResponse.json({ error: error.message || "Failed to fetch docs", docs: [] }, { status: 500 });
   }
 }
