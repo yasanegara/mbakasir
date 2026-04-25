@@ -69,7 +69,18 @@ export default function TenantLockWrapper({ children }: { children: React.ReactN
            <p style={{ color: "hsl(var(--text-secondary))", textAlign: "center", maxWidth: "400px", fontSize: "16px" }}>
              Masa aktif langganan toko Anda telah kedaluwarsa. Silakan hubungi Agen Anda untuk melakukan perpanjangan lisensi Token.
            </p>
-           <button className="btn btn-ghost" style={{ marginTop: "20px", color: "white", borderColor: "rgba(255,255,255,0.3)" }} onClick={() => window.location.reload()}>
+           <button 
+             className="btn btn-primary" 
+             style={{ marginTop: "24px", width: "100%", maxWidth: "220px", fontWeight: 800 }} 
+             onClick={() => window.location.href = "/buy"}
+           >
+             Beli Token Sekarang
+           </button>
+           <button 
+             className="btn btn-ghost" 
+             style={{ marginTop: "12px", color: "white", opacity: 0.6, fontSize: "14px" }} 
+             onClick={() => window.location.reload()}
+           >
              Muat Ulang
            </button>
         </div>
