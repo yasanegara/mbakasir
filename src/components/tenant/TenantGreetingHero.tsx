@@ -7,7 +7,6 @@ interface TenantGreetingHeroProps {
   userName: string;
   tenantName: string;
   agentName: string;
-  greeting: string;
   premiumUntilIso: string | null;
   initialRemainingMs: number;
   sisaToken: number;
@@ -42,7 +41,6 @@ export default function TenantGreetingHero({
   userName,
   tenantName,
   agentName,
-  greeting,
   premiumUntilIso,
   initialRemainingMs,
   sisaToken,
@@ -59,6 +57,17 @@ export default function TenantGreetingHero({
     }, 1000);
     return () => clearInterval(timer);
   }, [premiumUntilIso]);
+
+  const [greeting, setGreeting] = useState("Selamat datang");
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    const g = 
+      hour < 11 ? "Selamat pagi" :
+      hour < 15 ? "Selamat siang" :
+      hour < 18 ? "Selamat sore" : "Selamat malam";
+    setGreeting(g);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && navigator.geolocation) {
@@ -110,7 +119,7 @@ export default function TenantGreetingHero({
           <div className="brand">
             <div className="welcome">
               <span className="wave">👋</span>
-              <span className="hi">Hai {userName}, {greeting.toLowerCase()}!</span>
+              <span className="hi" suppressHydrationWarning>Hai {userName}, {greeting.toLowerCase()}!</span>
             </div>
             <h1 className="name">{tenantName}</h1>
             <div className="agent-tag">
@@ -139,7 +148,7 @@ export default function TenantGreetingHero({
                   <div className="status-dot" />
                   <span>LISENSI</span>
                 </div>
-                <div className="time">{statusLabel}</div>
+                <div className="time" suppressHydrationWarning>{statusLabel}</div>
               </div>
               <Link href="/buy" className="action-btn">Beli</Link>
             </div>

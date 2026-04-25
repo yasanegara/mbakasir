@@ -325,14 +325,15 @@ export default function Sidebar({
 
           {/* Theme cycle (Pro, Green, Landing, Chic) */}
           <div style={{
-            padding: "8px",
+            padding: "8px 12px",
             background: "hsl(var(--bg-elevated))",
             borderRadius: "12px",
             marginBottom: "4px",
             display: "flex",
-            flexDirection: "column",
+            flexDirection: "row",
             alignItems: "center",
-            gap: "8px"
+            justifyContent: isCollapsed ? "center" : "flex-start",
+            gap: "10px"
           }}>
             <button
               onClick={() => {

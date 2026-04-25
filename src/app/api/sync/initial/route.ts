@@ -109,26 +109,15 @@ export async function GET() {
       quantity: Number(b.quantity),
     }));
 
-    const formattedTerminals = [
-      ...posTerminals.map((t: any) => ({
-        id: t.id,
-        tenantId: t.tenantId,
-        name: t.name,
-        code: t.code,
-        isDefault: t.isDefault,
-        isActive: t.isActive,
-        targetRevenue: Number(t.targetRevenue)
-      })),
-      {
-        id: "test-terminal",
-        tenantId: tenant.id,
-        name: "TEST TERMINAL (DEBUG)",
-        code: "DEBUG",
-        isDefault: false,
-        isActive: true,
-        targetRevenue: 0
-      }
-    ];
+    const formattedTerminals = posTerminals.map((t: any) => ({
+      id: t.id,
+      tenantId: t.tenantId,
+      name: t.name,
+      code: t.code,
+      isDefault: t.isDefault,
+      isActive: t.isActive,
+      targetRevenue: Number(t.targetRevenue)
+    }));
 
     const formattedAssignments = productAssignments.map((a: any) => ({
       id: a.id,

@@ -28,18 +28,43 @@ export default function TopProductsCarousel() {
     return result.length > 0 ? result : null;
   }, []);
 
-  const displayProducts = topProducts || [
-    { id: "d1", name: "Contoh Produk 1", qty: 25, price: 15000 },
-    { id: "d2", name: "Contoh Produk 2", qty: 18, price: 20000 },
-    { id: "d3", name: "Contoh Produk 3", qty: 12, price: 12500 },
-  ];
+  if (topProducts === undefined) {
+    return (
+      <div className="top-products-outer-wrapper">
+        <div className="section-header">
+          <h3 className="section-title">🔥 Produk Terlaris</h3>
+          <span className="section-subtitle">Memuat data...</span>
+        </div>
+        <div style={{ height: "120px", background: "hsl(var(--bg-elevated))", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center", color: "hsl(var(--text-muted))", fontSize: "12px" }}>
+          Menganalisis transaksi...
+        </div>
+      </div>
+    );
+  }
+
+  if (topProducts === null) {
+    return (
+      <div className="top-products-outer-wrapper">
+        <div className="section-header">
+          <h3 className="section-title">🔥 Produk Terlaris</h3>
+          <span className="section-subtitle">Belum ada transaksi</span>
+        </div>
+        <div style={{ height: "100px", background: "hsl(var(--bg-elevated))", border: "1px dashed hsl(var(--border))", borderRadius: "16px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "8px", color: "hsl(var(--text-muted))" }}>
+          <div style={{ fontSize: "24px" }}>📊</div>
+          <div style={{ fontSize: "12px", fontWeight: 600 }}>Belum ada data penjualan untuk dianalisis</div>
+        </div>
+      </div>
+    );
+  }
+
+  const displayProducts = topProducts;
 
   return (
     <div className="top-products-outer-wrapper">
       <div className="section-header">
         <h3 className="section-title">🔥 Produk Terlaris</h3>
         <span className="section-subtitle">
-          {topProducts ? "7 produk paling banyak dipesan" : "Contoh data (Belum ada transaksi)"}
+          7 produk paling banyak dipesan
         </span>
       </div>
 

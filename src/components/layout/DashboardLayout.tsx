@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import TenantLockWrapper from "./TenantLockWrapper";
@@ -21,13 +21,27 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // Persistence to avoid flicking on transitions since layout is used per-page
+  useEffect(() => {
+    const saved = localStorage.getItem("mbakasir_sidebar_collapsed");
+    if (saved === "true") setIsSidebarCollapsed(true);
+  }, []);
+
+  const handleToggleCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const newVal = !prev;
+      localStorage.setItem("mbakasir_sidebar_collapsed", String(newVal));
+      return newVal;
+    });
+  };
+
   return (
     <div className="app-shell">
       <Sidebar
         isOpen={isSidebarOpen}
         isCollapsed={isSidebarCollapsed}
         onClose={() => setIsSidebarOpen(false)}
-        onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        onToggleCollapse={handleToggleCollapse}
       />
 
       <div className={`main-content${isSidebarCollapsed ? " sidebar-collapsed" : ""}`}>
@@ -37,7 +51,7 @@ export default function DashboardLayout({
           headerActions={headerActions}
         />
 
-        <main className="page-body animate-fade-in">
+        <main className="page-body">
           <TenantLockWrapper>{children}</TenantLockWrapper>
         </main>
       </div>

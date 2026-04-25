@@ -170,9 +170,8 @@ export default async function DashboardPage() {
   const tokenUsed = tenantData?.tokenUsed ?? 0;
   const tokenSymbol = tokenConfigObj?.tokenSymbol ?? "T.";
   const premiumUntil = tenantData?.premiumUntil ? new Date(tenantData.premiumUntil) : null;
-  const initialPremiumRemainingMs = premiumUntil
-    ? Math.max(0, premiumUntil.getTime() - Date.now())
-    : 0;
+  const initialPremiumRemainingMs = 0; // We will let the client calculate this to avoid mismatch
+
   const isPremiumActive = premiumUntil ? premiumUntil > new Date() : false;
   const daysLeft = premiumUntil
     ? Math.max(0, Math.ceil((premiumUntil.getTime() - Date.now()) / 86400000))
@@ -225,11 +224,8 @@ export default async function DashboardPage() {
         ? `Estimasi minimum. Ada ${manualActivationGap.toLocaleString("id-ID")} ${tokenSymbol} aktivasi manual di luar riwayat pembelian`
         : `Sisa dari ${approvedPurchasedTokens.toLocaleString("id-ID")} ${tokenSymbol} pembelian yang sudah disetujui agen`;
 
-  const greetingHour = new Date().getHours();
-  const greeting =
-    greetingHour < 11 ? "Selamat pagi" :
-    greetingHour < 15 ? "Selamat siang" :
-    greetingHour < 18 ? "Selamat sore" : "Selamat malam";
+  const greeting = "Selamat datang"; // Base greeting to avoid mismatch, will be updated by client if needed or just use suppressHydrationWarning
+
 
   return (
     <DashboardLayout title="Dashboard">
@@ -241,7 +237,7 @@ export default async function DashboardPage() {
             userName={session.name}
             tenantName={tenantData.name}
             agentName={tenantData.agent?.name ?? "Tidak ada agen"}
-            greeting={greeting}
+
             premiumUntilIso={tenantData.premiumUntil?.toISOString() ?? null}
             initialRemainingMs={initialPremiumRemainingMs}
             sisaToken={storeOwnedTokenBalance}
