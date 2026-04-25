@@ -114,7 +114,9 @@ export default async function IndexPage({ searchParams }: Props) {
     : null;
 
   let referralPixelSrc: string | null = null;
-  if (tokenFromQuery && affiliateToken) {
+  let agentWhatsApp: string | null = null;
+
+  if (affiliateToken) {
     const referralLink = await prisma.storeRegistrationLink.findUnique({
       where: { token: affiliateToken },
       select: {
@@ -123,25 +125,32 @@ export default async function IndexPage({ searchParams }: Props) {
         agent: {
           select: {
             isActive: true,
+            whatsappNumber: true,
           },
         },
       },
     });
 
-    if (referralLink?.isActive && referralLink.agent.isActive && referralLink.pixelUrl) {
-      try {
-        const pixelUrl = new URL(referralLink.pixelUrl);
-        pixelUrl.searchParams.set("event", "landing_view");
-        pixelUrl.searchParams.set("token", affiliateToken);
-        referralPixelSrc = pixelUrl.toString();
-      } catch {
-        referralPixelSrc = null;
+    if (referralLink?.isActive && referralLink.agent.isActive) {
+      agentWhatsApp = referralLink.agent.whatsappNumber;
+
+      if (tokenFromQuery && referralLink.pixelUrl) {
+        try {
+          const pixelUrl = new URL(referralLink.pixelUrl);
+          pixelUrl.searchParams.set("event", "landing_view");
+          pixelUrl.searchParams.set("token", affiliateToken);
+          referralPixelSrc = pixelUrl.toString();
+        } catch {
+          referralPixelSrc = null;
+        }
       }
     }
   }
 
-  const waLink =
-    "https://wa.me/6281234567890?text=Halo%20Mba%2C%20saya%20mau%20aktivasi%20MbaKasir%20dengan%20promo%20750rb%2Ftahun%21";
+  const supportPhone = agentWhatsApp || brand.supportPhone || "6281234567890";
+  const waLink = `https://wa.me/${supportPhone}?text=${encodeURIComponent(
+    "Halo Mba, saya mau aktivasi MbaKasir dengan promo 750rb/tahun!"
+  )}`;
   const affiliateRegisterHref = buildStoreRegistrationHubPath();
   const campaignCtaHref = affiliateToken ? affiliateRegisterHref : waLink;
   const campaignCtaTarget = affiliateToken ? undefined : "_blank";
