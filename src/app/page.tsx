@@ -199,30 +199,6 @@ export default async function IndexPage({ searchParams }: Props) {
         </div>
       </header>
 
-      {affiliateToken ? (
-        <div
-          style={{
-            margin: "16px auto 0",
-            maxWidth: "1180px",
-            padding: "12px 16px",
-            borderRadius: "14px",
-            border: "1px solid hsl(var(--primary) / 0.35)",
-            background: "linear-gradient(90deg, hsl(var(--primary) / 0.14), hsl(var(--accent) / 0.12))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "10px",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ fontSize: "13px", color: "hsl(var(--text-primary))", fontWeight: 600 }}>
-            Anda masuk melalui link agen resmi. Pendaftaran toko akan otomatis tercatat sebagai afiliasi agen ini.
-          </div>
-          <Link href={affiliateRegisterHref} className="btn btn-primary btn-sm">
-            Daftar Toko Sekarang
-          </Link>
-        </div>
-      ) : null}
 
       {/* ══════════════════════════════════════════════════════════════════
           1. HERO SECTION
