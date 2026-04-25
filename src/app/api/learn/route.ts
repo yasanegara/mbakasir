@@ -21,18 +21,9 @@ export async function GET() {
           ] : []),
         ],
       },
-      select: {
-        id: true, title: true, slug: true, excerpt: true,
-        emoji: true, targetRole: true, sortOrder: true,
-        content: true, isPublic: true, publicCtaTarget: true,
-        category: true, seoKeywords: true, viewCount: true,
-        totalDuration: true, bounceCount: true,
-        avgScrollDepth: true, finishCount: true,
-        createdAt: true, updatedAt: true,
-      } as any,
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     });
-    console.log("[API Learn] Found docs:", docs.length);
+    console.log("[API Learn] Query success, docs count:", docs.length);
     
     let defaultAgentRegistrationToken = null;
     const activeLink = await prisma.agentRegistrationLink.findFirst({
