@@ -45,11 +45,12 @@ export async function GET(
   const { token: rawToken } = await params;
   const token = normalizeStoreRegistrationToken(rawToken);
 
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const protocol = req.headers.get("x-forwarded-proto") || "https";
+  const baseUrl = `${protocol}://${host}`;
+
   if (!isStoreRegistrationToken(token)) {
-    const errorUrl = req.nextUrl.clone();
-    errorUrl.pathname = "/";
-    errorUrl.search = "";
-    return NextResponse.redirect(errorUrl);
+    return NextResponse.redirect(new URL("/", baseUrl).toString());
   }
 
   const link = await prisma.storeRegistrationLink.findUnique({
@@ -65,10 +66,9 @@ export async function GET(
   });
 
   if (!link || !link.isActive || !link.agent.isActive) {
-    const fallbackUrl = req.nextUrl.clone();
-    fallbackUrl.pathname = buildStoreRegistrationPath(token);
-    fallbackUrl.search = "";
-    return NextResponse.redirect(fallbackUrl);
+    return NextResponse.redirect(
+      new URL(buildStoreRegistrationPath(token), baseUrl).toString()
+    );
   }
 
   const requestedKindParam = req.nextUrl.searchParams.get("kind");
@@ -96,19 +96,23 @@ export async function GET(
     destination: resolvedKind === "LANDING" ? "landing" : "register",
   });
 
-  const redirectUrl = req.nextUrl.clone();
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const protocol = req.headers.get("x-forwarded-proto") || "https";
+  const baseUrl = `${protocol}://${host}`;
+
+  const redirectUrl = new URL("/", baseUrl);
   if (resolvedKind === "LANDING") {
     redirectUrl.pathname = "/";
     redirectUrl.searchParams.set("aff", token);
   } else {
     redirectUrl.pathname = buildStoreRegistrationPath(token);
-    redirectUrl.search = ""; // Clear existing search params for direct register
+    redirectUrl.search = "";
   }
 
-  const response = NextResponse.redirect(redirectUrl);
+  const response = NextResponse.redirect(redirectUrl.toString());
   response.cookies.set(STORE_AFFILIATE_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: protocol === "https",
     sameSite: "lax",
     path: "/",
     maxAge: STORE_AFFILIATE_COOKIE_MAX_AGE,
