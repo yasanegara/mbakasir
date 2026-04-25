@@ -35,6 +35,7 @@ model Agent {
   tokenResalePrice           Decimal                     @default(0) @db.Decimal(15, 2)
   bankDetails                String?
   whatsappNumber             String?
+  telegramChatId             String?
   registrationLinkId         String?
   nik                        String?
   agentTokenPurchaseRequests AgentTokenPurchaseRequest[]
@@ -397,6 +398,7 @@ model BrandConfig {
   geminiApiKey    String?
   aiKnowledgeBase String?
   bankDetails     String?
+  telegramBotToken String?
 
   @@map("brand_config")
 }

@@ -1,3 +1,5 @@
+import { getBrandConfig } from "./brand-config";
+
 /**
  * MbaKasir Notification Gateway
  * Terhubung dengan provider WhatsApp (misal: Fonnte/Watzap) dan Email (Resend/Nodemailer).
@@ -68,5 +70,36 @@ Manajemen Pusat MbaKasir`;
     console.log(`Subject: Lisensi MbaKasir Toko Anda Telah Aktif!`);
     // TODO: Implementasi Resend / SMTP Nodemailer
     // await resend.emails.send({ ... })
+  }
+}
+
+export async function sendTelegramNotification(chatId: string, message: string) {
+  const brand = await getBrandConfig();
+  const token = brand.telegramBotToken || process.env.TELEGRAM_BOT_TOKEN;
+
+  if (!token || !chatId) {
+    console.warn("Telegram notification skipped: Missing bot token or chat ID");
+    return;
+  }
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: "HTML",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Telegram API Error:", errorData);
+    }
+  } catch (error) {
+    console.error("Telegram Notification Exception:", error);
   }
 }

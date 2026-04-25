@@ -440,6 +440,25 @@ export default function BrandConfigClient({
 
         <div style={{ gridColumn: "1 / -1" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+             <label className="input-label" htmlFor="brand-telegram-token" style={{ marginBottom: 0 }}>Telegram Bot Token</label>
+             <span style={{ fontSize: "10px", background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--primary))", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>NOTIFIKASI</span>
+          </div>
+          <input
+            id="brand-telegram-token"
+            type="password"
+            className="input-field"
+            value={config.telegramBotToken ?? ""}
+            onChange={(e) => update("telegramBotToken", e.target.value || null)}
+            placeholder="Masukkan Bot Token dari @BotFather..."
+            style={{ fontFamily: config.telegramBotToken ? "monospace" : "inherit" }}
+          />
+          <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "4px", display: "block" }}>
+            Digunakan untuk mengirim notifikasi pendaftaran toko baru ke Telegram Agen. Dapatkan token dengan membuat bot di <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: "hsl(var(--primary))", fontWeight: 600 }}>@BotFather</a>.
+          </span>
+        </div>
+
+        <div style={{ gridColumn: "1 / -1" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
              <label className="input-label" htmlFor="brand-ai-knowledge" style={{ marginBottom: 0 }}>Basis Pengetahuan AI (Kotak Maklumat)</label>
              <span style={{ fontSize: "10px", background: "hsl(var(--success) / 0.1)", color: "hsl(var(--success))", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>AI BRAIN</span>
           </div>

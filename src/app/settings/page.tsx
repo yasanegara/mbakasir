@@ -90,7 +90,7 @@ export default async function SettingsPage() {
   if (session.role === "AGENT" && session.agentId) {
     const agentData = await prisma.agent.findUnique({
       where: { id: session.agentId },
-      select: { tokenResalePrice: true, whatsappNumber: true, bankDetails: true },
+      select: { tokenResalePrice: true, whatsappNumber: true, bankDetails: true, telegramChatId: true },
     });
 
     if (!agentData) redirect("/login");
@@ -103,6 +103,7 @@ export default async function SettingsPage() {
             initialResalePrice={Number(agentData.tokenResalePrice) || 0}
             initialWhatsappNumber={agentData.whatsappNumber || ""}
             initialBankDetails={agentData.bankDetails || ""}
+            initialTelegramChatId={agentData.telegramChatId || ""}
             tokenName={tokenConfig.tokenName}
             tokenSymbol={tokenConfig.tokenSymbol}
           />

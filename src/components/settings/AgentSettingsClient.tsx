@@ -9,6 +9,7 @@ interface AgentSettingsProps {
   initialResalePrice: number;
   initialWhatsappNumber: string;
   initialBankDetails: string;
+  initialTelegramChatId: string;
   tokenName: string;
   tokenSymbol: string;
 }
@@ -17,12 +18,14 @@ export default function AgentSettingsClient({
   initialResalePrice,
   initialWhatsappNumber,
   initialBankDetails,
+  initialTelegramChatId,
   tokenName,
   tokenSymbol,
 }: AgentSettingsProps) {
   const { toast } = useToast();
   const [resalePrice, setResalePrice] = useState(initialResalePrice);
   const [whatsappNumber, setWhatsappNumber] = useState(initialWhatsappNumber);
+  const [telegramChatId, setTelegramChatId] = useState(initialTelegramChatId);
   const [bankDetails, setBankDetails] = useState(initialBankDetails);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,6 +42,7 @@ export default function AgentSettingsClient({
         body: JSON.stringify({ 
           tokenResalePrice: resalePrice,
           whatsappNumber,
+          telegramChatId,
           bankDetails
         }),
       });
@@ -103,6 +107,23 @@ export default function AgentSettingsClient({
               onChange={(e) => setWhatsappNumber(e.target.value)}
               placeholder="081234567890"
             />
+          </div>
+
+          <div>
+            <label className="input-label" htmlFor="telegram">Telegram Chat ID</label>
+            <input
+              id="telegram"
+              className="input-field"
+              type="text"
+              value={telegramChatId}
+              onChange={(e) => setTelegramChatId(e.target.value)}
+              placeholder="Contoh: 12345678"
+            />
+            <div style={{ marginTop: "8px", fontSize: "12px", color: "hsl(var(--text-muted))", lineHeight: "1.5" }}>
+              Digunakan untuk notifikasi pendaftaran toko baru. <br />
+              1. Cari dan klik <strong>START</strong> pada bot <a href="https://t.me/MbaKasirID_bot" target="_blank" rel="noreferrer" style={{ color: "hsl(var(--primary))", fontWeight: 700 }}>@MbaKasirID_bot</a> <br />
+              2. Dapatkan Chat ID Anda di <a href="https://t.me/userinfobot" target="_blank" rel="noreferrer" style={{ color: "hsl(var(--primary))", fontWeight: 600 }}>@userinfobot</a>.
+            </div>
           </div>
 
           <div>

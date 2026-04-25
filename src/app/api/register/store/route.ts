@@ -11,6 +11,7 @@ import {
   isStoreRegistrationToken,
   normalizeStoreRegistrationToken,
 } from "@/lib/store-registration-shared";
+import { sendTelegramNotification } from "@/lib/notifications";
 
 const registerStoreSchema = z.object({
   token: z
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
               id: true,
               name: true,
               isActive: true,
+              telegramChatId: true,
             },
           },
         },
@@ -113,6 +115,7 @@ export async function POST(req: NextRequest) {
         select: {
           id: true,
           email: true,
+          name: true,
         },
       });
 
@@ -142,9 +145,21 @@ export async function POST(req: NextRequest) {
       return {
         tenantName: tenant.name,
         ownerEmail: owner.email,
+        ownerName: owner.name,
         agentName: registrationLink.agent.name,
+        agentTelegramChatId: registrationLink.agent.telegramChatId,
       };
     });
+
+    if (result.agentTelegramChatId) {
+      const message = `<b>🔔 Pendaftaran Toko Baru!</b>\n\n` +
+        `Toko: <b>${result.tenantName}</b>\n` +
+        `Owner: ${result.ownerName}\n` +
+        `Email: ${result.ownerEmail}\n\n` +
+        `<i>Silakan cek dashboard agen Anda untuk aktivasi.</i>`;
+      
+      void sendTelegramNotification(result.agentTelegramChatId, message);
+    }
 
     return Response.json({
       success: true,

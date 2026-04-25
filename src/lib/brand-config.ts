@@ -14,6 +14,7 @@ export interface BrandConfigSnapshot {
   geminiApiKey: string | null;
   aiKnowledgeBase: string | null;
   bankDetails: string | null;
+  telegramBotToken: string | null;
 }
 
 const LEGACY_TAGLINE = "Kasir Cerdas untuk UMKM Indonesia";
@@ -32,6 +33,7 @@ const DEFAULT_BRAND: BrandConfigSnapshot = {
   geminiApiKey: null,
   aiKnowledgeBase: DEFAULT_AI_KNOWLEDGE_BASE,
   bankDetails: "Belum dikonfigurasi. Hubungi Pusat.",
+  telegramBotToken: null,
 };
 
 function normalizeTagline(tagline: string | null): string | null {
@@ -63,6 +65,7 @@ export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
       geminiApiKey: config.geminiApiKey ?? null,
       aiKnowledgeBase: config.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
       bankDetails: config.bankDetails ?? DEFAULT_BRAND.bankDetails,
+      telegramBotToken: config.telegramBotToken ?? null,
     };
   } catch {
     return DEFAULT_BRAND;
@@ -84,8 +87,9 @@ export async function upsertBrandConfig(
       supportPhone: data.supportPhone,
       supportMessage: data.supportMessage,
       geminiApiKey: data.geminiApiKey,
-      aiKnowledgeBase: data.aiKnowledgeBase,
-      bankDetails: data.bankDetails,
+      aiKnowledgeBase: data.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
+      bankDetails: data.bankDetails ?? DEFAULT_BRAND.bankDetails,
+      telegramBotToken: data.telegramBotToken ?? null,
     },
     create: {
       id: "default",
@@ -101,6 +105,7 @@ export async function upsertBrandConfig(
       geminiApiKey: data.geminiApiKey ?? null,
       aiKnowledgeBase: data.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
       bankDetails: data.bankDetails ?? DEFAULT_BRAND.bankDetails,
+      telegramBotToken: data.telegramBotToken ?? null,
     },
   });
 
@@ -114,7 +119,8 @@ export async function upsertBrandConfig(
     supportPhone: config.supportPhone ?? DEFAULT_BRAND.supportPhone,
     supportMessage: config.supportMessage ?? DEFAULT_BRAND.supportMessage,
     geminiApiKey: config.geminiApiKey,
-      aiKnowledgeBase: config.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
+    aiKnowledgeBase: config.aiKnowledgeBase ?? DEFAULT_BRAND.aiKnowledgeBase,
     bankDetails: config.bankDetails ?? DEFAULT_BRAND.bankDetails,
+    telegramBotToken: config.telegramBotToken,
   };
 }

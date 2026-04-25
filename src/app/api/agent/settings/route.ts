@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 const updateSettingsSchema = z.object({
   tokenResalePrice: z.number().min(0),
   whatsappNumber: z.string().optional(),
+  telegramChatId: z.string().optional(),
   bankDetails: z.string().optional(),
 });
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { tokenResalePrice, whatsappNumber, bankDetails } = parsed.data;
+    const { tokenResalePrice, whatsappNumber, telegramChatId, bankDetails } = parsed.data;
 
     await prisma.agent.update({
       where: {
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
       data: {
         tokenResalePrice,
         whatsappNumber,
+        telegramChatId,
         bankDetails,
       },
     });
