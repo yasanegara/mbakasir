@@ -38,6 +38,7 @@ model Agent {
   telegramChatId             String?
   registrationLinkId         String?
   nik                        String?
+  notificationPrefs          Json?                       @default("{\"notifyNewStoreRegistration\": true, \"notifyTokenPurchase\": true}")
   agentTokenPurchaseRequests AgentTokenPurchaseRequest[]
   vouchers                   AgentVoucher[]
   registrationLink           AgentRegistrationLink?      @relation("AgentRegisteredVia", fields: [registrationLinkId], references: [id])

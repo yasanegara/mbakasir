@@ -10,6 +10,10 @@ interface AgentSettingsProps {
   initialWhatsappNumber: string;
   initialBankDetails: string;
   initialTelegramChatId: string;
+  initialNotificationPrefs: {
+    notifyNewStoreRegistration: boolean;
+    notifyTokenPurchase: boolean;
+  };
   tokenName: string;
   tokenSymbol: string;
 }
@@ -19,6 +23,7 @@ export default function AgentSettingsClient({
   initialWhatsappNumber,
   initialBankDetails,
   initialTelegramChatId,
+  initialNotificationPrefs,
   tokenName,
   tokenSymbol,
 }: AgentSettingsProps) {
@@ -26,6 +31,7 @@ export default function AgentSettingsClient({
   const [resalePrice, setResalePrice] = useState(initialResalePrice);
   const [whatsappNumber, setWhatsappNumber] = useState(initialWhatsappNumber);
   const [telegramChatId, setTelegramChatId] = useState(initialTelegramChatId);
+  const [notificationPrefs, setNotificationPrefs] = useState(initialNotificationPrefs);
   const [bankDetails, setBankDetails] = useState(initialBankDetails);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -43,7 +49,8 @@ export default function AgentSettingsClient({
           tokenResalePrice: resalePrice,
           whatsappNumber,
           telegramChatId,
-          bankDetails
+          bankDetails,
+          notificationPrefs
         }),
       });
 
@@ -137,6 +144,32 @@ export default function AgentSettingsClient({
               placeholder="BCA 123456789 a/n Nama Lengkap"
               style={{ resize: "vertical" }}
             />
+          </div>
+
+          <div style={{ borderTop: "1px solid hsl(var(--border))", paddingTop: "20px", marginTop: "10px" }}>
+             <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "12px" }}>Preferensi Notifikasi Telegram</h3>
+             
+             <div style={{ display: "grid", gap: "12px" }}>
+               <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px" }}>
+                 <input 
+                   type="checkbox" 
+                   checked={notificationPrefs.notifyNewStoreRegistration}
+                   onChange={(e) => setNotificationPrefs(p => ({ ...p, notifyNewStoreRegistration: e.target.checked }))}
+                   style={{ width: "16px", height: "16px" }}
+                 />
+                 Notifikasi Pendaftaran Toko Baru
+               </label>
+
+               <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px" }}>
+                 <input 
+                   type="checkbox" 
+                   checked={notificationPrefs.notifyTokenPurchase}
+                   onChange={(e) => setNotificationPrefs(p => ({ ...p, notifyTokenPurchase: e.target.checked }))}
+                   style={{ width: "16px", height: "16px" }}
+                 />
+                 Notifikasi Pembelian Token Agen
+               </label>
+             </div>
           </div>
 
           <button

@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
               name: true,
               isActive: true,
               telegramChatId: true,
+              notificationPrefs: true,
             },
           },
         },
@@ -148,17 +149,23 @@ export async function POST(req: NextRequest) {
         ownerName: owner.name,
         agentName: registrationLink.agent.name,
         agentTelegramChatId: registrationLink.agent.telegramChatId,
+        agentNotificationPrefs: registrationLink.agent.notificationPrefs,
       };
     });
 
     if (result.agentTelegramChatId) {
-      const message = `<b>🔔 Pendaftaran Toko Baru!</b>\n\n` +
-        `Toko: <b>${result.tenantName}</b>\n` +
-        `Owner: ${result.ownerName}\n` +
-        `Email: ${result.ownerEmail}\n\n` +
-        `<i>Silakan cek dashboard agen Anda untuk aktivasi.</i>`;
-      
-      void sendTelegramNotification(result.agentTelegramChatId, message);
+      const prefs = result.agentNotificationPrefs as any;
+      const shouldNotify = !prefs || prefs.notifyNewStoreRegistration !== false;
+
+      if (shouldNotify) {
+        const message = `<b>🔔 Pendaftaran Toko Baru!</b>\n\n` +
+          `Toko: <b>${result.tenantName}</b>\n` +
+          `Owner: ${result.ownerName}\n` +
+          `Email: ${result.ownerEmail}\n\n` +
+          `<i>Silakan cek dashboard agen Anda untuk aktivasi.</i>`;
+        
+        void sendTelegramNotification(result.agentTelegramChatId, message);
+      }
     }
 
     return Response.json({
