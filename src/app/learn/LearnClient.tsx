@@ -455,8 +455,12 @@ function LearnContent() {
 
   useEffect(() => {
     fetch("/api/learn")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Server response was not ok");
+        return r.json();
+      })
       .then((data) => {
+        if (!data) return;
         const docsArray = Array.isArray(data) ? data : data.docs || [];
         setDocs(docsArray);
         setDefaultAgentRegistrationToken(data.defaultAgentRegistrationToken || null);
@@ -467,6 +471,10 @@ function LearnContent() {
           const doc = docsArray.find((d: Doc) => d.slug === requestedSlug);
           if (doc) setSelected(doc);
         }
+      })
+      .catch((err) => {
+        console.error("Learn fetch error:", err);
+        setLoading(false);
       });
   }, [requestedSlug]);
 
