@@ -290,7 +290,7 @@ export default function StoreRegistrationForm({
                 style={{ width: "18px", height: "18px", marginTop: "2px" }}
               />
               <span>
-                Saya menyetujui seluruh <a href="#" style={{ color: "hsl(var(--primary))", textDecoration: "underline" }}>Syarat dan Ketentuan</a> serta Kebijakan Privasi platform MbaKasir Intelligence Pro.
+                Saya menyetujui seluruh <Link href="/terms" target="_blank" style={{ color: "hsl(var(--primary))", textDecoration: "underline" }}>Syarat dan Ketentuan</Link> serta Kebijakan Privasi platform MbaKasir Intelligence Pro.
               </span>
             </label>
 
