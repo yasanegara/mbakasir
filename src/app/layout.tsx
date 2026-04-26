@@ -14,7 +14,14 @@ export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandConfig();
   const iconUrl = brand.faviconUrl ?? "/icon.svg";
 
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    ? process.env.NEXT_PUBLIC_APP_URL
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000";
+
   return {
+    metadataBase: new URL(baseUrl),
     title: {
       default: brand.appName,
       template: `%s | ${brand.appName}`,
