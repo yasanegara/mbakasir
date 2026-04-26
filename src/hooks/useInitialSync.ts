@@ -49,8 +49,14 @@ export function useInitialSync() {
           
           await db.transaction('rw', [db.tenants, db.products, db.rawMaterials, db.billOfMaterials, db.posTerminals, db.productAssignments], async () => {
              await db.tenants.put(data.tenant);
+             
+             await db.products.clear();
              await db.products.bulkPut(data.products);
+
+             await db.rawMaterials.clear();
              await db.rawMaterials.bulkPut(data.rawMaterials);
+
+             await db.billOfMaterials.clear();
              await db.billOfMaterials.bulkPut(data.billOfMaterials);
              
              if (data.posTerminals) {
