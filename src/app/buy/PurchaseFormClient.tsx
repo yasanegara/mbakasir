@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { useToast } from "@/contexts/AppProviders";
 import { buildWhatsappUrl, formatRupiahFull } from "@/lib/utils";
