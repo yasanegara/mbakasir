@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/auth";
 import { prisma, getOnlineOrderDelegate } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import type { NextRequest } from "next/server";
 
 export async function PATCH(
   req: NextRequest,

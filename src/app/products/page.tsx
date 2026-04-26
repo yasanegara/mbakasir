@@ -10,7 +10,10 @@ import {
   enqueueSyncOp,
   getDb,
   type LocalBillOfMaterial,
+  type LocalPosTerminal,
   type LocalProduct,
+  type LocalProductAssignment,
+  type LocalRawMaterial,
 } from "@/lib/db";
 import { formatRupiahFull, generateUUID } from "@/lib/utils";
 
@@ -88,30 +91,33 @@ export default function ProductsPage() {
   const { toast } = useToast();
   const { isSyncing, error } = useInitialSync();
 
-  const products = useLiveQuery(() => 
-    tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : Promise.resolve([])
-  , [tenantId]) || [];
+  const products = useLiveQuery<LocalProduct[]>(
+    () => (tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : []),
+    [tenantId]
+  ) ?? [];
 
-  const rawMaterials = useLiveQuery(() => 
-    tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : Promise.resolve([])
-  , [tenantId]) || [];
+  const rawMaterials = useLiveQuery<LocalRawMaterial[]>(
+    () => (tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : []),
+    [tenantId]
+  ) ?? [];
 
-  const billOfMaterials = useLiveQuery(() => {
-    if (!tenantId) return Promise.resolve([]);
+  const billOfMaterials = useLiveQuery<LocalBillOfMaterial[]>(() => {
+    if (!tenantId) return [];
     // BoM doesn't have tenantId directly, we must filter by product localIds
     const productIds = products.map(p => p.localId);
     return getDb().billOfMaterials.where("productId").anyOf(productIds).toArray();
-  }, [tenantId, products.length]) || [];
+  }, [tenantId, products.length]) ?? [];
 
-  const posTerminals = useLiveQuery(() => 
-    tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : Promise.resolve([])
-  , [tenantId]) || [];
+  const posTerminals = useLiveQuery<LocalPosTerminal[]>(
+    () => (tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : []),
+    [tenantId]
+  ) ?? [];
 
-  const productAssignments = useLiveQuery(() => {
-    if (!tenantId) return Promise.resolve([]);
+  const productAssignments = useLiveQuery<LocalProductAssignment[]>(() => {
+    if (!tenantId) return [];
     const productIds = products.map(p => p.localId);
     return getDb().productAssignments.where("productId").anyOf(productIds).toArray();
-  }, [tenantId, products.length]) || [];
+  }, [tenantId, products.length]) ?? [];
 
   const [terminalAssignments, setTerminalAssignments] = useState<{terminalId: string, stock: number}[]>([]);
 

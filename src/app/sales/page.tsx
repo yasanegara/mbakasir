@@ -1,7 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { getDb } from "@/lib/db";
+import { getDb, type LocalPosTerminal, type LocalSale, type LocalSaleItem } from "@/lib/db";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { formatRupiahFull } from "@/lib/utils";
 import { useState, useMemo } from "react";
@@ -17,20 +17,21 @@ export default function SalesHistoryPage() {
 
   const tenantId = user?.tenantId;
 
-  const sales = useLiveQuery(() => {
-    if (!tenantId) return Promise.resolve([]);
+  const sales = useLiveQuery<LocalSale[]>(() => {
+    if (!tenantId) return [];
     return getDb().sales.where("tenantId").equals(tenantId).reverse().sortBy("createdAt").then(arr => arr.slice(0, 200));
-  }, [tenantId]) || [];
+  }, [tenantId]) ?? [];
 
-  const saleItems = useLiveQuery(() => {
-    if (!tenantId || sales.length === 0) return Promise.resolve([]);
+  const saleItems = useLiveQuery<LocalSaleItem[]>(() => {
+    if (!tenantId || sales.length === 0) return [];
     const saleIds = sales.map(s => s.localId);
     return getDb().saleItems.where("saleLocalId").anyOf(saleIds).toArray();
-  }, [tenantId, sales.length]) || [];
+  }, [tenantId, sales.length]) ?? [];
 
-  const posTerminals = useLiveQuery(() => 
-    tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : Promise.resolve([])
-  , [tenantId]) || [];
+  const posTerminals = useLiveQuery<LocalPosTerminal[]>(
+    () => (tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : []),
+    [tenantId]
+  ) ?? [];
 
   const filtered = useMemo(() => {
     if (!search.trim()) return sales;

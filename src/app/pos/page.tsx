@@ -5,7 +5,15 @@ import ReactDOM from "react-dom";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth, useToast } from "@/contexts/AppProviders";
 import { getDb, enqueueSyncOp } from "@/lib/db";
-import type { LocalProduct, LocalSaleItem, LocalSale, LocalShift } from "@/lib/db";
+import type {
+  LocalPosTerminal,
+  LocalProduct,
+  LocalProductAssignment,
+  LocalSaleItem,
+  LocalSale,
+  LocalShift,
+  LocalStoreProfile,
+} from "@/lib/db";
 import { useInitialSync } from "@/hooks/useInitialSync";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
@@ -51,50 +59,73 @@ export default function POSPage() {
 
   const tenantId = user?.tenantId;
 
-  const posTerminals = useLiveQuery(() => 
-    tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).and(t => t.isActive).toArray() : Promise.resolve([])
-  , [tenantId]) || [];
+  const posTerminals = useLiveQuery<LocalPosTerminal[]>(
+    () =>
+      tenantId
+        ? getDb().posTerminals
+            .where("tenantId")
+            .equals(tenantId)
+            .and((t) => t.isActive)
+            .toArray()
+        : [],
+    [tenantId]
+  ) ?? [];
 
-  const productAssignments = useLiveQuery(() => {
-    if (!tenantId) return Promise.resolve([]);
+  const productAssignments = useLiveQuery<LocalProductAssignment[]>(() => {
+    if (!tenantId) return [];
     // First get the local products to know which IDs to look for
     return getDb().products.where("tenantId").equals(tenantId).toArray().then(prods => {
       const ids = prods.map(p => p.localId);
       return getDb().productAssignments.where("productId").anyOf(ids).toArray();
     });
-  }, [tenantId]) || [];
+  }, [tenantId]) ?? [];
 
-  const products = useLiveQuery(async () => {
-    if (!tenantId) return [];
-    const all = await getDb().products.where("tenantId").equals(tenantId).toArray();
-    const activeProducts = all.filter((p) => p.isActive === true && p.showInPos !== false);
-    
-    // Filter by assignment & Merge Stock
-    return activeProducts.map(p => {
-      // Jika kasir belum pilih terminal, tampilkan semua produk dengan stok pusat
-      if (!currentTerminalId) return p;
+  const products = useLiveQuery<LocalProduct[]>(
+    async () => {
+      if (!tenantId) return [];
+      const all = await getDb().products.where("tenantId").equals(tenantId).toArray();
+      const activeProducts = all.filter((p) => p.isActive === true && p.showInPos !== false);
 
-      const assignment = productAssignments.find(a => a.productId === p.localId && a.terminalId === currentTerminalId);
-      
-      // Jika terminal ini punya assignment spesifik, pakai stok terminal
-      if (assignment) {
-        return { ...p, stock: assignment.stock };
-      }
-      
-      // Jika produk ini sudah di-assign ke terminal LAIN, sembunyikan dari terminal ini
-      const otherAssignments = productAssignments.filter(a => a.productId === p.localId);
-      if (otherAssignments.length > 0) return null;
+      // Filter by assignment & Merge Stock
+      return activeProducts
+        .map((p) => {
+          // Jika kasir belum pilih terminal, tampilkan semua produk dengan stok pusat
+          if (!currentTerminalId) return p;
 
-      // Jika produk tidak punya assignment manapun, dia adalah produk umum (tampil di semua terminal)
-      return p;
-    }).filter(Boolean) as LocalProduct[];
-  }, [currentTerminalId, productAssignments]) || [];
+          const assignment = productAssignments.find(
+            (a) => a.productId === p.localId && a.terminalId === currentTerminalId
+          );
+
+          // Jika terminal ini punya assignment spesifik, pakai stok terminal
+          if (assignment) {
+            return { ...p, stock: assignment.stock };
+          }
+
+          // Jika produk ini sudah di-assign ke terminal LAIN, sembunyikan dari terminal ini
+          const otherAssignments = productAssignments.filter((a) => a.productId === p.localId);
+          if (otherAssignments.length > 0) return null;
+
+          // Jika produk tidak punya assignment manapun, dia adalah produk umum (tampil di semua terminal)
+          return p;
+        })
+        .filter(Boolean) as LocalProduct[];
+    },
+    [currentTerminalId, productAssignments, tenantId]
+  ) ?? [];
 
   const currentTerminal = posTerminals.find(t => t.id === currentTerminalId);
 
-  const storeProfile = useLiveQuery(() => 
-    tenantId ? getDb().storeProfile.get(tenantId) || getDb().storeProfile.get("default") : Promise.resolve(null)
-  , [tenantId]);
+  const storeProfile = useLiveQuery<LocalStoreProfile | null>(
+    async () => {
+      if (!tenantId) return null;
+      return (
+        (await getDb().storeProfile.get(tenantId)) ??
+        (await getDb().storeProfile.get("default")) ??
+        null
+      );
+    },
+    [tenantId]
+  ) ?? null;
   const storeName = storeProfile?.storeName || user?.name || "MbaKasir";
   const storeAddress = storeProfile?.address || "";
   const storePhone = storeProfile?.phone || "";
@@ -102,10 +133,18 @@ export default function POSPage() {
   const storeQrisImage = storeProfile?.qrisImageUrl || "";
   const waReceiptTemplate = storeProfile?.waReceiptTemplate || "";
   
-  const shifts = useLiveQuery(async () => {
-    if (!user || !tenantId) return [];
-    return await getDb().shifts.where("tenantId").equals(tenantId).and(s => s.userId === user.sub).toArray();
-  }, [user, tenantId]);
+  const shifts = useLiveQuery<LocalShift[]>(
+    async () => {
+      if (!user || !tenantId) return [];
+      return await getDb()
+        .shifts
+        .where("tenantId")
+        .equals(tenantId)
+        .and((s) => s.userId === user.sub)
+        .toArray();
+    },
+    [tenantId, user?.sub]
+  ) ?? [];
   const activeShift = shifts?.find((s) => !s.closedAt);
 
   const [cart, setCart] = useState<{ product: LocalProduct; qty: number }[]>([]);
