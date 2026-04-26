@@ -200,7 +200,10 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
       <button 
         className="btn btn-primary" 
         style={{ marginTop: "16px", width: "100%", justifyContent: "center" }}
-        onClick={() => setIsOpen(true)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsOpen(true);
+        }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "8px" }}>
           <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>
@@ -211,10 +214,24 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
   }
 
   return (
-    <div className="modal-overlay active" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-      <div className="card animate-fade-in" style={{ maxWidth: "500px", width: "100%", maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
+    <div
+      className="modal-overlay active"
+      style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+      onClick={(event) => {
+        event.stopPropagation();
+        setIsOpen(false);
+      }}
+    >
+      <div
+        className="card animate-fade-in"
+        style={{ maxWidth: "500px", width: "100%", maxHeight: "90vh", overflowY: "auto", position: "relative" }}
+        onClick={(event) => event.stopPropagation()}
+      >
         <button 
-          onClick={() => setIsOpen(false)} 
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsOpen(false);
+          }}
           style={{ position: "absolute", top: "16px", right: "16px", background: "none", border: "none", cursor: "pointer", fontSize: "20px", color: "hsl(var(--text-muted))" }}
         >
           ✕
