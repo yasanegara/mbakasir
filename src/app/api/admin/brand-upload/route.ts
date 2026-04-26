@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const ext = extname(file.name) || (file.type === "image/svg+xml" ? ".svg" : ".png");
     const uniqueName = `${type}-${randomBytes(8).toString("hex")}${ext}`;
 
-    const uploadDir = join(process.cwd(), "public", "uploads", "brand");
+    const uploadDir = join(process.cwd(), "storage", "uploads", "brand");
     await mkdir(uploadDir, { recursive: true });
 
     const buffer = Buffer.from(await file.arrayBuffer());

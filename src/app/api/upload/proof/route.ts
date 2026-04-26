@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const ext = extname(file.name) || ".png";
     const uniqueName = `proof-${randomBytes(12).toString("hex")}${ext}`;
 
-    const uploadDir = join(process.cwd(), "public", "uploads", "proofs");
+    const uploadDir = join(process.cwd(), "storage", "uploads", "proofs");
     await mkdir(uploadDir, { recursive: true });
 
     const buffer = Buffer.from(await file.arrayBuffer());
