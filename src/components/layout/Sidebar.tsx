@@ -150,9 +150,17 @@ export default function Sidebar({
   const { user, logout } = useAuth();
   const { theme, setTheme, mode, toggleMode } = useTheme();
   const brand = useBrand();
+  const storeProfile = useLiveQuery(
+    () =>
+      user?.role === "TENANT" || user?.role === "CASHIER"
+        ? getDb().storeProfile.get("default")
+        : undefined,
+    [user?.role]
+  );
 
   const activeModules = (user as any)?.activeModules || {};
-  const isCrmEnabled = !!activeModules["CRM"];
+  const isCrmEnabled =
+    !!activeModules["CRM"] || storeProfile?.isCrmEnabled === true;
 
   const visibleNav = ALL_NAV.filter((item) => {
     const hasRole = user && item.roles.includes(user.role);
