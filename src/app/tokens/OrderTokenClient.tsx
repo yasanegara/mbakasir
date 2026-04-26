@@ -124,6 +124,22 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
     }
 
     try {
+      let proofUrl = "";
+      if (proofFile) {
+        const formData = new FormData();
+        formData.append("file", proofFile);
+        const uploadRes = await fetch("/api/upload/proof", {
+          method: "POST",
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok) {
+          // Construct absolute URL
+          const baseUrl = window.location.origin;
+          proofUrl = `${baseUrl}${uploadData.url}`;
+        }
+      }
+
       const requestRes = await fetch("/api/agent/purchase-token-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,7 +158,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
         "success"
       );
 
-      const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan token:\n\nItem: ${selectedOrder.name}\nJumlah: ${selectedOrder.amount} ${tokenSymbol}\nHarga: ${formatRupiahFull(selectedOrder.price)}\n\nSaya sudah transfer ke rekening ${pusatInfo.bank}. Berikut bukti transfernya (terlampir). Terima kasih!`;
+      const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan token:\n\nItem: ${selectedOrder.name}\nJumlah: ${selectedOrder.amount} ${tokenSymbol}\nHarga: ${formatRupiahFull(selectedOrder.price)}\n\nSaya sudah transfer ke rekening ${pusatInfo.bank}.${proofUrl ? `\n\nBukti Transfer: ${proofUrl}` : "\n\n(Bukti transfer menyusul)"}\n\nTerima kasih!`;
       const url = buildWhatsappUrl(pusatInfo.phone, message);
 
       if (!url) {

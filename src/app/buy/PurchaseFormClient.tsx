@@ -109,15 +109,37 @@ export default function PurchaseFormClient({
   }
 
   async function handleFinalPurchase() {
-    const waMessage = `Halo Agen ${agentName},\n\nSaya ${tenantName} mau mengonfirmasi pembelian token ${tokenSymbol}.\n\nJumlah: ${amount} ${tokenSymbol}\nVoucher: ${voucherCode || "-"}${discount > 0 ? ` (Potongan: ${formatRupiahFull(discount)})` : ""}\nTotal Estimasi: ${formatRupiahFull(totalPrice)}\n\nSaya sudah transfer ke rekening ${agentBankDetails}. Berikut bukti transfernya (terlampir). Mohon segera diproses!`;
-    const waUrl = buildWhatsappUrl(agentPhone, waMessage);
+    setIsSubmitting(true);
+    try {
+      let proofUrl = "";
+      if (proofFile) {
+        const formData = new FormData();
+        formData.append("file", proofFile);
+        const uploadRes = await fetch("/api/upload/proof", {
+          method: "POST",
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok) {
+          const baseUrl = window.location.origin;
+          proofUrl = `${baseUrl}${uploadData.url}`;
+        }
+      }
 
-    if (!waUrl) {
-      toast("WhatsApp Agen tidak tersedia.", "error");
-      return;
+      const waMessage = `Halo Agen ${agentName},\n\nSaya ${tenantName} mau mengonfirmasi pembelian token ${tokenSymbol}.\n\nJumlah: ${amount} ${tokenSymbol}\nVoucher: ${voucherCode || "-"}${discount > 0 ? ` (Potongan: ${formatRupiahFull(discount)})` : ""}\nTotal Estimasi: ${formatRupiahFull(totalPrice)}\n\nSaya sudah transfer ke rekening ${agentBankDetails}.${proofUrl ? `\n\nBukti Transfer: ${proofUrl}` : "\n\n(Bukti transfer menyusul)"}\n\nMohon segera diproses!`;
+      const waUrl = buildWhatsappUrl(agentPhone, waMessage);
+
+      if (!waUrl) {
+        toast("WhatsApp Agen tidak tersedia.", "error");
+        return;
+      }
+
+      window.open(waUrl, "_blank");
+    } catch {
+      toast("Gagal memproses pengiriman WA", "error");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    window.open(waUrl, "_blank");
   }
 
   if (view === "CHECKOUT") {
