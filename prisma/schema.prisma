@@ -544,7 +544,9 @@ model StorefrontConfig {
   id                String        @id @default(cuid())
   tenantId          String        @unique
   slug              String        @unique
+  customDomain      String?       @unique
   isActive          Boolean       @default(false)
+  themeColor        String?       @default("#6366f1")
   description       String?
   bannerUrl         String?
   bankName          String?

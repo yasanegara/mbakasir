@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { addCustomDomainToRailway } from "@/lib/railway";
 
 const storefrontSchema = z.object({
   description: z.string().optional(),
@@ -13,6 +14,9 @@ const storefrontSchema = z.object({
   shippingCost: z.number().min(0).optional(),
   isActive: z.boolean().optional(),
   slug: z.string().min(3).max(50).regex(/^[a-z0-9-]+$/, "Hanya huruf kecil, angka, dan tanda hubung").optional(),
+  customDomain: z.string().optional(),
+  themeColor: z.string().optional(),
+  logoUrl: z.string().optional(),
 });
 
 // GET: ambil data storefront milik tenant
@@ -68,17 +72,28 @@ export async function POST(req: NextRequest) {
         ...(parsed.shippingCost !== undefined && { shippingCost: parsed.shippingCost }),
         ...(parsed.isActive !== undefined && { isActive: parsed.isActive }),
         ...(parsed.slug !== undefined && { slug: parsed.slug }),
+        ...(parsed.customDomain !== undefined && { customDomain: parsed.customDomain || null }),
+        ...(parsed.themeColor !== undefined && { themeColor: parsed.themeColor || null }),
+        ...(parsed.logoUrl !== undefined && { tenant: { update: { logoUrl: parsed.logoUrl } } }),
       },
     });
+
+    // Handle Railway Custom Domain Registration
+    if (parsed.customDomain && parsed.customDomain !== (existing as any).customDomain) {
+      // Async operation in background so it doesn't block response too long
+      addCustomDomainToRailway(parsed.customDomain).catch(console.error);
+    }
 
     revalidatePath("/settings");
     revalidatePath(`/store/${updated.slug}`);
 
     return Response.json({ success: true, storefront: updated });
   } catch (err: any) {
-    if (err.name === "ZodError") {
-      return Response.json({ error: err.errors[0].message }, { status: 400 });
+    console.error("Storefront save error:", err);
+    if (err instanceof z.ZodError || err.name === "ZodError") {
+      const msg = err.errors?.[0]?.message || err.issues?.[0]?.message || "Input tidak valid";
+      return Response.json({ error: msg }, { status: 400 });
     }
-    return Response.json({ error: "Gagal menyimpan pengaturan" }, { status: 500 });
+    return Response.json({ error: "Gagal menyimpan pengaturan: " + (err.message || "") }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface StorefrontConfig {
   id: string;
@@ -13,12 +13,21 @@ interface StorefrontConfig {
   allowShipping: boolean;
   shippingCost: number;
   activeUntil?: string | null;
+  customDomain?: string | null;
+  themeColor?: string | null;
+  logoUrl?: string | null;
 }
 
 export default function StorefrontManager({ storefront: initial }: { storefront: StorefrontConfig | null }) {
   const [storefront, setStorefront] = useState(initial);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [form, setForm] = useState({
     slug: initial?.slug ?? "",
@@ -29,6 +38,9 @@ export default function StorefrontManager({ storefront: initial }: { storefront:
     allowShipping: initial?.allowShipping ?? true,
     shippingCost: initial?.shippingCost ?? 0,
     isActive: initial?.isActive ?? false,
+    customDomain: initial?.customDomain ?? "",
+    themeColor: initial?.themeColor ?? "#6366f1",
+    logoUrl: initial?.logoUrl ?? "",
   });
 
   if (!storefront) {
@@ -56,12 +68,41 @@ export default function StorefrontManager({ storefront: initial }: { storefront:
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setStorefront(data.storefront);
+      setStorefront({ ...data.storefront, logoUrl: form.logoUrl }); // retain logoUrl for local update
       setMsg({ type: "success", text: "Pengaturan storefront berhasil disimpan!" });
     } catch (err: any) {
       setMsg({ type: "error", text: err.message });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setMsg({ type: "error", text: "Hanya gambar yang diperbolehkan" });
+      return;
+    }
+
+    setIsUploading(true);
+    setMsg(null);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload/products", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setForm((f) => ({ ...f, logoUrl: data.url }));
+    } catch (err: any) {
+      setMsg({ type: "error", text: "Gagal upload logo" });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -109,6 +150,24 @@ export default function StorefrontManager({ storefront: initial }: { storefront:
 
       {/* Form */}
       <div style={{ display: "grid", gap: "16px" }}>
+        
+        {/* Logo Toko */}
+        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+          {form.logoUrl ? (
+            <img src={form.logoUrl} alt="Logo Toko" style={{ width: "64px", height: "64px", objectFit: "cover", borderRadius: "12px", border: "1px solid hsl(var(--border))" }} />
+          ) : (
+            <div style={{ width: "64px", height: "64px", borderRadius: "12px", background: "hsl(var(--bg-elevated))", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid hsl(var(--border))", fontSize: "24px" }}>🏪</div>
+          )}
+          <div>
+            <label className="input-label" style={{ marginBottom: "4px" }}>Logo Toko (Storefront)</label>
+            <label style={{ cursor: "pointer", display: "inline-block", padding: "6px 12px", background: "hsl(var(--primary)/0.1)", color: "hsl(var(--primary))", borderRadius: "6px", fontSize: "13px", fontWeight: 600 }}>
+              {isUploading ? "⏳ Uploading..." : "📷 Ganti Logo"}
+              <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleLogoUpload} disabled={isUploading} />
+            </label>
+            <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "4px" }}>Juga akan mengubah logo utama Toko.</div>
+          </div>
+        </div>
+
         {/* URL Toko */}
         <div>
           <label className="input-label">🔗 URL Toko Online</label>
@@ -124,7 +183,47 @@ export default function StorefrontManager({ storefront: initial }: { storefront:
             />
           </div>
           <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "4px" }}>
-            Link publik toko Anda: <strong>{typeof window !== "undefined" ? window.location.origin : ""}{storeUrl}</strong>
+            Link publik toko Anda: <strong>{mounted ? window.location.origin : ""}{storeUrl}</strong>
+          </div>
+        </div>
+
+        {/* Custom Domain */}
+        <div>
+          <label className="input-label">🌐 Custom Domain (opsional)</label>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <span style={{ color: "hsl(var(--text-muted))", fontSize: "14px", whiteSpace: "nowrap" }}>https://</span>
+            <input
+              type="text"
+              className="input-field"
+              value={form.customDomain}
+              onChange={(e) => setForm((f) => ({ ...f, customDomain: e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, "") }))}
+              placeholder="www.toko-anda.com"
+              style={{ flex: 1 }}
+            />
+          </div>
+          <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "12px", background: "hsl(var(--bg-elevated))", padding: "12px", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}>
+            <div style={{ fontWeight: 600, marginBottom: "8px", color: "hsl(var(--primary))", fontSize: "13px" }}>Konfirmasi DNS:</div>
+            Untuk mengaktifkan custom domain, login ke penyedia domain Anda (misal: Niagahoster, Idwebhost) dan arahkan <strong>CNAME Record</strong> ke server kami:
+            <div style={{ marginTop: "10px", background: "hsl(var(--bg-card))", border: "1px dashed hsl(var(--border))", padding: "10px", borderRadius: "6px" }}>
+              <div style={{ marginBottom: "4px" }}><strong>Type:</strong> CNAME</div>
+              <div style={{ marginBottom: "4px" }}><strong>Name:</strong> www <em>(atau sesuai sub-domain Anda)</em></div>
+              <div><strong>Target:</strong> <code style={{ background: "hsl(var(--warning)/0.1)", color: "hsl(var(--warning))", padding: "2px 6px", borderRadius: "4px", userSelect: "all" }}>{mounted ? window.location.host : "mbakasir.up.railway.app"}</code></div>
+            </div>
+            <div style={{ marginTop: "8px", fontStyle: "italic", fontSize: "11px" }}>* Anda bisa klik dua kali pada target di atas untuk menyalinnya. Proses DNS propagasi mungkin memakan waktu hingga 24 jam.</div>
+          </div>
+        </div>
+
+        {/* Warna Tema */}
+        <div>
+          <label className="input-label">🎨 Warna Tema</label>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <input
+              type="color"
+              value={form.themeColor}
+              onChange={(e) => setForm((f) => ({ ...f, themeColor: e.target.value }))}
+              style={{ width: "40px", height: "40px", border: "none", borderRadius: "8px", cursor: "pointer", padding: 0 }}
+            />
+            <span style={{ fontSize: "14px", color: "hsl(var(--text-muted))" }}>Pilih warna utama yang akan digunakan untuk tombol dan aksen di Storefront.</span>
           </div>
         </div>
 

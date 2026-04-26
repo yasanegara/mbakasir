@@ -4,33 +4,40 @@ import { getStorefrontConfigDelegate, getOnlineOrderDelegate } from "@/lib/prism
 import { z } from "zod";
 import { sendTelegramNotification } from "@/lib/notifications";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const checkoutSchema = z.object({
   slug: z.string(),
-  customerName: z.string().min(2),
-  customerPhone: z.string().min(8),
-  customerAddress: z.string().min(5),
+  customerName: z.string().min(2, "Nama minimal 2 karakter"),
+  customerPhone: z.string().min(8, "Nomor HP/WA minimal 8 angka"),
+  customerAddress: z.string().min(5, "Alamat minimal 5 karakter"),
   notes: z.string().optional(),
   items: z.array(z.object({
     productId: z.string(),
-    quantity: z.number().min(1),
-  })).min(1),
+    quantity: z.number().min(1, "Jumlah minimal 1"),
+  })).min(1, "Keranjang kosong"),
 });
 
-// GET: ambil data storefront publik berdasarkan slug
+// GET: ambil data storefront publik berdasarkan slug atau customDomain
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug");
+  const domain = searchParams.get("domain");
 
-  if (!slug) return Response.json({ error: "Slug tidak valid" }, { status: 400 });
+  if (!slug && !domain) return Response.json({ error: "Parameter tidak valid" }, { status: 400 });
+
+  const whereClause = domain ? { customDomain: domain, isActive: true } : { slug: slug!, isActive: true };
 
   const storefront = await getStorefrontConfigDelegate(prisma).findUnique({
-    where: { slug, isActive: true },
+    where: whereClause,
     include: {
       tenant: {
         select: {
           id: true,
           name: true,
           logoUrl: true,
+          phone: true,
           products: {
             where: { isActive: true, showInPos: true },
             select: {
@@ -41,6 +48,12 @@ export async function GET(req: NextRequest) {
               category: true,
               stock: true,
               unit: true,
+              _count: {
+                select: { 
+                  saleItems: true,
+                  orderItems: true
+                }
+              }
             },
             orderBy: [{ category: "asc" }, { name: "asc" }],
           },
@@ -143,8 +156,9 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ success: true, orderId: order.id });
   } catch (err: any) {
-    if (err.name === "ZodError") {
-      return Response.json({ error: err.errors[0].message }, { status: 400 });
+    if (err instanceof z.ZodError || err.name === "ZodError") {
+      const msg = err.errors?.[0]?.message || err.issues?.[0]?.message || "Input tidak valid";
+      return Response.json({ error: msg }, { status: 400 });
     }
     console.error("Checkout error:", err);
     return Response.json({ error: "Gagal membuat pesanan" }, { status: 500 });

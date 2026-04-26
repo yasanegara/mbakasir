@@ -11,6 +11,7 @@ interface Product {
   category?: string | null;
   stock: number;
   unit: string;
+  _count?: { saleItems: number; orderItems: number };
 }
 
 interface StorefrontData {
@@ -22,10 +23,13 @@ interface StorefrontData {
   bankAccountName?: string | null;
   allowShipping: boolean;
   shippingCost: number;
+  themeColor?: string | null;
+  bannerUrl?: string | null;
   tenant: {
     id: string;
     name: string;
     logoUrl?: string | null;
+    phone?: string | null;
     products: Product[];
   };
 }
@@ -37,7 +41,7 @@ interface CartItem {
 
 type CheckoutStep = "browse" | "cart" | "form" | "success";
 
-export default function StorefrontClient({ slug }: { slug: string }) {
+export default function StorefrontClient({ slug, domain }: { slug?: string; domain?: string }) {
   const [storefront, setStorefront] = useState<StorefrontData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +63,8 @@ export default function StorefrontClient({ slug }: { slug: string }) {
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/public/storefront?slug=${slug}`)
+    const query = domain ? `domain=${domain}` : `slug=${slug}`;
+    fetch(`/api/public/storefront?${query}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) setError(data.error);
@@ -83,6 +88,18 @@ export default function StorefrontClient({ slug }: { slug: string }) {
       return matchesSearch && matchesCategory;
     });
   }, [storefront, searchQuery, selectedCategory]);
+
+  const winningProducts = useMemo(() => {
+    if (!storefront) return [];
+    
+    // Helper function to calculate total sold
+    const getTotalSold = (p: Product) => (p._count?.saleItems || 0) + (p._count?.orderItems || 0);
+
+    // Sort all products by total sales (offline + online) descending
+    return [...storefront.tenant.products]
+      .sort((a, b) => getTotalSold(b) - getTotalSold(a))
+      .slice(0, 5); // Take top 5
+  }, [storefront]);
 
   const addToCart = (product: Product) => {
     setCart((prev) => {
@@ -225,9 +242,23 @@ export default function StorefrontClient({ slug }: { slug: string }) {
           <p style={{ color: "#888", fontSize: "13px" }}>
             Setelah transfer, hubungi toko untuk konfirmasi pembayaran.
           </p>
+
+          {storefront.tenant.phone && (
+            <button
+              onClick={() => {
+                const waNumber = storefront.tenant.phone!.replace(/\D/g, "").replace(/^0/, "62");
+                const msg = `Halo ${storefront.tenant.name}, saya baru saja membuat pesanan dengan rincian berikut:\n\nTotal: ${formatRupiahFull(totalAmount)}\n\nSaya telah mentransfer pembayaran. Tolong segera diproses ya!`;
+                window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`, "_blank");
+              }}
+              style={{ marginTop: "16px", display: "block", width: "100%", background: "#25D366", color: "white", border: "none", borderRadius: "10px", padding: "12px 24px", fontWeight: 700, cursor: "pointer", fontSize: "14px" }}
+            >
+              💬 Konfirmasi via WhatsApp
+            </button>
+          )}
+
           <button
             onClick={() => { setStep("browse"); setOrderId(null); }}
-            style={{ marginTop: "20px", background: "#16a34a", color: "white", border: "none", borderRadius: "10px", padding: "12px 24px", fontWeight: 700, cursor: "pointer", fontSize: "14px" }}
+            style={{ marginTop: "12px", width: "100%", background: "#f3f4f6", color: "#374151", border: "none", borderRadius: "10px", padding: "12px 24px", fontWeight: 700, cursor: "pointer", fontSize: "14px" }}
           >
             Belanja Lagi
           </button>
@@ -236,13 +267,112 @@ export default function StorefrontClient({ slug }: { slug: string }) {
     );
   }
 
-  const accentColor = "#6366f1";
+  const accentColor = storefront.themeColor || "#6366f1";
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8f9fb", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f4f6f9", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+      <style>{`
+        .sf-header {
+          background: white;
+          position: sticky; top: 0; zIndex: 50;
+          border-bottom: 1px solid #f0f0f0;
+        }
+        .sf-card {
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+          border: 1px solid #f0f0f0;
+          transition: transform 0.2s;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+        }
+        .sf-card:hover {
+          border-color: ${accentColor}50;
+        }
+        .sf-img-wrapper {
+          position: relative;
+          width: 100%;
+          padding-top: 100%; /* 1:1 Aspect Ratio */
+          background: #f8f9fa;
+        }
+        .sf-img-wrapper img, .sf-img-wrapper .placeholder {
+          position: absolute;
+          top: 0; left: 0; right: 0; bottom: 0;
+          width: 100%; height: 100%;
+          object-fit: cover;
+        }
+        .sf-title {
+          font-size: 13px;
+          line-height: 1.4;
+          color: #222;
+          margin-bottom: 4px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          height: 36px;
+        }
+        .sf-price {
+          font-size: 16px;
+          font-weight: 700;
+          color: ${accentColor};
+        }
+        .sf-cat-scroll {
+          display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px;
+          scrollbar-width: none;
+        }
+        .sf-cat-scroll::-webkit-scrollbar { display: none; }
+        .sf-cat-btn {
+          padding: 6px 14px; border-radius: 4px; font-size: 13px; font-weight: 500; 
+          cursor: pointer; border: 1px solid transparent; white-space: nowrap;
+          background: #f5f5f5; color: #555;
+        }
+        .sf-search {
+          width: 100%; padding: 10px 16px; 
+          border: 1px solid ${accentColor}; border-radius: 4px; 
+          font-size: 14px; background: #fff;
+        }
+        .sf-search:focus { outline: none; box-shadow: 0 0 0 2px ${accentColor}20; }
+        .sf-add-btn {
+          width: 28px; height: 28px; border-radius: 50%;
+          background: ${accentColor}; color: white; border: none;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 18px; font-weight: 300; cursor: pointer;
+          position: absolute; right: 12px; bottom: 12px;
+        }
+        .sf-floating-cart {
+          position: fixed; bottom: 24px; left: 0; width: 100%; z-index: 100;
+          display: flex; justify-content: center; pointer-events: none;
+        }
+        .sf-floating-cart button {
+          pointer-events: auto;
+        }
+        .sf-qty-control {
+          position: absolute; right: 12px; bottom: 12px;
+          display: flex; alignItems: center; gap: 8px; background: white;
+          border: 1px solid #eee; border-radius: 4px; padding: 2px;
+        }
+        .sf-qty-btn {
+          width: 24px; height: 24px; background: transparent; border: none;
+          cursor: pointer; font-weight: bold; color: #555;
+        }
+        .sf-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+        @media (min-width: 640px) {
+          .sf-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        }
+        @media (min-width: 900px) {
+          .sf-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+      `}</style>
+      
       {/* ── HEADER ── */}
-      <header style={{ background: "white", borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: "900px", margin: "0 auto", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <header className="sf-header">
+        <div style={{ maxWidth: "900px", margin: "0 auto", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             {storefront.tenant.logoUrl && (
               <img src={storefront.tenant.logoUrl} alt="logo" style={{ width: "36px", height: "36px", borderRadius: "8px", objectFit: "cover" }} />
@@ -396,25 +526,33 @@ export default function StorefrontClient({ slug }: { slug: string }) {
         {/* ── BROWSE PRODUCTS ── */}
         {step === "browse" && (
           <div>
-            {/* Search + Filter */}
-            <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
+            {/* Store Banner */}
+            {storefront.bannerUrl ? (
+              <div style={{ width: "100%", height: "140px", borderRadius: "8px", overflow: "hidden", marginBottom: "16px" }}>
+                <img src={storefront.bannerUrl} alt="banner" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+            ) : null}
+
+            {/* Search + Categories */}
+            <div style={{ background: "white", padding: "16px", borderRadius: "8px", marginBottom: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
               <input
                 type="search"
-                placeholder="🔍 Cari produk..."
+                placeholder="🔍 Cari di toko ini..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ flex: 1, minWidth: "200px", padding: "10px 16px", border: "1px solid #e5e7eb", borderRadius: "12px", fontSize: "14px", background: "white" }}
+                className="sf-search"
+                style={{ marginBottom: "12px" }}
               />
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <div className="sf-cat-scroll">
                 {categories.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
+                    className="sf-cat-btn"
                     style={{
-                      padding: "8px 14px", borderRadius: "999px", fontSize: "13px", fontWeight: 600, cursor: "pointer", border: "none",
-                      background: selectedCategory === cat ? accentColor : "white",
+                      background: selectedCategory === cat ? accentColor : "#f5f5f5",
                       color: selectedCategory === cat ? "white" : "#555",
-                      boxShadow: "0 1px 4px rgba(0,0,0,0.08)"
+                      borderColor: selectedCategory === cat ? accentColor : "transparent",
                     }}
                   >
                     {cat}
@@ -423,6 +561,50 @@ export default function StorefrontClient({ slug }: { slug: string }) {
               </div>
             </div>
 
+            {/* Winning Products (80/20) - Hanya Muncul Jika Tidak Sedang Mencari */}
+            {searchQuery === "" && winningProducts.length > 0 && (
+              <div style={{ marginBottom: "24px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                  <span style={{ fontSize: "20px" }}>🔥</span>
+                  <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "#111" }}>Produk Paling Laris (80/20)</h2>
+                </div>
+                <div className="sf-cat-scroll" style={{ paddingBottom: "12px" }}>
+                  {winningProducts.map((product) => {
+                    const inCart = cart.find((i) => i.product.id === product.id);
+                    return (
+                      <div key={`win-${product.id}`} className="sf-card" style={{ minWidth: "160px", width: "160px", flexShrink: 0 }}>
+                        <div className="sf-img-wrapper">
+                          {product.imageUrl ? (
+                            <img src={product.imageUrl} alt={product.name} loading="lazy" />
+                          ) : (
+                            <div className="placeholder" style={{ background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>🛍️</div>
+                          )}
+                          <div style={{ position: "absolute", top: "8px", left: "8px", background: "rgba(239, 68, 68, 0.9)", color: "white", padding: "2px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: 800 }}>
+                            {(product._count?.saleItems || 0) + (product._count?.orderItems || 0)} Terjual
+                          </div>
+                        </div>
+                        <div style={{ padding: "8px", display: "flex", flexDirection: "column", flex: 1 }}>
+                          <div className="sf-title" style={{ fontSize: "12px", height: "34px" }}>{product.name}</div>
+                          <div className="sf-price" style={{ fontSize: "14px", marginTop: "4px" }}>{formatRupiahFull(Number(product.price))}</div>
+                        </div>
+                        {inCart ? (
+                          <div className="sf-qty-control" style={{ right: "8px", bottom: "8px" }}>
+                            <button onClick={() => updateQty(product.id, inCart.quantity - 1)} className="sf-qty-btn" style={{ width: "20px", height: "20px" }}>−</button>
+                            <span style={{ fontSize: "12px", fontWeight: 600 }}>{inCart.quantity}</span>
+                            <button onClick={() => addToCart(product)} className="sf-qty-btn" style={{ width: "20px", height: "20px", color: accentColor }}>+</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => addToCart(product)} className="sf-add-btn" style={{ right: "8px", bottom: "8px", width: "24px", height: "24px", fontSize: "16px" }}>
+                            +
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Products Grid */}
             {filteredProducts.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px 20px", color: "#888" }}>
@@ -430,38 +612,42 @@ export default function StorefrontClient({ slug }: { slug: string }) {
                 <div>Tidak ada produk ditemukan</div>
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "16px" }}>
+              <div className="sf-grid">
                 {filteredProducts.map((product) => {
                   const inCart = cart.find((i) => i.product.id === product.id);
                   return (
-                    <div
-                      key={product.id}
-                      style={{ background: "white", borderRadius: "16px", overflow: "hidden", boxShadow: "0 4px 16px rgba(0,0,0,0.06)", transition: "transform 0.2s", cursor: "pointer" }}
-                    >
-                      {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "160px", objectFit: "cover" }} />
-                      ) : (
-                        <div style={{ width: "100%", height: "120px", background: "linear-gradient(135deg, #e0e7ff, #c7d2fe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "36px" }}>🛍️</div>
-                      )}
-                      <div style={{ padding: "14px" }}>
-                        {product.category && <div style={{ fontSize: "11px", color: "#888", fontWeight: 600, marginBottom: "4px", textTransform: "uppercase" }}>{product.category}</div>}
-                        <div style={{ fontWeight: 700, fontSize: "14px", marginBottom: "6px", lineHeight: 1.3 }}>{product.name}</div>
-                        <div style={{ fontWeight: 800, color: accentColor, fontSize: "15px", marginBottom: "12px" }}>{formatRupiahFull(Number(product.price))}</div>
-                        {inCart ? (
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <button onClick={() => updateQty(product.id, inCart.quantity - 1)} style={{ width: "30px", height: "30px", borderRadius: "8px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer", fontWeight: 700 }}>−</button>
-                            <span style={{ fontWeight: 700 }}>{inCart.quantity}</span>
-                            <button onClick={() => addToCart(product)} style={{ width: "30px", height: "30px", borderRadius: "8px", border: "none", background: accentColor, color: "white", cursor: "pointer", fontWeight: 700 }}>+</button>
-                          </div>
+                    <div key={product.id} className="sf-card">
+                      <div className="sf-img-wrapper">
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt={product.name} loading="lazy" />
                         ) : (
-                          <button
-                            onClick={() => addToCart(product)}
-                            style={{ width: "100%", background: accentColor, color: "white", border: "none", borderRadius: "10px", padding: "9px", fontWeight: 700, fontSize: "13px", cursor: "pointer" }}
-                          >
-                            + Keranjang
-                          </button>
+                          <div className="placeholder" style={{ background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "30px" }}>🛒</div>
+                        )}
+                        {product.category && (
+                          <div style={{ position: "absolute", bottom: "4px", left: "4px", background: "rgba(0,0,0,0.5)", color: "white", padding: "2px 6px", borderRadius: "2px", fontSize: "10px", fontWeight: 600 }}>
+                            {product.category}
+                          </div>
                         )}
                       </div>
+                      <div style={{ padding: "8px", flex: 1, display: "flex", flexDirection: "column" }}>
+                        <div className="sf-title">{product.name}</div>
+                        <div style={{ marginTop: "auto" }}>
+                          <div className="sf-price">{formatRupiahFull(Number(product.price))}</div>
+                        </div>
+                      </div>
+                      
+                      {/* Cart Controls overlay on the bottom right */}
+                      {inCart ? (
+                        <div className="sf-qty-control">
+                          <button onClick={() => updateQty(product.id, inCart.quantity - 1)} className="sf-qty-btn">−</button>
+                          <span style={{ fontSize: "13px", fontWeight: 600, minWidth: "16px", textAlign: "center" }}>{inCart.quantity}</span>
+                          <button onClick={() => addToCart(product)} className="sf-qty-btn" style={{ color: accentColor }}>+</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => addToCart(product)} className="sf-add-btn">
+                          +
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -473,12 +659,16 @@ export default function StorefrontClient({ slug }: { slug: string }) {
 
       {/* Floating Cart Button */}
       {step === "browse" && cart.length > 0 && (
-        <div style={{ position: "fixed", bottom: "20px", left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
+        <div className="sf-floating-cart">
           <button
             onClick={() => setStep("cart")}
-            style={{ background: accentColor, color: "white", border: "none", borderRadius: "999px", padding: "14px 28px", fontWeight: 700, fontSize: "15px", cursor: "pointer", boxShadow: "0 8px 30px rgba(99,102,241,0.4)" }}
+            className="sf-btn"
+            style={{ display: "flex", alignItems: "center", gap: "12px", background: accentColor, color: "white", border: "none", borderRadius: "999px", padding: "16px 32px", fontWeight: 800, fontSize: "16px", cursor: "pointer", boxShadow: `0 12px 30px ${accentColor}60`, backdropFilter: "blur(8px)" }}
           >
-            🛒 Lihat Keranjang ({cartCount}) · {formatRupiahFull(subtotal)}
+            <span style={{ fontSize: "20px" }}>🛍️</span> 
+            <span>Lihat Keranjang ({cartCount})</span>
+            <span style={{ opacity: 0.8 }}>·</span>
+            <span>{formatRupiahFull(subtotal)}</span>
           </button>
         </div>
       )}

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { getDb, LocalShoppingItem } from "@/lib/db";
+import { getDb, LocalShoppingItem, enqueueSyncOp } from "@/lib/db";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { formatRupiahFull, generateUUID } from "@/lib/utils";
 import { useAuth, useToast } from "@/contexts/AppProviders";
@@ -358,19 +358,19 @@ export default function ShoppingListPage() {
         if (item.type === "product") {
           const existing = await db.products.get(item.existingLocalId);
           if (existing) {
-            await db.products.update(item.existingLocalId, {
-              stock: (existing.stock || 0) + item.qtyToBuy,
-              updatedAt: now,
-            });
+            const newStock = (existing.stock || 0) + item.qtyToBuy;
+            const updatedProd = { ...existing, stock: newStock, updatedAt: now };
+            await db.products.update(item.existingLocalId, { stock: newStock, updatedAt: now });
+            await enqueueSyncOp("products", item.existingLocalId, "UPDATE", updatedProd);
             toast(`📦 Stok ${item.name} +${item.qtyToBuy} diperbarui`, "success");
           }
         } else {
           const existing = await db.rawMaterials.get(item.existingLocalId);
           if (existing) {
-            await db.rawMaterials.update(item.existingLocalId, {
-              stock: (existing.stock || 0) + item.qtyToBuy,
-              updatedAt: now,
-            });
+            const newStock = (existing.stock || 0) + item.qtyToBuy;
+            const updatedMat = { ...existing, stock: newStock, updatedAt: now };
+            await db.rawMaterials.update(item.existingLocalId, { stock: newStock, updatedAt: now });
+            await enqueueSyncOp("rawMaterials", item.existingLocalId, "UPDATE", updatedMat);
             toast(`🧪 Stok ${item.name} +${item.qtyToBuy} ${item.unit} diperbarui`, "success");
           }
         }
@@ -380,7 +380,7 @@ export default function ShoppingListPage() {
       if (item.isNew) {
         const newLocalId = generateUUID();
         if (item.type === "product") {
-          await db.products.add({
+          const newProduct = {
             id: newLocalId,
             localId: newLocalId,
             tenantId: item.tenantId,
@@ -394,12 +394,14 @@ export default function ShoppingListPage() {
             isActive: true,
             showInPos: true,
             hasBoM: false,
-            syncStatus: "PENDING",
+            syncStatus: "PENDING" as const,
             updatedAt: now,
-          });
+          };
+          await db.products.add(newProduct);
+          await enqueueSyncOp("products", newLocalId, "CREATE", newProduct);
           toast(`🛍️ Produk baru "${item.name}" ditambahkan ke master produk!`, "success");
         } else {
-          await db.rawMaterials.add({
+          const newMaterial = {
             id: newLocalId,
             localId: newLocalId,
             tenantId: item.tenantId,
@@ -408,9 +410,11 @@ export default function ShoppingListPage() {
             stock: item.qtyToBuy,
             costPerUnit: item.costPerUnit || 0,
             minStock: item.minStock || 0,
-            syncStatus: "PENDING",
+            syncStatus: "PENDING" as const,
             updatedAt: now,
-          });
+          };
+          await db.rawMaterials.add(newMaterial);
+          await enqueueSyncOp("rawMaterials", newLocalId, "CREATE", newMaterial);
           toast(`🧪 Bahan baku "${item.name}" ditambahkan ke master bahan baku!`, "success");
         }
         // Update shoppingList item dengan existingLocalId baru
@@ -419,7 +423,31 @@ export default function ShoppingListPage() {
     } else {
       // Batal selesai
       await db.shoppingList.update(item.id, { status: "pending", completedAt: undefined, updatedAt: now });
-      toast("↩️ Dibatalkan", "info");
+      
+      // Kembalikan (Revert) stok di IndexedDB jika batal
+      if (!item.isNew && item.existingLocalId) {
+        if (item.type === "product") {
+          const existing = await db.products.get(item.existingLocalId);
+          if (existing) {
+            const newStock = Math.max(0, (existing.stock || 0) - item.qtyToBuy);
+            const updatedProd = { ...existing, stock: newStock, updatedAt: now };
+            await db.products.update(item.existingLocalId, { stock: newStock, updatedAt: now });
+            await enqueueSyncOp("products", item.existingLocalId, "UPDATE", updatedProd);
+            toast(`📦 Stok ${item.name} dikembalikan (-${item.qtyToBuy})`, "info");
+          }
+        } else {
+          const existing = await db.rawMaterials.get(item.existingLocalId);
+          if (existing) {
+            const newStock = Math.max(0, (existing.stock || 0) - item.qtyToBuy);
+            const updatedMat = { ...existing, stock: newStock, updatedAt: now };
+            await db.rawMaterials.update(item.existingLocalId, { stock: newStock, updatedAt: now });
+            await enqueueSyncOp("rawMaterials", item.existingLocalId, "UPDATE", updatedMat);
+            toast(`🧪 Stok ${item.name} dikembalikan (-${item.qtyToBuy})`, "info");
+          }
+        }
+      } else {
+        toast("↩️ Dibatalkan", "info");
+      }
     }
   }, [toast]);
 

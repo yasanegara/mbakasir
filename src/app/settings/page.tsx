@@ -77,6 +77,11 @@ export default async function SettingsPage() {
 
     const storefront = await prisma.storefrontConfig.findUnique({
       where: { tenantId: session.tenantId },
+      include: {
+        tenant: {
+          select: { logoUrl: true }
+        }
+      }
     });
 
     return (
@@ -98,6 +103,9 @@ export default async function SettingsPage() {
                 ...storefront,
                 shippingCost: Number(storefront.shippingCost),
                 activeUntil: storefront.activeUntil?.toISOString() ?? null,
+                logoUrl: storefront.tenant.logoUrl ?? null,
+                customDomain: (storefront as any).customDomain ?? null,
+                themeColor: (storefront as any).themeColor ?? null,
               } : null} 
             />
           </section>
