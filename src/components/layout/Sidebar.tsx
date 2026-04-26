@@ -102,6 +102,11 @@ const Icon = {
       <path d="M3 11l19-9-9 19-2-8-8-2z" />
     </svg>
   ),
+  storefront: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+      <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  ),
 };
 
 const ALL_NAV: NavItem[] = [
@@ -115,6 +120,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/employees", label: "Karyawan", icon: Icon.employees, roles: ["TENANT"] },
   { href: "/stock-alert", label: "Stok Kritis", icon: Icon.alert, roles: ["TENANT"] },
   { href: "/shopping-list", label: "Daftar Belanja", icon: Icon.shoppingList, roles: ["TENANT"] },
+  { href: "/orders", label: "Pesanan Online", icon: Icon.storefront, roles: ["TENANT"] },
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },
   { href: "/learn", label: "Pusat Belajar", icon: Icon.book, roles: ["AGENT", "TENANT"] },

@@ -85,15 +85,55 @@ export async function POST(req: NextRequest) {
       } else if (parsed.targetKey === "LICENSE_MONTH") {
         const now = new Date();
         const currentPremium = tenant.premiumUntil && tenant.premiumUntil > now ? tenant.premiumUntil : now;
-        const rewardQty = conversion.rewardQuantity * parsed.quantity; // misal 1 token = 1 month
+        const rewardQty = conversion.rewardQuantity * parsed.quantity;
         const newPremium = new Date(currentPremium);
         newPremium.setMonth(newPremium.getMonth() + rewardQty);
 
         await tx.tenant.update({
           where: { id: tenant.id },
-          data: { premiumUntil: newPremium }
+          data: { 
+            premiumUntil: newPremium,
+            status: "ACTIVE",   // ← Buka kunci toko
+          }
         });
         description = `Agen menambahkan ${rewardQty} bulan lisensi untuk Toko ${tenant.name}`;
+      } else if (parsed.targetKey === "STOREFRONT_MONTH") {
+        const now = new Date();
+        const rewardMonths = conversion.rewardQuantity * parsed.quantity;
+        const existing = await tx.storefrontConfig.findUnique({ where: { tenantId: tenant.id } });
+
+        if (existing) {
+          // Perpanjang masa aktif
+          const current = existing.activeUntil && existing.activeUntil > now ? existing.activeUntil : now;
+          const newActiveUntil = new Date(current);
+          newActiveUntil.setMonth(newActiveUntil.getMonth() + rewardMonths);
+          await tx.storefrontConfig.update({
+            where: { tenantId: tenant.id },
+            data: { activeUntil: newActiveUntil, isActive: true }
+          });
+          description = `Agen memperpanjang Storefront ${rewardMonths} bulan untuk Toko ${tenant.name}`;
+        } else {
+          // Buat baru — slug dari nama toko
+          const baseSlug = tenant.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+          // Pastikan slug unik
+          let slug = baseSlug;
+          let attempt = 0;
+          while (await tx.storefrontConfig.findUnique({ where: { slug } })) {
+            attempt++;
+            slug = `${baseSlug}-${attempt}`;
+          }
+          const activeUntil = new Date(now);
+          activeUntil.setMonth(activeUntil.getMonth() + rewardMonths);
+          await tx.storefrontConfig.create({
+            data: {
+              tenantId: tenant.id,
+              slug,
+              isActive: true,
+              activeUntil,
+            }
+          });
+          description = `Agen mengaktifkan Storefront ${rewardMonths} bulan untuk Toko ${tenant.name} (URL: /store/${slug})`;
+        }
       }
 
       // Catat di ledger

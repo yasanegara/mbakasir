@@ -75,6 +75,8 @@ model Tenant {
   tokenLedger        TokenLedger[]
   purchaseRequests   TokenPurchaseRequest[]
   users              User[]
+  storefront         StorefrontConfig?
+  onlineOrders       OnlineOrder[]
 
   @@map("tenants")
 }
@@ -121,6 +123,7 @@ model Product {
   assignments ProductAssignment[]
   tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   saleItems   SaleItem[]
+  orderItems  OnlineOrderItem[]
 
   @@unique([tenantId, sku])
   @@map("products")
@@ -515,5 +518,73 @@ enum SyncStatus {
 enum AgentTokenPurchaseRequestStatus {
   PENDING
   COMPLETED
+  CANCELLED
+}
+
+model StorefrontConfig {
+  id                String        @id @default(cuid())
+  tenantId          String        @unique
+  slug              String        @unique
+  isActive          Boolean       @default(false)
+  description       String?
+  bannerUrl         String?
+  bankName          String?
+  bankAccountNo     String?
+  bankAccountName   String?
+  allowShipping     Boolean       @default(true)
+  shippingCost      Decimal       @default(0) @db.Decimal(15, 2)
+  activeUntil       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders            OnlineOrder[]
+
+  @@map("storefront_configs")
+}
+
+model OnlineOrder {
+  id               String            @id @default(cuid())
+  tenantId         String
+  storefrontId     String
+  customerName     String
+  customerPhone    String
+  customerAddress  String
+  notes            String?
+  shippingCost     Decimal           @default(0) @db.Decimal(15, 2)
+  subtotal         Decimal           @db.Decimal(15, 2)
+  totalAmount      Decimal           @db.Decimal(15, 2)
+  status           OnlineOrderStatus @default(PENDING)
+  trackingNumber   String?
+  paymentProofUrl  String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  items            OnlineOrderItem[]
+  storefront       StorefrontConfig  @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("online_orders")
+}
+
+model OnlineOrderItem {
+  id          String      @id @default(cuid())
+  orderId     String
+  productId   String?
+  productName String
+  price       Decimal     @db.Decimal(15, 2)
+  quantity    Int
+  subtotal    Decimal     @db.Decimal(15, 2)
+  order       OnlineOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@map("online_order_items")
+}
+
+enum OnlineOrderStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
   CANCELLED
 }

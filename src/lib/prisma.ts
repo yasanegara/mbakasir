@@ -14,6 +14,9 @@ const REQUIRED_PRISMA_MODEL_DELEGATES = [
   "tokenPurchaseRequest",
   "agentTokenPurchaseRequest",
   "productAssignment",
+  "storefrontConfig",
+  "onlineOrder",
+  "onlineOrderItem",
 ] as const;
 
 type RequiredPrismaModelDelegate =
@@ -64,7 +67,7 @@ function hasRequiredModelDelegates(
   );
 }
 
-const CURRENT_SCHEMA_VERSION = 18;
+const CURRENT_SCHEMA_VERSION = 19;
 
 if (globalForPrisma.prismaVersion !== CURRENT_SCHEMA_VERSION) {
   globalForPrisma.prisma = undefined;

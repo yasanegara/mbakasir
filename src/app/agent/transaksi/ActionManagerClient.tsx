@@ -24,6 +24,7 @@ export default function ActionManagerClient({ requests, tenants, tokenConfig, ag
 
   const posConversion = getTokenConversion(tokenConfig, "POS_SLOT");
   const licenseConversion = getTokenConversion(tokenConfig, "LICENSE_MONTH");
+  const storefrontConversion = getTokenConversion(tokenConfig, "STOREFRONT_MONTH");
 
   async function handleApprove(reqId: string, actionDetails: any) {
     if (!confirm("Konfirmasi aktivasi fitur ini? Pastikan Anda sudah menerima pembayaran dari toko.")) return;
@@ -169,6 +170,9 @@ export default function ActionManagerClient({ requests, tenants, tokenConfig, ag
                 )}
                 {licenseConversion && (
                   <option value="LICENSE_MONTH">Perpanjang Usia Lisensi Penuh (Harga: {licenseConversion.tokenCost} token/bulan)</option>
+                )}
+                {storefrontConversion && (
+                  <option value="STOREFRONT_MONTH">🛍️ Aktifkan Storefront Online (Harga: {storefrontConversion.tokenCost} token/bulan)</option>
                 )}
               </select>
             </div>

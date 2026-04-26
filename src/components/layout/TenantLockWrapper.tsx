@@ -23,6 +23,27 @@ export default function TenantLockWrapper({ children }: { children: React.ReactN
   }, [user?.tenantId]);
 
   const [isLocked, setIsLocked] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch("/api/tenant/status");
+      if (res.ok) {
+        const serverTenant = await res.json();
+        const db = getDb();
+        const localTenant = await db.tenants.get(user!.tenantId!);
+        if (localTenant) {
+          await db.tenants.update(localTenant.localId, {
+            status: serverTenant.status,
+            premiumUntil: serverTenant.premiumUntil,
+            updatedAt: serverTenant.updatedAt,
+          });
+        }
+      }
+    } catch (_) {}
+    window.location.reload();
+  };
 
   useEffect(() => {
     if (!tenant) return;
@@ -79,12 +100,13 @@ export default function TenantLockWrapper({ children }: { children: React.ReactN
              Beli Token Sekarang
            </button>
            <button 
-             className="btn btn-ghost" 
-             style={{ marginTop: "12px", color: "white", opacity: 0.6, fontSize: "14px" }} 
-             onClick={() => window.location.reload()}
-           >
-             Muat Ulang
-           </button>
+              className="btn btn-ghost" 
+              style={{ marginTop: "12px", color: "white", opacity: 0.6, fontSize: "14px" }} 
+              onClick={handleRefresh}
+              disabled={isSyncing}
+            >
+              {isSyncing ? "Memeriksa status..." : "Muat Ulang"}
+            </button>
         </div>
       )}
     </>

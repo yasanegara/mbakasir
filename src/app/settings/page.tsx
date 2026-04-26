@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureTokenConfig } from "@/lib/token-settings";
 import { formatRupiahFull } from "@/lib/utils";
 import { getBrandConfig } from "@/lib/brand-config";
+import StorefrontManager from "@/components/settings/StorefrontManager";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,10 @@ export default async function SettingsPage() {
       redirect("/login");
     }
 
+    const storefront = await prisma.storefrontConfig.findUnique({
+      where: { tenantId: session.tenantId },
+    });
+
     return (
       <DashboardLayout title="Pengaturan Toko">
         <div style={{ display: "grid", gap: "24px" }}>
@@ -82,6 +87,20 @@ export default async function SettingsPage() {
             tenantId={session.tenantId}
             initialStoreName={tenant.name}
           />
+
+          <section className="card">
+            <h2 style={{ fontSize: "18px", marginBottom: "4px" }}>🛍️ Storefront Online</h2>
+            <p style={{ color: "hsl(var(--text-secondary))", fontSize: "14px", marginBottom: "20px" }}>
+              Buka toko online publik Anda dan terima pesanan dari mana saja.
+            </p>
+            <StorefrontManager 
+              storefront={storefront ? {
+                ...storefront,
+                shippingCost: Number(storefront.shippingCost),
+                activeUntil: storefront.activeUntil?.toISOString() ?? null,
+              } : null} 
+            />
+          </section>
         </div>
       </DashboardLayout>
     );
