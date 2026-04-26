@@ -1,6 +1,32 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const LOCAL_ROOT_DOMAIN = "localhost:3000";
+const DEFAULT_PRODUCTION_ROOT_DOMAIN = "mbakasir.id";
+
+function resolveRootDomain() {
+  const explicitRootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
+  if (explicitRootDomain) {
+    return explicitRootDomain;
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (appUrl) {
+    try {
+      const host = new URL(appUrl).host;
+      if (host && host !== LOCAL_ROOT_DOMAIN) {
+        return host;
+      }
+    } catch {
+      // Ignore invalid URLs and fall through to the environment default.
+    }
+  }
+
+  return process.env.NODE_ENV === "production"
+    ? DEFAULT_PRODUCTION_ROOT_DOMAIN
+    : LOCAL_ROOT_DOMAIN;
+}
+
 export const config = {
   matcher: [
     /*
@@ -16,22 +42,20 @@ export const config = {
 
 export function middleware(req: NextRequest) {
   const url = req.nextUrl;
+  const rootDomain = resolveRootDomain();
 
   // Get hostname of request (e.g. demo.vercel.pub, demo.localhost:3000)
-  let hostname = req.headers
+  const hostname = req.headers
     .get("host")!
-    .replace(".localhost:3000", `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost:3000"}`);
+    .replace(`.${LOCAL_ROOT_DOMAIN}`, `.${rootDomain}`);
 
   const searchParams = req.nextUrl.searchParams.toString();
   const path = `${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
 
-  // If running locally, you might want to adjust this logic depending on how you test
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost:3000";
-
   // If the request is for a custom domain (not the root domain)
   // we rewrite to the special /_domain/[domain] route
   if (
-    hostname !== "localhost:3000" &&
+    hostname !== LOCAL_ROOT_DOMAIN &&
     hostname !== rootDomain &&
     !hostname.endsWith(`.${rootDomain}`) // if you want to support subdomains later
   ) {
