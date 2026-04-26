@@ -9,6 +9,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import AgentTokenRequestList, {
   type AgentTokenRequestItem,
 } from "@/components/admin/AgentTokenRequestList";
+import AgentDashboardNotificationList from "@/components/agent/AgentDashboardNotificationList";
 import AgentWABanner from "@/components/agent/AgentWABanner";
 import PosTerminalManager from "@/components/settings/PosTerminalManager";
 import TenantLicenseCountdownCard from "@/components/tenant/TenantLicenseCountdownCard";
@@ -546,44 +547,7 @@ export default async function DashboardPage() {
             {/* WA GROUP BANNER */}
             <AgentWABanner />
 
-            {agentRequests.length > 0 && (
-              <section className="card" style={{ border: "1px solid hsl(var(--primary)/0.4)", background: "hsl(var(--primary)/0.03)" }}>
-                <h3 style={{ fontSize: "16px", fontWeight: 700, color: "hsl(var(--primary))", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ display: "flex", width: "8px", height: "8px", background: "hsl(var(--primary))", borderRadius: "50%", boxShadow: "0 0 0 3px hsl(var(--primary)/0.2)" }} />
-                  Notifikasi Pembelian Baru ({agentRequests.length})
-                </h3>
-                <div style={{ display: "grid", gap: "10px" }}>
-                  {agentRequests.map((req) => (
-                    <div key={req.id} style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "14px 16px",
-                      background: "hsl(var(--bg-card))",
-                      borderRadius: "10px",
-                      border: "1px solid hsl(var(--border))",
-                      gap: "12px",
-                      flexWrap: "wrap",
-                    }}>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: "15px" }}>{req.tenant.name}</div>
-                        <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
-                          Meminta {req.amount} Token · Rp {Number(req.totalPrice).toLocaleString("id-ID")}
-                        </div>
-                        {req.voucherCode && (
-                          <div style={{ fontSize: "12px", color: "hsl(var(--warning))", marginTop: "4px", fontWeight: 600 }}>
-                            Voucher: {req.voucherCode}
-                          </div>
-                        )}
-                      </div>
-                      <Link href="/agent/transaksi" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
-                        Proses →
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+            <AgentDashboardNotificationList initialRequests={agentRequests} />
           </div>
         )}
 

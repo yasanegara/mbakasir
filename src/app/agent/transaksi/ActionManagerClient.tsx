@@ -20,6 +20,7 @@ export default function ActionManagerClient({ requests, tenants, tokenConfig, ag
   const [selectedTenant, setSelectedTenant] = useState("");
   const [targetKey, setTargetKey] = useState("POS_SLOT");
   const [qty, setQty] = useState(1);
+  const [selectedReqId, setSelectedReqId] = useState("");
 
   const posConversion = getTokenConversion(tokenConfig, "POS_SLOT");
   const licenseConversion = getTokenConversion(tokenConfig, "LICENSE_MONTH");
@@ -45,6 +46,7 @@ export default function ActionManagerClient({ requests, tenants, tokenConfig, ag
       alert("Berhasil menyetujui dan mengaktifkan fitur ke toko.");
       if (reqId) {
         setLocalReqs(localReqs.filter(r => r.id !== reqId));
+        if (reqId === selectedReqId) setSelectedReqId("");
       }
       window.location.reload();
     } catch (e: any) {
@@ -117,6 +119,7 @@ export default function ActionManagerClient({ requests, tenants, tokenConfig, ag
                       onClick={() => {
                         setSelectedTenant(req.tenantId);
                         setQty(req.amount);
+                        setSelectedReqId(req.id);
                         setActiveTab("MANUAL");
                       }} 
                       disabled={isSubmitting} 
@@ -184,7 +187,7 @@ export default function ActionManagerClient({ requests, tenants, tokenConfig, ag
             <button 
               className="btn btn-primary" 
               disabled={isSubmitting || !selectedTenant || qty < 1}
-              onClick={() => handleApprove("", { tenantId: selectedTenant })}
+              onClick={() => handleApprove(selectedReqId, { tenantId: selectedTenant })}
               style={{ padding: "12px", justifyContent: "center" }}
             >
               Cetak / Aktifkan Sekarang
