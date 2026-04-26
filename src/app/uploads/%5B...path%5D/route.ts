@@ -5,10 +5,10 @@ import { existsSync } from "fs";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<any> }
 ) {
   const resolvedParams = await params;
-  const pathParts = resolvedParams.path;
+  const pathParts: string[] = resolvedParams.path ?? [];
   
   // Konstruksi path file (di luar folder public agar lebih aman dan terhindar dari konflik static serving)
   const filePath = join(process.cwd(), "storage", "uploads", ...pathParts);
