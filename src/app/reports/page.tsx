@@ -4,7 +4,37 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { getDb } from "@/lib/db";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { formatRupiahFull } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+type OnlineOrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PAID"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED";
+
+interface OnlineOrderItem {
+  productId?: string | null;
+  productName: string;
+  quantity: number;
+  subtotal: number;
+}
+
+interface OnlineOrder {
+  id: string;
+  totalAmount: number;
+  status: OnlineOrderStatus;
+  items: OnlineOrderItem[];
+}
+
+const REALIZED_ONLINE_ORDER_STATUSES = new Set<OnlineOrderStatus>([
+  "PAID",
+  "PROCESSING",
+  "SHIPPED",
+  "DELIVERED",
+]);
 
 // ============================================================
 // HALAMAN: LAPORAN (Laba Rugi & Pareto 80/20)
@@ -13,10 +43,57 @@ import { useState, useMemo } from "react";
 
 export default function ReportsPage() {
   const [period] = useState("Hari Ini"); // Filter dummy utk prototype
+  const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
   
   const sales = useLiveQuery(() => getDb().sales.where("status").equals("COMPLETED").toArray()) || [];
   const saleItems = useLiveQuery(() => getDb().saleItems.toArray()) || [];
   const posTerminals = useLiveQuery(() => getDb().posTerminals.toArray()) || [];
+  const products = useLiveQuery(() => getDb().products.toArray()) || [];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadOnlineOrders() {
+      try {
+        const res = await fetch("/api/tenant/orders?status=ALL");
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Gagal memuat pesanan online");
+        }
+
+        if (!cancelled) {
+          setOnlineOrders(data.orders || []);
+        }
+      } catch (error) {
+        console.error("Reports online orders error:", error);
+        if (!cancelled) {
+          setOnlineOrders([]);
+        }
+      }
+    }
+
+    void loadOnlineOrders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const realizedOnlineOrders = useMemo(
+    () => onlineOrders.filter((order) => REALIZED_ONLINE_ORDER_STATUSES.has(order.status)),
+    [onlineOrders]
+  );
+
+  const productCostMap = useMemo(() => {
+    const costMap = new Map<string, number>();
+
+    for (const product of products) {
+      costMap.set(product.id, product.costPrice);
+      costMap.set(product.localId, product.costPrice);
+    }
+
+    return costMap;
+  }, [products]);
 
   // ==========================
   // KALKULASI LABA / RUGI
@@ -34,9 +111,18 @@ export default function ReportsPage() {
       }
     }
 
+    for (const order of realizedOnlineOrders) {
+      revenue += Number(order.totalAmount);
+
+      for (const item of order.items) {
+        const matchedCost = item.productId ? productCostMap.get(item.productId) ?? 0 : 0;
+        cogs += matchedCost * Number(item.quantity);
+      }
+    }
+
     const netProfit = revenue - cogs;
     return { revenue, cogs, netProfit };
-  }, [sales, saleItems]);
+  }, [productCostMap, realizedOnlineOrders, saleItems, sales]);
 
   // ==========================
   // ANALISIS PARETO 80/20
@@ -59,6 +145,24 @@ export default function ReportsPage() {
        totalRevenue += item.subtotal;
     }
 
+    for (const order of realizedOnlineOrders) {
+      for (const item of order.items) {
+        const productKey = item.productId || item.productName;
+
+        if (!productSalesMap[productKey]) {
+          productSalesMap[productKey] = {
+            name: item.productName,
+            revenue: 0,
+            qty: 0,
+          };
+        }
+
+        productSalesMap[productKey].revenue += Number(item.subtotal);
+        productSalesMap[productKey].qty += Number(item.quantity);
+        totalRevenue += Number(item.subtotal);
+      }
+    }
+
     // Sort Descending berdasarkan revenue
     const sortedProducts = Object.values(productSalesMap).sort((a, b) => b.revenue - a.revenue);
     
@@ -69,7 +173,7 @@ export default function ReportsPage() {
        const pct = totalRevenue === 0 ? 0 : (cumulative / totalRevenue) * 100;
        return { ...p, cumulativePct: pct };
     });
-  }, [sales, saleItems]);
+  }, [realizedOnlineOrders, saleItems, sales]);
 
   const posPerformance = useMemo(() => {
     const stats: Record<string, { name: string, revenue: number, count: number }> = {};
@@ -82,8 +186,20 @@ export default function ReportsPage() {
       stats[tid].revenue += sale.totalAmount;
       stats[tid].count += 1;
     }
+
+    if (realizedOnlineOrders.length > 0) {
+      stats.storefront = {
+        name: "Storefront Online",
+        revenue: realizedOnlineOrders.reduce(
+          (sum, order) => sum + Number(order.totalAmount),
+          0
+        ),
+        count: realizedOnlineOrders.length,
+      };
+    }
+
     return Object.values(stats).sort((a, b) => b.revenue - a.revenue);
-  }, [sales, posTerminals]);
+  }, [posTerminals, realizedOnlineOrders, sales]);
 
   return (
     <DashboardLayout title={`Laporan Transaksi - ${period}`}>
@@ -95,7 +211,9 @@ export default function ReportsPage() {
            <span className="stat-value" style={{ color: "hsl(var(--primary))", background: "none", WebkitTextFillColor: "hsl(var(--primary))" }}>
               {formatRupiahFull(profitLoss.revenue)}
            </span>
-           <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "8px" }}>Dari {sales.length} transaksi</span>
+           <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "8px" }}>
+             Dari {sales.length + realizedOnlineOrders.length} transaksi selesai
+           </span>
         </div>
 
         {/* COGS CARD */}

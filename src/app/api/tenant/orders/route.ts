@@ -18,7 +18,15 @@ export async function GET(req: NextRequest) {
       ...(status && status !== "ALL" ? { status: status as any } : {}),
     },
     include: {
-      items: { select: { productName: true, quantity: true, price: true, subtotal: true } },
+      items: {
+        select: {
+          productId: true,
+          productName: true,
+          quantity: true,
+          price: true,
+          subtotal: true,
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });

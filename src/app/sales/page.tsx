@@ -4,8 +4,90 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { getDb, type LocalPosTerminal, type LocalSale, type LocalSaleItem } from "@/lib/db";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { formatRupiahFull } from "@/lib/utils";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AppProviders";
+
+type OnlineOrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PAID"
+  | "PROCESSING"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED";
+
+type PaymentMethod = "CASH" | "TRANSFER" | "QRIS" | "CREDIT";
+
+interface OnlineOrderItem {
+  productId?: string | null;
+  productName: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+}
+
+interface OnlineOrder {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  totalAmount: number;
+  status: OnlineOrderStatus;
+  createdAt: string;
+  items: OnlineOrderItem[];
+}
+
+type UnifiedTransaction = {
+  id: string;
+  source: "POS" | "STOREFRONT";
+  referenceNo: string;
+  createdAt: number;
+  paymentMethod: PaymentMethod;
+  totalAmount: number;
+  changeAmount: number;
+  itemCount: number;
+  status: LocalSale["status"] | OnlineOrderStatus;
+  syncStatus: LocalSale["syncStatus"] | "SERVER";
+  primaryLabel: string;
+  secondaryLabel: string;
+  notes?: string;
+  discountAmount?: number;
+};
+
+const REALIZED_ONLINE_ORDER_STATUSES = new Set<OnlineOrderStatus>([
+  "PAID",
+  "PROCESSING",
+  "SHIPPED",
+  "DELIVERED",
+]);
+
+const ONLINE_STATUS_META: Record<
+  OnlineOrderStatus,
+  { label: string; tone: string }
+> = {
+  PENDING: { label: "Menunggu", tone: "var(--warning)" },
+  CONFIRMED: { label: "Dikonfirmasi", tone: "var(--primary)" },
+  PAID: { label: "Lunas", tone: "var(--success)" },
+  PROCESSING: { label: "Diproses", tone: "var(--primary)" },
+  SHIPPED: { label: "Dikirim", tone: "var(--primary)" },
+  DELIVERED: { label: "Selesai", tone: "var(--success)" },
+  CANCELLED: { label: "Dibatalkan", tone: "var(--error)" },
+};
+
+const POS_STATUS_META: Record<
+  LocalSale["status"],
+  { label: string; tone: string }
+> = {
+  COMPLETED: { label: "Selesai", tone: "var(--success)" },
+  VOIDED: { label: "Dibatalkan", tone: "var(--error)" },
+  PENDING: { label: "Pending", tone: "var(--warning)" },
+};
+
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  CASH: "Tunai",
+  QRIS: "QRIS",
+  TRANSFER: "Transfer",
+  CREDIT: "Kredit",
+};
 
 // ============================================================
 // RIWAYAT TRANSAKSI POS — Dilihat Owner & Kasir
@@ -14,6 +96,8 @@ import { useAuth } from "@/contexts/AppProviders";
 export default function SalesHistoryPage() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
+  const [onlineOrdersLoading, setOnlineOrdersLoading] = useState(false);
 
   const tenantId = user?.tenantId;
 
@@ -33,41 +117,118 @@ export default function SalesHistoryPage() {
     [tenantId]
   ) ?? [];
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return sales;
-    const q = search.toLowerCase();
-    return sales.filter(
-      (s) =>
-        s.invoiceNo.toLowerCase().includes(q) ||
-        s.paymentMethod.toLowerCase().includes(q) ||
-        s.status.toLowerCase().includes(q)
+  useEffect(() => {
+    if (!tenantId) {
+      setOnlineOrders([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadOnlineOrders() {
+      setOnlineOrdersLoading(true);
+      try {
+        const res = await fetch("/api/tenant/orders?status=ALL");
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "Gagal memuat pesanan online");
+        }
+
+        if (!cancelled) {
+          setOnlineOrders(data.orders || []);
+        }
+      } catch (error) {
+        console.error("Sales history online orders error:", error);
+        if (!cancelled) {
+          setOnlineOrders([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setOnlineOrdersLoading(false);
+        }
+      }
+    }
+
+    void loadOnlineOrders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId]);
+
+  const unifiedTransactions = useMemo<UnifiedTransaction[]>(() => {
+    const posTransactions = sales.map((sale) => {
+      const itemsInSale = saleItems.filter((item) => item.saleLocalId === sale.localId);
+      const terminalName = posTerminals.find((terminal) => terminal.id === sale.terminalId)?.name || "Gudang Utama";
+
+      return {
+        id: sale.localId,
+        source: "POS" as const,
+        referenceNo: sale.invoiceNo,
+        createdAt: sale.createdAt,
+        paymentMethod: sale.paymentMethod,
+        totalAmount: sale.totalAmount,
+        changeAmount: sale.changeAmount,
+        itemCount: itemsInSale.length,
+        status: sale.status,
+        syncStatus: sale.syncStatus,
+        primaryLabel: terminalName,
+        secondaryLabel: sale.customerName || sale.customerWa || "Transaksi kasir lokal",
+        notes: sale.notes,
+        discountAmount: sale.discountAmount,
+      };
+    });
+
+    const storefrontTransactions = onlineOrders.map((order) => ({
+      id: order.id,
+      source: "STOREFRONT" as const,
+      referenceNo: `WEB-${order.id.slice(-6).toUpperCase()}`,
+      createdAt: new Date(order.createdAt).getTime(),
+      paymentMethod: "TRANSFER" as const,
+      totalAmount: Number(order.totalAmount),
+      changeAmount: 0,
+      itemCount: order.items.length,
+      status: order.status,
+      syncStatus: "SERVER" as const,
+      primaryLabel: order.customerName,
+      secondaryLabel: order.customerPhone || "Pesanan online storefront",
+      notes: "Pesanan dari storefront online",
+    }));
+
+    return [...storefrontTransactions, ...posTransactions].sort(
+      (a, b) => b.createdAt - a.createdAt
     );
-  }, [sales, search]);
+  }, [onlineOrders, posTerminals, saleItems, sales]);
 
-  const totalRevenue = sales
-    .filter((s) => s.status === "COMPLETED")
-    .reduce((sum, s) => sum + s.totalAmount, 0);
+  const filtered = useMemo(() => {
+    if (!search.trim()) return unifiedTransactions;
+    const q = search.toLowerCase();
+    return unifiedTransactions.filter(
+      (transaction) =>
+        transaction.referenceNo.toLowerCase().includes(q) ||
+        transaction.paymentMethod.toLowerCase().includes(q) ||
+        transaction.status.toLowerCase().includes(q) ||
+        transaction.primaryLabel.toLowerCase().includes(q) ||
+        transaction.secondaryLabel.toLowerCase().includes(q) ||
+        transaction.source.toLowerCase().includes(q)
+    );
+  }, [search, unifiedTransactions]);
 
-  const totalVoided = sales.filter((s) => s.status === "VOIDED").length;
+  const totalRevenue =
+    sales
+      .filter((sale) => sale.status === "COMPLETED")
+      .reduce((sum, sale) => sum + sale.totalAmount, 0) +
+    onlineOrders
+      .filter((order) => REALIZED_ONLINE_ORDER_STATUSES.has(order.status))
+      .reduce((sum, order) => sum + Number(order.totalAmount), 0);
 
-  const paymentMethodLabel: Record<string, string> = {
-    CASH: "Tunai",
-    QRIS: "QRIS",
-    TRANSFER: "Transfer",
-    CREDIT: "Kredit",
-  };
+  const totalVoided =
+    sales.filter((sale) => sale.status === "VOIDED").length +
+    onlineOrders.filter((order) => order.status === "CANCELLED").length;
 
-  const statusColor: Record<string, string> = {
-    COMPLETED: "var(--success)",
-    VOIDED: "var(--error)",
-    PENDING: "var(--warning)",
-  };
+  const pendingSyncCount = sales.filter((sale) => sale.syncStatus === "PENDING").length;
 
-  const statusLabel: Record<string, string> = {
-    COMPLETED: "Selesai",
-    VOIDED: "Dibatalkan",
-    PENDING: "Pending",
-  };
+  const isLoading = onlineOrdersLoading && unifiedTransactions.length === 0;
 
   return (
     <DashboardLayout title="Riwayat Transaksi">
@@ -76,9 +237,9 @@ export default function SalesHistoryPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
           <div className="stat-card">
             <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Total Transaksi</span>
-            <span className="stat-value">{sales.length}</span>
+            <span className="stat-value">{unifiedTransactions.length}</span>
             <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "4px" }}>
-              {sales.filter((s) => s.syncStatus === "PENDING").length} belum tersinkron
+              {pendingSyncCount} POS belum tersinkron • {onlineOrders.length} dari storefront
             </span>
           </div>
           <div className="stat-card">
@@ -98,18 +259,22 @@ export default function SalesHistoryPage() {
           <input
             className="input-field"
             style={{ maxWidth: "320px" }}
-            placeholder="Cari invoice, metode bayar..."
+            placeholder="Cari ref, pelanggan, metode bayar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))" }}>
-            Menampilkan {filtered.length} dari {sales.length} transaksi
+            Menampilkan {filtered.length} dari {unifiedTransactions.length} transaksi
           </span>
         </div>
 
         {/* Tabel */}
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div style={{ padding: "40px", textAlign: "center", color: "hsl(var(--text-muted))" }}>
+              Memuat data transaksi...
+            </div>
+          ) : filtered.length === 0 ? (
             <div style={{ padding: "40px", textAlign: "center", color: "hsl(var(--text-muted))" }}>
               Belum ada data transaksi.
             </div>
@@ -118,67 +283,89 @@ export default function SalesHistoryPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "600px" }}>
                 <thead style={{ background: "hsl(var(--bg-elevated))", borderBottom: "1px solid hsl(var(--border))" }}>
                   <tr>
-                    {["No. Invoice", "POS", "Waktu", "Metode", "Total", "Kembalian", "Status", "Sync"].map((h) => (
+                    {["Ref", "Sumber", "Pelanggan / POS", "Waktu", "Metode", "Total", "Kembalian", "Status", "Sync"].map((h) => (
                       <th key={h} style={{ padding: "12px 16px", fontSize: "13px", fontWeight: 600, color: "hsl(var(--text-secondary))", textAlign: "left", whiteSpace: "nowrap" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((sale) => {
-                    const itemsInSale = saleItems.filter((i) => i.saleLocalId === sale.localId);
+                  {filtered.map((transaction) => {
+                    const statusMeta =
+                      transaction.source === "POS"
+                        ? POS_STATUS_META[transaction.status as LocalSale["status"]]
+                        : ONLINE_STATUS_META[transaction.status as OnlineOrderStatus];
+
                     return (
-                      <tr key={sale.localId} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+                      <tr key={transaction.id} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
                         <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: "13px", fontWeight: 600 }}>
-                          {sale.invoiceNo}
+                          {transaction.referenceNo}
                           <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", fontFamily: "inherit", fontWeight: 400, marginTop: "2px" }}>
-                            {itemsInSale.length} item produk
+                            {transaction.itemCount} item produk
                           </div>
                         </td>
                         <td style={{ padding: "12px 16px" }}>
+                          <span
+                            className="badge"
+                            style={{
+                              fontSize: "11px",
+                              background:
+                                transaction.source === "POS"
+                                  ? "hsl(var(--primary)/0.12)"
+                                  : "hsl(var(--success)/0.12)",
+                              color:
+                                transaction.source === "POS"
+                                  ? "hsl(var(--primary))"
+                                  : "hsl(var(--success))",
+                            }}
+                          >
+                            {transaction.source === "POS" ? "POS Lokal" : "Storefront"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
                           <div style={{ fontSize: "13px", fontWeight: 700, color: "hsl(var(--primary))" }}>
-                            {posTerminals.find(t => t.id === sale.terminalId)?.name || "Gudang Utama"}
+                            {transaction.primaryLabel}
                           </div>
-                          <div style={{ fontSize: "10px", color: "hsl(var(--text-muted))" }}>
-                            ID: {sale.terminalId?.slice(-6) || "N/A"}
+                          <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "2px" }}>
+                            {transaction.secondaryLabel}
                           </div>
                         </td>
                         <td style={{ padding: "12px 16px", fontSize: "12px", color: "hsl(var(--text-secondary))", whiteSpace: "nowrap" }}>
-                          {new Date(sale.createdAt).toLocaleDateString("id-ID", {
+                          {new Date(transaction.createdAt).toLocaleDateString("id-ID", {
                             day: "2-digit",
                             month: "short",
                             year: "numeric",
                           })}
                           <div style={{ marginTop: "2px" }}>
-                            {new Date(sale.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(transaction.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
                           </div>
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <span className="badge badge-info" style={{ fontSize: "11px" }}>
-                            {paymentMethodLabel[sale.paymentMethod] || sale.paymentMethod}
+                            {PAYMENT_METHOD_LABEL[transaction.paymentMethod] || transaction.paymentMethod}
                           </span>
                         </td>
                         <td style={{ padding: "12px 16px", fontWeight: 700, fontSize: "14px", color: "hsl(var(--primary))", whiteSpace: "nowrap" }}>
-                          {formatRupiahFull(sale.totalAmount)}
-                          {sale.discountAmount > 0 && (
+                          {formatRupiahFull(transaction.totalAmount)}
+                          {(transaction.discountAmount || 0) > 0 && (
                             <div style={{ fontSize: "10px", color: "hsl(var(--error))", fontWeight: 600, marginTop: "2px" }}>
-                              🏷️ Diskon: {formatRupiahFull(sale.discountAmount)}
+                              Diskon: {formatRupiahFull(transaction.discountAmount || 0)}
                             </div>
                           )}
                         </td>
                         <td style={{ padding: "12px 16px", fontSize: "13px", color: "hsl(var(--text-secondary))", whiteSpace: "nowrap" }}>
-                          {sale.changeAmount > 0 ? formatRupiahFull(sale.changeAmount) : "—"}
+                          {transaction.changeAmount > 0 ? formatRupiahFull(transaction.changeAmount) : "—"}
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <span
                             className="badge"
                             style={{
                               fontSize: "11px",
-                              background: `hsl(${statusColor[sale.status]} / 0.12)`,
-                              color: `hsl(${statusColor[sale.status]})`,
-                              border: `1px solid hsl(${statusColor[sale.status]} / 0.3)`,
+                              background: `hsl(${statusMeta.tone} / 0.12)`,
+                              color: `hsl(${statusMeta.tone})`,
+                              border: `1px solid hsl(${statusMeta.tone} / 0.3)`,
                             }}
                           >
-                            {statusLabel[sale.status] || sale.status}
+                            {statusMeta.label}
                           </span>
                         </td>
                         <td style={{ padding: "12px 16px" }}>
@@ -186,11 +373,21 @@ export default function SalesHistoryPage() {
                             className="badge"
                             style={{
                               fontSize: "11px",
-                              background: sale.syncStatus === "SYNCED" ? "hsl(var(--success)/0.12)" : "hsl(var(--warning)/0.12)",
-                              color: sale.syncStatus === "SYNCED" ? "hsl(var(--success))" : "hsl(var(--warning))",
+                              background:
+                                transaction.syncStatus === "SYNCED" || transaction.syncStatus === "SERVER"
+                                  ? "hsl(var(--success)/0.12)"
+                                  : "hsl(var(--warning)/0.12)",
+                              color:
+                                transaction.syncStatus === "SYNCED" || transaction.syncStatus === "SERVER"
+                                  ? "hsl(var(--success))"
+                                  : "hsl(var(--warning))",
                             }}
                           >
-                            {sale.syncStatus === "SYNCED" ? "✓ Synced" : "⏳ Pending"}
+                            {transaction.syncStatus === "SERVER"
+                              ? "☁ Server"
+                              : transaction.syncStatus === "SYNCED"
+                                ? "✓ Synced"
+                                : "⏳ Pending"}
                           </span>
                         </td>
                       </tr>
