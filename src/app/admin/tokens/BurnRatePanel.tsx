@@ -254,7 +254,7 @@ export default function BurnRatePanel({ analytics: a }: { analytics: Analytics }
           <h2 style={{ fontSize: "17px", marginBottom: "18px" }}>Nilai Deposit (Rupiah)</h2>
           <div style={{ display: "grid", gap: "12px" }}>
             {[
-              { label: "Total Deposit Masuk", val: a.totalDepositValue, hint: "Seluruh token pernah dibeli agen", bold: true },
+              { label: "Total Deposit Masuk", val: a.totalDepositValue, hint: "Nilai nyata dari harga yang dibayar agen (eceran + bundling)", bold: true },
               { label: "Nilai Token Terpakai", val: a.totalBurnedValue,  hint: "Revenue recognised (burn)" },
               { label: "Nilai Saldo Idle",     val: a.totalIdleValue,   hint: "Belum dikonsumsi / belum revenue" },
             ].map((row) => (

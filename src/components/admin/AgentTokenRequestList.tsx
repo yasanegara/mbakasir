@@ -210,7 +210,7 @@ export default function AgentTokenRequestList({
                     {isSubmitting === request.id ? "Menghapus..." : "Hapus"}
                   </button>
                   <Link
-                    href={`/admin/tokens?agentId=${request.agentId || ""}&amount=${request.tokenAmount}&reqId=${request.id}`}
+                    href={`/admin/tokens?agentId=${request.agentId || ""}&amount=${request.tokenAmount}&reqId=${request.id}#agent-${request.agentId}`}
                     className="btn btn-primary btn-sm"
                     style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "6px" }}
                   >

@@ -39,7 +39,7 @@ export default async function AdminTokensPage({
   const tokenConfig = await ensureTokenConfig();
   const agentTokenRequestDelegate = getAgentTokenPurchaseRequestDelegate(prisma);
 
-  const [agents, ledger, rawPendingRequests] = await Promise.all([
+  const [agents, ledger, rawPendingRequests, completedRequestsSummary] = await Promise.all([
     prisma.agent.findMany({
       where: { email: { not: "agen.demo@mbakasir.id" } },
       orderBy: { createdAt: "desc" },
@@ -71,6 +71,7 @@ export default async function AdminTokensPage({
             packageName: true,
             tokenAmount: true,
             totalPrice: true,
+            agentId: true,
             createdAt: true,
             agent: {
               select: {
@@ -81,6 +82,16 @@ export default async function AdminTokensPage({
           },
         })
       : Promise.resolve([]),
+    // Ambil total harga nyata dari semua request yang sudah COMPLETED
+    agentTokenRequestDelegate
+      ? agentTokenRequestDelegate.aggregate({
+          where: {
+            status: "COMPLETED",
+            agent: { email: { not: "agen.demo@mbakasir.id" } },
+          },
+          _sum: { totalPrice: true },
+        })
+      : Promise.resolve({ _sum: { totalPrice: null } }),
   ]);
   const pendingRequests = rawPendingRequests as PendingAgentTokenRequest[];
 
@@ -97,7 +108,11 @@ export default async function AdminTokensPage({
   const totalBalance = agents.reduce((s, a) => s + a.tokenBalance, 0);
 
   // Nilai rupiah
-  const totalDepositValue = totalMinted * tokenPrice;       // Nilai total deposit masuk (= revenue bruto)
+  // Gunakan harga nyata dari transaksi COMPLETED (bukan estimasi berdasarkan harga token saat ini)
+  const totalDepositValue = Number(completedRequestsSummary._sum?.totalPrice ?? 0);
+  // Fallback: jika belum ada data COMPLETED (mis. baru mulai), gunakan estimasi totalMinted * tokenPrice
+  const totalDepositValueFallback = totalMinted * tokenPrice;
+  const totalDepositValueFinal = totalDepositValue > 0 ? totalDepositValue : totalDepositValueFallback;
   const totalBurnedValue  = totalBurned  * tokenPrice;       // Nilai token terpakai
   const totalIdleValue    = totalBalance  * tokenPrice;      // Nilai saldo tidur belum dipakai
 
@@ -145,8 +160,8 @@ export default async function AdminTokensPage({
     burnRatePerMonth,
     runwayMonths,
     utilizationPct: totalMinted > 0 ? Math.round((totalBurned / totalMinted) * 100) : 0,
-    // Value rupiah
-    totalDepositValue,
+    // Value rupiah — gunakan nilai nyata dari transaksi, bukan estimasi harga
+    totalDepositValue: totalDepositValueFinal,
     totalBurnedValue,
     totalIdleValue,
     // P&L
@@ -230,7 +245,17 @@ export default async function AdminTokensPage({
           </thead>
           <tbody>
             {agents.map((agent) => (
-              <tr key={agent.id} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
+              <tr 
+                key={agent.id} 
+                id={`agent-${agent.id}`}
+                style={{ 
+                  borderBottom: "1px solid hsl(var(--border))",
+                  background: agent.id === targetAgentId 
+                    ? "hsl(var(--primary)/0.06)" 
+                    : undefined,
+                  transition: "background 0.3s ease"
+                }}
+              >
                 <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: 600 }}>
                   {agent.name}
                   <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", fontWeight: 400 }}>{agent.email}</div>
