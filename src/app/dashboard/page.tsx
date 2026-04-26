@@ -66,7 +66,12 @@ export default async function DashboardPage() {
     });
     tokenBalance = agent?.tokenBalance || 0;
     (session as any).isPusat = isPusat;
-    agentRequests = reqs;
+    agentRequests = reqs.map(r => ({
+      ...r,
+      totalPrice: Number(r.totalPrice),
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
   }
 
   if (session.role === "SUPERADMIN" && agentTokenRequestDelegate) {
@@ -105,7 +110,7 @@ export default async function DashboardPage() {
       packageName: request.packageName,
       tokenAmount: request.tokenAmount,
       totalPrice: Number(request.totalPrice),
-      createdAt: request.createdAt,
+      createdAt: request.createdAt.toISOString(),
       agent: request.agent,
     }));
   }

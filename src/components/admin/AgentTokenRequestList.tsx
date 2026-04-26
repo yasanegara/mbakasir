@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatDate, formatRupiahFull } from "@/lib/utils";
 
 export interface AgentTokenRequestItem {
@@ -34,9 +38,36 @@ export default function AgentTokenRequestList({
   maxItems,
   additionalPendingCount = 0,
 }: AgentTokenRequestListProps) {
-  const displayedRequests = maxItems ? requests.slice(0, maxItems) : requests;
+  const router = useRouter();
+  const [localReqs, setLocalReqs] = useState(requests);
+  const [isSubmitting, setIsSubmitting] = useState<string | null>(null);
+
+  const displayedRequests = maxItems ? localReqs.slice(0, maxItems) : localReqs;
   const hiddenCount =
-    Math.max(0, requests.length - displayedRequests.length) + additionalPendingCount;
+    Math.max(0, localReqs.length - displayedRequests.length) + additionalPendingCount;
+
+  async function handleReject(id: string) {
+    if (!confirm("Hapus permintaan token agen ini?")) return;
+    
+    setIsSubmitting(id);
+    try {
+      const res = await fetch(`/api/admin/agent-token-requests/${id}/reject`, {
+        method: "POST",
+      });
+      
+      if (res.ok) {
+        setLocalReqs(prev => prev.filter(r => r.id !== id));
+        router.refresh();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Gagal menghapus permintaan");
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan");
+    } finally {
+      setIsSubmitting(null);
+    }
+  }
 
   return (
     <section className="card" style={{ border: "1px solid hsl(var(--primary) / 0.2)" }}>
@@ -151,8 +182,31 @@ export default function AgentTokenRequestList({
                 </div>
               </div>
 
-              <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                Masuk pada {formatDate(request.createdAt)}
+              <div style={{ 
+                display: "flex", 
+                justifyContent: "space-between", 
+                alignItems: "center",
+                marginTop: "4px"
+              }}>
+                <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
+                  Masuk pada {formatDate(request.createdAt)}
+                </div>
+                <button 
+                  onClick={() => handleReject(request.id)}
+                  disabled={isSubmitting === request.id}
+                  style={{
+                    background: "transparent",
+                    border: "1px solid hsl(var(--error)/0.3)",
+                    color: "hsl(var(--error))",
+                    fontSize: "11px",
+                    padding: "4px 10px",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    opacity: isSubmitting === request.id ? 0.5 : 1
+                  }}
+                >
+                  {isSubmitting === request.id ? "Menghapus..." : "Hapus"}
+                </button>
               </div>
             </div>
           ))}
