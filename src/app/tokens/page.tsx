@@ -171,15 +171,20 @@ export default function AgentTokensPage() {
         className="stat-card" 
         style={{ 
           marginBottom: "24px", 
-          maxWidth: "400px", 
-          cursor: "pointer", 
-          transition: "transform 0.2s" 
+          maxWidth: "400px"
         }}
-        onClick={() => setIsLedgerOpen(true)}
-        onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
-        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
       >
-        <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Saldo {tokenConfig.tokenName} Anda</span>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+          <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Saldo {tokenConfig.tokenName} Anda</span>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setIsLedgerOpen(true)}
+            style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+          >
+            Lihat Riwayat
+          </button>
+        </div>
         <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
            <span className="stat-value">
              {user?.email === "pusat@mbakasir.local" ? "∞ Unmetered" : balance.toLocaleString()}
