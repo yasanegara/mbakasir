@@ -124,6 +124,24 @@ export default function LoginPage() {
           >
             {isLoading ? "Authenticating..." : "Masuk"}
           </button>
+
+          <div style={{ textAlign: "center", marginTop: "8px", fontSize: "14px" }}>
+            <span style={{ color: "hsl(var(--text-secondary))" }}>Belum punya akun? </span>
+            <button 
+              type="button"
+              onClick={() => router.push("/register/store")}
+              style={{ 
+                background: "none", 
+                border: "none", 
+                color: "hsl(var(--primary))", 
+                fontWeight: 800, 
+                cursor: "pointer",
+                padding: "4px"
+              }}
+            >
+              Daftar Sekarang
+            </button>
+          </div>
         </form>
 
         <div style={{ marginTop: "24px" }}>

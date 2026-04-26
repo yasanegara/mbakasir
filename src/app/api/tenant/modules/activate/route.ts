@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
       if (!tenant) throw new Error("Toko tidak ditemukan");
       if (tenant.tokenBalance < tokenCost) {
-        throw new Error(`Saldo koin Anda tidak mencukupi (Butuh ${tokenCost}). Silakan hubungi Agen.`);
+        throw new Error(`Saldo token Anda tidak mencukupi (Butuh ${tokenCost}). Silakan hubungi Agen.`);
       }
 
       // 1. Potong saldo tenant

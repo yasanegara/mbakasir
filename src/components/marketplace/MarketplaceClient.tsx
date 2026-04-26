@@ -75,8 +75,8 @@ export default function MarketplaceClient({ addons, activeModules }: Marketplace
           onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
           title="Klik untuk lihat riwayat"
         >
-          <div style={{ fontSize: "13px", fontWeight: 600, opacity: 0.8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Saldo Koin Anda</div>
-          <div style={{ fontSize: "32px", fontWeight: 900, marginTop: "4px" }}>🪙 {tokenBalance} <span style={{ fontSize: "16px", fontWeight: 600, opacity: 0.8 }}>Koin</span></div>
+          <div style={{ fontSize: "13px", fontWeight: 600, opacity: 0.8, textTransform: "uppercase", letterSpacing: "0.05em" }}>Saldo Token Anda</div>
+          <div style={{ fontSize: "32px", fontWeight: 900, marginTop: "4px" }}>🪙 {tokenBalance} <span style={{ fontSize: "16px", fontWeight: 600, opacity: 0.8 }}>Token</span></div>
         </div>
       </div>
 
@@ -197,18 +197,18 @@ export default function MarketplaceClient({ addons, activeModules }: Marketplace
 
               <div style={{ background: "hsl(var(--primary) / 0.05)", padding: "20px", borderRadius: "16px", border: "1px solid hsl(var(--primary) / 0.1)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))" }}>Total Koin Dibutuhkan</span>
-                  <span style={{ fontSize: "18px", fontWeight: 800, color: "hsl(var(--primary))" }}>🪙 {selectedAddon.tokenCost * quantity} Koin</span>
+                  <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))" }}>Total Token Dibutuhkan</span>
+                  <span style={{ fontSize: "18px", fontWeight: 800, color: "hsl(var(--primary))" }}>🪙 {selectedAddon.tokenCost * quantity} Token</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))" }}>Saldo Koin Saat Ini</span>
-                  <span style={{ fontSize: "14px", fontWeight: 600 }}>🪙 {tokenBalance} Koin</span>
+                  <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))" }}>Saldo Token Saat Ini</span>
+                  <span style={{ fontSize: "14px", fontWeight: 600 }}>🪙 {tokenBalance} Token</span>
                 </div>
               </div>
 
               {tokenBalance < (selectedAddon.tokenCost * quantity) && (
                 <div style={{ padding: "12px 16px", borderRadius: "12px", background: "hsl(var(--error) / 0.1)", color: "hsl(var(--error))", fontSize: "13px", fontWeight: 600 }}>
-                  ⚠️ Saldo koin tidak mencukupi. Silakan hubungi agen Anda untuk top-up koin.
+                  ⚠️ Saldo token tidak mencukupi. Silakan hubungi agen Anda untuk top-up token.
                 </div>
               )}
             </div>
@@ -220,14 +220,32 @@ export default function MarketplaceClient({ addons, activeModules }: Marketplace
                 onClick={() => { setSelectedAddon(null); setQuantity(1); }}
                 disabled={isPending}
               >Batal</button>
-              <button 
-                className="btn btn-primary" 
-                style={{ flex: 2, fontWeight: 700 }}
-                disabled={isPending || tokenBalance < (selectedAddon.tokenCost * quantity)}
-                onClick={handleActivate}
-              >
-                {isPending ? "Memproses..." : "Konfirmasi & Aktifkan"}
-              </button>
+              
+              {tokenBalance < (selectedAddon.tokenCost * quantity) ? (
+                <button 
+                  className="btn btn-primary" 
+                  style={{ 
+                    flex: 2, 
+                    fontWeight: 700, 
+                    background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)", 
+                    color: "white", 
+                    border: "none",
+                    boxShadow: "0 4px 12px rgba(217, 119, 6, 0.3)"
+                  }}
+                  onClick={() => window.location.href = "/buy"}
+                >
+                  🛒 Beli Token Sekarang
+                </button>
+              ) : (
+                <button 
+                  className="btn btn-primary" 
+                  style={{ flex: 2, fontWeight: 700 }}
+                  disabled={isPending}
+                  onClick={handleActivate}
+                >
+                  {isPending ? "Memproses..." : "Konfirmasi & Aktifkan"}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -236,7 +254,7 @@ export default function MarketplaceClient({ addons, activeModules }: Marketplace
       <TokenLedgerModal 
         isOpen={isLedgerOpen} 
         onClose={() => setIsLedgerOpen(false)} 
-        title="Riwayat Pemakaian Koin"
+        title="Riwayat Pemakaian Token"
       />
     </div>
   );

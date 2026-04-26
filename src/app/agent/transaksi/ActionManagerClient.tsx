@@ -174,6 +174,7 @@ export default function ActionManagerClient({ requests, tenants, tokenConfig, ag
                 {storefrontConversion && (
                   <option value="STOREFRONT_MONTH">🛍️ Aktifkan Storefront Online (Harga: {storefrontConversion.tokenCost} token/bulan)</option>
                 )}
+                <option value="TOPUP">🪙 Isi Saldo Token Toko (Harga: 1 token = 1 token)</option>
               </select>
             </div>
 

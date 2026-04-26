@@ -128,6 +128,13 @@ export async function POST(req: NextRequest) {
           });
           description = `Agen mengaktifkan Storefront ${rewardMonths} bulan untuk Toko ${tenant.name} (URL: /store/${slug})`;
         }
+      } else if (parsed.targetKey === "TOPUP") {
+        const topupAmount = conversion.rewardQuantity * parsed.quantity;
+        await tx.tenant.update({
+          where: { id: tenant.id },
+          data: { tokenBalance: { increment: topupAmount } }
+        });
+        description = `Agen melakukan Top-up ${topupAmount} token ke Toko ${tenant.name}`;
       }
 
       // Catat di ledger

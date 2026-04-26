@@ -35,6 +35,40 @@ export default function PurchaseFormClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [timeLeft, setTimeLeft] = useState(7200);
+  const [isWaitingActivation, setIsWaitingActivation] = useState(false);
+  const [activationTimeLeft, setActivationTimeLeft] = useState(0);
+
+  // Load waiting state from localStorage
+  useEffect(() => {
+    const savedWait = localStorage.getItem(`activationWait_${tenantName}`);
+    if (savedWait) {
+      const waitUntil = parseInt(savedWait);
+      const now = Date.now();
+      if (waitUntil > now) {
+        setIsWaitingActivation(true);
+        setActivationTimeLeft(Math.floor((waitUntil - now) / 1000));
+      } else {
+        localStorage.removeItem(`activationWait_${tenantName}`);
+      }
+    }
+  }, [tenantName]);
+
+  // Activation Wait Countdown timer
+  useEffect(() => {
+    if (isWaitingActivation && activationTimeLeft > 0) {
+      const timer = setInterval(() => {
+        setActivationTimeLeft((prev) => {
+          if (prev <= 1) {
+            setIsWaitingActivation(false);
+            localStorage.removeItem(`activationWait_${tenantName}`);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [isWaitingActivation, activationTimeLeft, tenantName]);
 
   const subtotal = amount * tokenPrice;
   const totalPrice = Math.max(0, subtotal - discount);
@@ -51,7 +85,9 @@ export default function PurchaseFormClient({
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return hrs > 0 
+      ? `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+      : `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   async function handleCheckVoucher() {
@@ -96,13 +132,14 @@ export default function PurchaseFormClient({
         body: JSON.stringify({ amount, totalPrice, voucherCode: voucherCode || "" }),
       });
       
-      if (!res.ok) throw new Error("Gagal memproses pesanan");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal memproses pesanan");
 
       setView("CHECKOUT");
       setTimeLeft(7200);
       toast("Pesanan dicatat. Silakan selesaikan pembayaran.", "success");
-    } catch {
-      toast("Gagal memproses pesanan.", "error");
+    } catch (e: any) {
+      toast(e.message || "Gagal memproses pesanan.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -134,7 +171,15 @@ export default function PurchaseFormClient({
         return;
       }
 
+      // Start 15 minute wait
+      const waitMinutes = 15;
+      const waitUntil = Date.now() + (waitMinutes * 60 * 1000);
+      localStorage.setItem(`activationWait_${tenantName}`, waitUntil.toString());
+      setIsWaitingActivation(true);
+      setActivationTimeLeft(waitMinutes * 60);
+
       window.open(waUrl, "_blank");
+      toast("WhatsApp terkirim. Mohon tunggu aktivasi dari Agen.", "success");
     } catch {
       toast("Gagal memproses pengiriman WA", "error");
     } finally {
@@ -226,11 +271,28 @@ export default function PurchaseFormClient({
 
         <button
           onClick={handleFinalPurchase}
-          disabled={!proofFile}
+          disabled={!proofFile || isSubmitting || isWaitingActivation}
           className="btn btn-primary"
-          style={{ width: "100%", height: "56px", fontSize: "16px", fontWeight: 800, borderRadius: "16px" }}
+          style={{ 
+            width: "100%", 
+            height: "56px", 
+            fontSize: "16px", 
+            fontWeight: 800, 
+            borderRadius: "16px",
+            background: isWaitingActivation ? "hsl(var(--warning) / 0.1)" : "hsl(var(--primary))",
+            color: isWaitingActivation ? "hsl(var(--warning))" : "white",
+            border: isWaitingActivation ? "2px solid hsl(var(--warning))" : "none",
+            cursor: isWaitingActivation ? "wait" : "pointer"
+          }}
         >
-          Konfirmasi & Buka WhatsApp
+          {isWaitingActivation ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+              <span>⏳ Mohon Tunggu Aktivasi...</span>
+              <span style={{ fontVariantNumeric: "tabular-nums", opacity: 0.8 }}>({formatTime(activationTimeLeft)})</span>
+            </div>
+          ) : (
+            isSubmitting ? "Memproses..." : "Konfirmasi & Buka WhatsApp"
+          )}
         </button>
       </div>
     );

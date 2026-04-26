@@ -69,6 +69,17 @@ export const DEFAULT_TOKEN_CONFIG: TokenConfigSnapshot = {
       isActive: true,
       sortOrder: 30,
     },
+    {
+      targetKey: "TOPUP",
+      targetLabel: "Isi Saldo Token Toko (Transfer)",
+      moduleKey: null,
+      tokenCost: 1,
+      rewardQuantity: 1,
+      rewardUnit: "token",
+      description: "Hanya menambah saldo token toko tanpa aktivasi fitur.",
+      isActive: true,
+      sortOrder: 100,
+    },
   ],
 };
 
