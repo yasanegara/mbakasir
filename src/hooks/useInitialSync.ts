@@ -47,11 +47,51 @@ export function useInitialSync() {
             throw new Error(data.error || "Gagal mengambil data master");
           }
           
-          await db.transaction('rw', [db.tenants, db.products, db.rawMaterials, db.billOfMaterials, db.posTerminals, db.productAssignments], async () => {
+          await db.transaction('rw', [db.tenants, db.products, db.rawMaterials, db.billOfMaterials, db.posTerminals, db.productAssignments, db.syncQueue], async () => {
+             const pendingProductOps = await db.syncQueue
+               .where("table")
+               .equals("products")
+               .toArray();
+
+             const pendingProductIds = new Set(
+               pendingProductOps
+                 .filter((item) => item.action === "CREATE" || item.action === "UPDATE")
+                 .map((item) => item.localId)
+             );
+
+             const deletedProductIds = new Set(
+               pendingProductOps
+                 .filter((item) => item.action === "DELETE")
+                 .map((item) => item.localId)
+             );
+
+             const localPendingProducts = pendingProductIds.size > 0
+               ? await db.products
+                   .filter((product) => pendingProductIds.has(product.localId))
+                   .toArray()
+               : [];
+
+             const localPendingProductMap = new Map(
+               localPendingProducts.map((product) => [product.localId, product])
+             );
+
+             const mergedProducts = (data.products || [])
+               .filter((product: { localId: string }) => !deletedProductIds.has(product.localId))
+               .map((product: { localId: string }) => {
+                 const localPending = localPendingProductMap.get(product.localId);
+                 return localPending ?? product;
+               });
+
+             for (const localPendingProduct of localPendingProducts) {
+               if (!mergedProducts.some((product: { localId: string }) => product.localId === localPendingProduct.localId)) {
+                 mergedProducts.push(localPendingProduct);
+               }
+             }
+
              await db.tenants.put(data.tenant);
              
              await db.products.clear();
-             await db.products.bulkPut(data.products);
+             await db.products.bulkPut(mergedProducts);
 
              await db.rawMaterials.clear();
              await db.rawMaterials.bulkPut(data.rawMaterials);
