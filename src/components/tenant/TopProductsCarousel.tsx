@@ -4,11 +4,20 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { getDb } from "@/lib/db";
 import { formatRupiahFull } from "@/lib/utils";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AppProviders";
 
 export default function TopProductsCarousel() {
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
+
   const topProducts = useLiveQuery(async () => {
+    if (!tenantId) return null;
     const db = getDb();
-    const sales = await db.sales.where("status").equals("COMPLETED").toArray();
+    const sales = await db.sales
+      .where("[tenantId+status]")
+      .equals([tenantId, "COMPLETED"])
+      .toArray();
+
     const saleIds = sales.map(s => s.localId);
     const items = await db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
     
@@ -26,7 +35,7 @@ export default function TopProductsCarousel() {
       .slice(0, 7);
 
     return result.length > 0 ? result : null;
-  }, []);
+  }, [tenantId]);
 
   if (topProducts === undefined) {
     return (

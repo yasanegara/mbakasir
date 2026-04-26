@@ -57,7 +57,7 @@ export function useStoreProfile(tenantId: string | undefined) {
   const profile = useLiveQuery<LocalStoreProfile | undefined>(
     () => {
       if (!tenantId) return Promise.resolve(undefined);
-      return getDb().storeProfile.get("default");
+      return getDb().storeProfile.get(tenantId);
     },
     [tenantId]
   );
@@ -66,14 +66,14 @@ export function useStoreProfile(tenantId: string | undefined) {
     if (!tenantId) throw new Error("tenantId wajib ada");
     const db = getDb();
     const now = Date.now();
-    const existing = await db.storeProfile.get("default");
+    const existing = await db.storeProfile.get(tenantId);
     if (existing) {
-      await db.storeProfile.update("default", { ...data, updatedAt: now });
+      await db.storeProfile.update(tenantId, { ...data, updatedAt: now });
     } else {
       await db.storeProfile.put({
         ...DEFAULT_STORE_PROFILE,
         ...data,
-        id: "default",
+        id: tenantId,
         tenantId,
         updatedAt: now,
       });

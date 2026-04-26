@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getStorefrontConfigDelegate, getOnlineOrderDelegate } from "@/lib/prisma";
 import { z } from "zod";
 import { sendTelegramNotification } from "@/lib/notifications";
 
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   if (!slug) return Response.json({ error: "Slug tidak valid" }, { status: 400 });
 
-  const storefront = await prisma.storefrontConfig.findUnique({
+  const storefront = await getStorefrontConfigDelegate(prisma).findUnique({
     where: { slug, isActive: true },
     include: {
       tenant: {
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     const parsed = checkoutSchema.parse(data);
 
-    const storefront = await prisma.storefrontConfig.findUnique({
+    const storefront = await getStorefrontConfigDelegate(prisma).findUnique({
       where: { slug: parsed.slug, isActive: true },
       include: {
         tenant: {
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
     const totalAmount = subtotal + shippingCost;
 
     // Buat pesanan
-    const order = await prisma.onlineOrder.create({
+    const order = await getOnlineOrderDelegate(prisma).create({
       data: {
         tenantId: storefront.tenantId,
         storefrontId: storefront.id,
@@ -147,5 +148,35 @@ export async function POST(req: NextRequest) {
     }
     console.error("Checkout error:", err);
     return Response.json({ error: "Gagal membuat pesanan" }, { status: 500 });
+  }
+}
+
+// PATCH: update bukti transfer untuk pesanan yang sudah ada
+export async function PATCH(req: NextRequest) {
+  try {
+    const { orderId, paymentProofUrl, slug } = await req.json();
+
+    if (!orderId || !paymentProofUrl || !slug) {
+      return Response.json({ error: "Data tidak lengkap" }, { status: 400 });
+    }
+
+    // Verifikasi order milik storefront yang benar
+    const storefront = await getStorefrontConfigDelegate(prisma).findUnique({
+      where: { slug, isActive: true },
+    });
+
+    if (!storefront) {
+      return Response.json({ error: "Toko tidak ditemukan" }, { status: 404 });
+    }
+
+    const order = await getOnlineOrderDelegate(prisma).update({
+      where: { id: orderId, storefrontId: storefront.id },
+      data: { paymentProofUrl },
+    });
+
+    return Response.json({ success: true, order });
+  } catch (err) {
+    console.error("Proof update error:", err);
+    return Response.json({ error: "Gagal memperbarui bukti pembayaran" }, { status: 500 });
   }
 }

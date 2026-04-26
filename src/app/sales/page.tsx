@@ -15,12 +15,22 @@ export default function SalesHistoryPage() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
 
-  const sales = useLiveQuery(() =>
-    getDb().sales.orderBy("createdAt").reverse().limit(200).toArray()
-  ) || [];
+  const tenantId = user?.tenantId;
 
-  const saleItems = useLiveQuery(() => getDb().saleItems.toArray()) || [];
-  const posTerminals = useLiveQuery(() => getDb().posTerminals.toArray()) || [];
+  const sales = useLiveQuery(() => {
+    if (!tenantId) return Promise.resolve([]);
+    return getDb().sales.where("tenantId").equals(tenantId).reverse().sortBy("createdAt").then(arr => arr.slice(0, 200));
+  }, [tenantId]) || [];
+
+  const saleItems = useLiveQuery(() => {
+    if (!tenantId || sales.length === 0) return Promise.resolve([]);
+    const saleIds = sales.map(s => s.localId);
+    return getDb().saleItems.where("saleLocalId").anyOf(saleIds).toArray();
+  }, [tenantId, sales.length]) || [];
+
+  const posTerminals = useLiveQuery(() => 
+    tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : Promise.resolve([])
+  , [tenantId]) || [];
 
   const filtered = useMemo(() => {
     if (!search.trim()) return sales;

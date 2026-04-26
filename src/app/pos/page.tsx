@@ -49,11 +49,24 @@ export default function POSPage() {
     if (saved) setCurrentTerminalId(saved);
   }, []);
 
-  const posTerminals = useLiveQuery(() => getDb().posTerminals.where("isActive").equals(1).toArray()) || [];
-  const productAssignments = useLiveQuery(() => getDb().productAssignments.toArray()) || [];
+  const tenantId = user?.tenantId;
+
+  const posTerminals = useLiveQuery(() => 
+    tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).and(t => t.isActive).toArray() : Promise.resolve([])
+  , [tenantId]) || [];
+
+  const productAssignments = useLiveQuery(() => {
+    if (!tenantId) return Promise.resolve([]);
+    // First get the local products to know which IDs to look for
+    return getDb().products.where("tenantId").equals(tenantId).toArray().then(prods => {
+      const ids = prods.map(p => p.localId);
+      return getDb().productAssignments.where("productId").anyOf(ids).toArray();
+    });
+  }, [tenantId]) || [];
 
   const products = useLiveQuery(async () => {
-    const all = await getDb().products.toArray();
+    if (!tenantId) return [];
+    const all = await getDb().products.where("tenantId").equals(tenantId).toArray();
     const activeProducts = all.filter((p) => p.isActive === true && p.showInPos !== false);
     
     // Filter by assignment & Merge Stock
@@ -79,8 +92,10 @@ export default function POSPage() {
 
   const currentTerminal = posTerminals.find(t => t.id === currentTerminalId);
 
-  const storeProfile = useLiveQuery(() => getDb().storeProfile.get("default"));
-  const storeName = storeProfile?.storeName || "";
+  const storeProfile = useLiveQuery(() => 
+    tenantId ? getDb().storeProfile.get(tenantId) || getDb().storeProfile.get("default") : Promise.resolve(null)
+  , [tenantId]);
+  const storeName = storeProfile?.storeName || user?.name || "MbaKasir";
   const storeAddress = storeProfile?.address || "";
   const storePhone = storeProfile?.phone || "";
   const storeFooter = storeProfile?.footerNote || "Terima kasih sudah berbelanja! 🙏";
@@ -88,9 +103,9 @@ export default function POSPage() {
   const waReceiptTemplate = storeProfile?.waReceiptTemplate || "";
   
   const shifts = useLiveQuery(async () => {
-    if (!user) return [];
-    return await getDb().shifts.where("userId").equals(user.sub).toArray();
-  }, [user]);
+    if (!user || !tenantId) return [];
+    return await getDb().shifts.where("tenantId").equals(tenantId).and(s => s.userId === user.sub).toArray();
+  }, [user, tenantId]);
   const activeShift = shifts?.find((s) => !s.closedAt);
 
   const [cart, setCart] = useState<{ product: LocalProduct; qty: number }[]>([]);
@@ -114,6 +129,14 @@ export default function POSPage() {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [lastReceipt, setLastReceipt] = useState<any>(null);
+  const [brand, setBrand] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("/api/public/brand")
+      .then(r => r.json())
+      .then(data => setBrand(data.brand))
+      .catch(() => {});
+  }, []);
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.qty, 0);
   const totalAmount = Math.max(0, subtotal - discountAmount);
@@ -331,9 +354,29 @@ export default function POSPage() {
         ) : (
           cart.map((item) => (
             <div key={item.product.localId} style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div 
+                style={{ 
+                  width: "44px", 
+                  height: "44px", 
+                  borderRadius: "10px", 
+                  background: "hsl(var(--bg-elevated))", 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  border: "1px solid hsl(var(--border))",
+                  flexShrink: 0
+                }}
+              >
+                {item.product.imageUrl ? (
+                  <img src={item.product.imageUrl} alt={item.product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <span style={{ fontSize: "16px", opacity: 0.3 }}>📦</span>
+                )}
+              </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: "14px", fontWeight: 600 }}>{item.product.name}</div>
-                <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))" }}>{formatRupiahFull(item.product.price)}</div>
+                <div style={{ fontSize: "14px", fontWeight: 700 }}>{item.product.name}</div>
+                <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>{formatRupiahFull(item.product.price)}</div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "hsl(var(--bg-elevated))", borderRadius: "100px", padding: "4px" }}>
                 <button className="btn btn-ghost btn-icon" style={{ width: "28px", height: "28px" }} onClick={() => updateQty(item.product.localId, -1)}>-</button>
@@ -572,8 +615,12 @@ export default function POSPage() {
             <div className="product-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "16px" }}>
               {filteredProducts.map((p) => (
                 <div key={p.localId} className="card product-card" style={{ cursor: "pointer", padding: "12px", textAlign: "center", opacity: p.stock <= 0 ? 0.6 : 1 }} onClick={() => addToCart(p)}>
-                  <div style={{ aspectRatio: "1", background: "hsl(var(--bg-elevated))", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px", marginBottom: "8px" }}>
-                    {p.name.charAt(0)}
+                  <div style={{ aspectRatio: "1", background: "hsl(var(--bg-elevated))", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "32px", marginBottom: "8px", overflow: "hidden" }}>
+                    {p.imageUrl ? (
+                      <img src={p.imageUrl} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      p.name.charAt(0)
+                    )}
                   </div>
                   <div style={{ fontWeight: 600, fontSize: "14px", lineHeight: 1.2, height: "2.4em", overflow: "hidden" }}>{p.name}</div>
                   <div style={{ color: "hsl(var(--primary))", fontWeight: 700, margin: "4px 0" }}>{formatRupiahFull(p.price)}</div>
@@ -625,22 +672,62 @@ export default function POSPage() {
 
       {lastReceipt && (
         <div id="print-receipt" style={{ display: "none" }}>
-          <div style={{ fontFamily: "monospace", fontSize: "13px", width: "280px", margin: "0 auto", padding: "20px 0" }}>
-            <div style={{ textAlign: "center", marginBottom: "12px", borderBottom: "1px dashed #000", paddingBottom: "12px" }}>
-              <div style={{ fontSize: "18px", fontWeight: 800 }}>{storeName || "MbaKasir"}</div>
-              <div style={{ fontSize: "10px" }}>{new Date().toLocaleString("id-ID")}</div>
-            </div>
-            {lastReceipt.items.map((item: any, i: number) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                <span>{item.name} x{item.qty}</span>
-                <span>{formatRupiahFull(item.price * item.qty)}</span>
+          <div style={{ fontFamily: "'Courier New', Courier, monospace", fontSize: "12px", width: "300px", margin: "0 auto", padding: "10px", color: "#000" }}>
+            {/* Header */}
+            <div style={{ textAlign: "center", marginBottom: "15px" }}>
+              <div style={{ fontSize: "16px", fontWeight: 800, textTransform: "uppercase" }}>{storeName || "MbaKasir"}</div>
+              {storeAddress && <div style={{ fontSize: "11px", marginTop: "2px" }}>{storeAddress}</div>}
+              {storePhone && <div style={{ fontSize: "11px" }}>Telp: {storePhone}</div>}
+              <div style={{ borderTop: "1px dashed #000", marginTop: "10px", paddingTop: "5px", fontSize: "10px", display: "flex", justifyContent: "space-between" }}>
+                <span>{lastReceipt.invoiceNo}</span>
+                <span>{new Date().toLocaleString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               </div>
-            ))}
-            <div style={{ borderTop: "1px dashed #000", marginTop: "8px", paddingTop: "8px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+            </div>
+
+            {/* Items */}
+            <div style={{ marginBottom: "10px" }}>
+              {lastReceipt.items.map((item: any, i: number) => (
+                <div key={i} style={{ marginBottom: "6px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontWeight: 600 }}>{item.name}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
+                    <span>{item.qty} x {formatRupiahFull(item.price)}</span>
+                    <span>{formatRupiahFull(item.price * item.qty)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Totals */}
+            <div style={{ borderTop: "1px dashed #000", paddingTop: "8px", display: "grid", gap: "4px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Subtotal</span><span>{formatRupiahFull(lastReceipt.subtotal)}</span>
+              </div>
+              {lastReceipt.discount > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Diskon</span><span>-{formatRupiahFull(lastReceipt.discount)}</span>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "14px", marginTop: "4px", borderTop: "1px solid #000", paddingTop: "4px" }}>
                 <span>TOTAL</span><span>{formatRupiahFull(lastReceipt.total)}</span>
               </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginTop: "4px" }}>
+                <span>Metode: {lastReceipt.method}</span>
+                {lastReceipt.change > 0 && <span>Kembali: {formatRupiahFull(lastReceipt.change)}</span>}
+              </div>
             </div>
+
+            {/* Footer */}
+            <div style={{ textAlign: "center", marginTop: "20px", borderTop: "1px dashed #000", paddingTop: "10px", fontSize: "11px", fontStyle: "italic" }}>
+              {storeFooter || "Terima kasih atas kunjungan Anda!"}
+            </div>
+            
+            {brand?.showFooterPoweredBy !== false && (
+              <div style={{ textAlign: "center", marginTop: "10px", fontSize: "9px", opacity: 0.5 }}>
+                {brand?.footerPoweredByText || "Powered by MbaKasir Intelligence"}
+              </div>
+            )}
           </div>
         </div>
       )}

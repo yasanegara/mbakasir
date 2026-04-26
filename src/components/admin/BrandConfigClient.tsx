@@ -475,6 +475,42 @@ export default function BrandConfigClient({
             Semua maklumat di sini akan dibaca oleh AI sebagai pedoman wajib setiap kali dia menulis artikel.
           </span>
         </div>
+
+        <div style={{ gridColumn: "1 / -1", borderTop: "1px solid hsl(var(--border))", paddingTop: "20px", marginTop: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
+             <label className="input-label" style={{ marginBottom: 0 }}>Branding Struk (Receipt Branding)</label>
+             <span style={{ fontSize: "10px", background: "hsl(var(--warning) / 0.1)", color: "hsl(var(--warning))", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>STRUK</span>
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "20px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "hsl(var(--bg-elevated))", padding: "12px 16px", borderRadius: "12px", border: "1px solid hsl(var(--border))" }}>
+              <input
+                id="brand-show-footer"
+                type="checkbox"
+                checked={config.showFooterPoweredBy}
+                onChange={(e) => update("showFooterPoweredBy", e.target.checked)}
+                style={{ width: "20px", height: "20px", cursor: "pointer" }}
+              />
+              <label htmlFor="brand-show-footer" style={{ fontSize: "14px", fontWeight: 600, cursor: "pointer" }}>
+                Aktifkan Footer "Powered By"
+              </label>
+            </div>
+
+            <div>
+              <input
+                id="brand-footer-text"
+                className="input-field"
+                value={config.footerPoweredByText ?? ""}
+                onChange={(e) => update("footerPoweredByText", e.target.value)}
+                placeholder="Powered by MbaKasir Intelligence"
+                disabled={!config.showFooterPoweredBy}
+              />
+              <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "4px", display: "block" }}>
+                Teks yang akan muncul paling bawah di struk thermal.
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Upload widgets */}

@@ -179,6 +179,28 @@ export default function OrderManagerClient() {
                       {order.notes && <div style={{ color: "hsl(var(--text-secondary))", marginTop: "4px" }}>📝 {order.notes}</div>}
                     </div>
 
+                    {/* Payment Proof */}
+                    {order.paymentProofUrl && (
+                      <div style={{ marginBottom: "16px" }}>
+                        <div style={{ fontSize: "12px", fontWeight: 700, color: "hsl(var(--text-muted))", marginBottom: "8px" }}>BUKTI TRANSFER</div>
+                        <a href={order.paymentProofUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block" }}>
+                          <img 
+                            src={order.paymentProofUrl} 
+                            alt="Bukti Transfer" 
+                            style={{ 
+                              maxWidth: "200px", 
+                              borderRadius: "12px", 
+                              border: "1px solid hsl(var(--border))",
+                              cursor: "pointer",
+                              transition: "transform 0.2s"
+                            }} 
+                            onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                          />
+                        </a>
+                      </div>
+                    )}
+
                     {/* Tracking Number (if SHIPPED) */}
                     {order.trackingNumber && (
                       <div style={{ background: "hsl(var(--primary)/0.06)", borderRadius: "10px", padding: "12px", marginBottom: "16px", border: "1px solid hsl(var(--primary)/0.2)" }}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/contexts/AppProviders";
 import { formatDateShort } from "@/lib/utils";
 
@@ -49,8 +49,11 @@ export default function StoreRegistrationLinkCard({
     initialLink?.defaultLinkType === "LANDING" ? "LANDING" : "DIRECT"
   );
   const [pixelUrl, setPixelUrl] = useState(initialLink?.pixelUrl ?? "");
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "";
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   const directLink = useMemo(() => {
     if (!link) return "";

@@ -10,6 +10,8 @@ export interface TokenConversionSnapshot {
   rewardQuantity: number;
   rewardUnit: string;
   description?: string | null;
+  longDescription?: string | null;
+  icon?: string | null;
   isActive: boolean;
   sortOrder: number;
 }
@@ -55,6 +57,17 @@ export const DEFAULT_TOKEN_CONFIG: TokenConfigSnapshot = {
       description: "Tambahan terminal POS di atas POS utama bawaan toko.",
       isActive: true,
       sortOrder: 1,
+    },
+    {
+      targetKey: "STOREFRONT_MONTH",
+      targetLabel: "Storefront Online (per bulan)",
+      moduleKey: null,
+      tokenCost: 2,
+      rewardQuantity: 1,
+      rewardUnit: "bulan",
+      description: "Aktifkan toko online publik untuk toko.",
+      isActive: true,
+      sortOrder: 30,
     },
   ],
 };

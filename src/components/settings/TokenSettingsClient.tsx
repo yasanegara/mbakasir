@@ -20,6 +20,8 @@ function createEmptyConversion(sortOrder: number): TokenConversionSnapshot {
     rewardQuantity: 1,
     rewardUnit: "unit",
     description: "",
+    longDescription: "",
+    icon: "🧩",
     isActive: true,
     sortOrder,
   };
@@ -104,6 +106,8 @@ export default function TokenSettingsClient({
           moduleKey: conversion.moduleKey?.trim() || "",
           rewardUnit: conversion.rewardUnit.trim(),
           description: conversion.description?.trim() || "",
+          longDescription: conversion.longDescription?.trim() || "",
+          icon: conversion.icon?.trim() || "🧩",
           sortOrder: index,
         })),
       };
@@ -415,33 +419,57 @@ export default function TokenSettingsClient({
                   />
                 </div>
 
-                <div>
-                  <label className="input-label">Satuan Reward</label>
-                  <input
-                    className="input-field"
-                    value={conversion.rewardUnit}
-                    onChange={(event) =>
-                      updateConversion(index, { rewardUnit: event.target.value })
-                    }
-                    placeholder="bulan"
-                  />
-                </div>
-              </div>
+                  <div>
+                    <label className="input-label">Satuan Reward</label>
+                    <input
+                      className="input-field"
+                      value={conversion.rewardUnit}
+                      onChange={(event) =>
+                        updateConversion(index, { rewardUnit: event.target.value })
+                      }
+                      placeholder="bulan"
+                    />
+                  </div>
 
-              <div style={{ display: "grid", gap: "14px", marginTop: "14px" }}>
-                <div>
-                  <label className="input-label">Deskripsi</label>
-                  <textarea
-                    className="input-field"
-                    value={conversion.description || ""}
-                    onChange={(event) =>
-                      updateConversion(index, { description: event.target.value })
-                    }
-                    rows={2}
-                    placeholder="Jelaskan fungsi konversi ini untuk tim operasional."
-                    style={{ resize: "vertical", minHeight: "84px" }}
-                  />
+                  <div>
+                    <label className="input-label">Emoji / Icon</label>
+                    <input
+                      className="input-field"
+                      value={conversion.icon || ""}
+                      onChange={(event) =>
+                        updateConversion(index, { icon: event.target.value })
+                      }
+                      placeholder="🛍️"
+                    />
+                  </div>
                 </div>
+
+                <div style={{ display: "grid", gap: "14px", marginTop: "14px" }}>
+                  <div>
+                    <label className="input-label">Deskripsi Singkat</label>
+                    <input
+                      className="input-field"
+                      value={conversion.description || ""}
+                      onChange={(event) =>
+                        updateConversion(index, { description: event.target.value })
+                      }
+                      placeholder="Jelaskan fungsi singkat."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="input-label">Deskripsi Lengkap (Marketplace)</label>
+                    <textarea
+                      className="input-field"
+                      value={conversion.longDescription || ""}
+                      onChange={(event) =>
+                        updateConversion(index, { longDescription: event.target.value })
+                      }
+                      rows={3}
+                      placeholder="Berikan detail lengkap fitur, keuntungan, dan cara pakai addon ini."
+                      style={{ resize: "vertical", minHeight: "96px" }}
+                    />
+                  </div>
 
                 <label
                   style={{

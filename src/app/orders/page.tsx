@@ -13,10 +13,18 @@ export default async function OrdersPage() {
     redirect("/login");
   }
 
-  const storefront = await prisma.storefrontConfig.findUnique({
-    where: { tenantId: session.tenantId },
-    select: { isActive: true, slug: true, activeUntil: true },
-  });
+  let storefront: { isActive: boolean; slug: string; activeUntil: Date | null } | null = null;
+  try {
+    const sfDelegate = (prisma as any).storefrontConfig;
+    if (sfDelegate?.findUnique) {
+      storefront = await sfDelegate.findUnique({
+        where: { tenantId: session.tenantId },
+        select: { isActive: true, slug: true, activeUntil: true },
+      });
+    }
+  } catch {
+    // Model belum tersedia di Prisma Client yang sedang berjalan — deploy ulang diperlukan
+  }
 
   const isStorefrontActive = storefront?.isActive && storefront?.activeUntil && new Date(storefront.activeUntil) > new Date();
 

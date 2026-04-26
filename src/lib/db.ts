@@ -249,7 +249,7 @@ export class MbakasirDatabase extends Dexie {
     });
 
     this.version(5).stores({
-      sales: "localId, id, tenantId, userId, shiftLocalId, terminalId, status, paymentMethod, syncStatus, createdAt",
+      sales: "localId, id, tenantId, userId, shiftLocalId, terminalId, status, paymentMethod, syncStatus, createdAt, [tenantId+status]",
       productAssignments: "id, productId, terminalId, stock",
     });
   }

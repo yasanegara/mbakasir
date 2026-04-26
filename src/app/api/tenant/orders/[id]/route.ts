@@ -1,6 +1,5 @@
-import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, getOnlineOrderDelegate } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function PATCH(
@@ -21,7 +20,7 @@ export async function PATCH(
   }
 
   try {
-    const order = await prisma.onlineOrder.findFirst({
+    const order = await getOnlineOrderDelegate(prisma).findFirst({
       where: { id, tenantId: session.tenantId },
     });
 
@@ -29,7 +28,7 @@ export async function PATCH(
       return Response.json({ error: "Pesanan tidak ditemukan" }, { status: 404 });
     }
 
-    const updated = await prisma.onlineOrder.update({
+    const updated = await getOnlineOrderDelegate(prisma).update({
       where: { id },
       data: {
         status,

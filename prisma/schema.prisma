@@ -60,6 +60,7 @@ model Tenant {
   logoUrl            String?
   status             TenantStatus           @default(LOCKED)
   premiumUntil       DateTime?
+  tokenBalance       Int                    @default(0)
   tokenUsed          Int                    @default(0)
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt
@@ -77,6 +78,7 @@ model Tenant {
   users              User[]
   storefront         StorefrontConfig?
   onlineOrders       OnlineOrder[]
+  modules            TenantModule[]
 
   @@map("tenants")
 }
@@ -378,6 +380,8 @@ model TokenConversion {
   description    String?
   isActive       Boolean     @default(true)
   sortOrder      Int         @default(0)
+  longDescription String?     // Deskripsi panjang untuk marketplace
+  icon           String?     // Emoji atau nama icon
   metadata       Json?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -385,6 +389,19 @@ model TokenConversion {
 
   @@unique([configId, targetKey])
   @@map("token_conversions")
+}
+
+model TenantModule {
+  id           String   @id @default(cuid())
+  tenantId     String
+  moduleKey    String   // LICENSE, STOREFRONT, CRM, WA_NOTIF, etc
+  activeUntil  DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, moduleKey])
+  @@map("tenant_modules")
 }
 
 model BrandConfig {
@@ -403,6 +420,8 @@ model BrandConfig {
   aiKnowledgeBase String?
   bankDetails     String?
   telegramBotToken String?
+  footerPoweredByText String?  @default("Powered by MbaKasir Intelligence")
+  showFooterPoweredBy Boolean  @default(true)
 
   @@map("brand_config")
 }

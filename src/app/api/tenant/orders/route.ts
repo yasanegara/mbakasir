@@ -1,6 +1,5 @@
-import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, getOnlineOrderDelegate } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 // GET: daftar semua pesanan online
@@ -13,7 +12,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
 
-  const orders = await prisma.onlineOrder.findMany({
+  const orders = await getOnlineOrderDelegate(prisma).findMany({
     where: {
       tenantId: session.tenantId,
       ...(status && status !== "ALL" ? { status: status as any } : {}),

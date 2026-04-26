@@ -91,3 +91,29 @@ export function getAgentTokenPurchaseRequestDelegate<T extends object>(
       .agentTokenPurchaseRequest ?? null
   );
 }
+
+// ── Storefront delegates ──────────────────────────────────────
+
+type StorefrontConfigDelegate = {
+  findUnique: (...args: any[]) => Promise<any>;
+  findMany:   (...args: any[]) => Promise<any>;
+  create:     (...args: any[]) => Promise<any>;
+  update:     (...args: any[]) => Promise<any>;
+  delete:     (...args: any[]) => Promise<any>;
+};
+
+type OnlineOrderDelegate = {
+  findMany:  (...args: any[]) => Promise<any>;
+  findFirst: (...args: any[]) => Promise<any>;
+  create:    (...args: any[]) => Promise<any>;
+  update:    (...args: any[]) => Promise<any>;
+  delete:    (...args: any[]) => Promise<any>;
+};
+
+export function getStorefrontConfigDelegate(client: any): StorefrontConfigDelegate {
+  return (client as any).storefrontConfig;
+}
+
+export function getOnlineOrderDelegate(client: any): OnlineOrderDelegate {
+  return (client as any).onlineOrder;
+}

@@ -121,6 +121,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/stock-alert", label: "Stok Kritis", icon: Icon.alert, roles: ["TENANT"] },
   { href: "/shopping-list", label: "Daftar Belanja", icon: Icon.shoppingList, roles: ["TENANT"] },
   { href: "/orders", label: "Pesanan Online", icon: Icon.storefront, roles: ["TENANT"] },
+  { href: "/marketplace", label: "Add On", icon: Icon.inventory, roles: ["TENANT"] },
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },
   { href: "/learn", label: "Pusat Belajar", icon: Icon.book, roles: ["AGENT", "TENANT"] },
@@ -128,6 +129,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/admin/tokens", label: "Mint Token", icon: Icon.token, roles: ["SUPERADMIN"] },
   { href: "/admin/tenants", label: "Semua Toko", icon: Icon.stores, roles: ["SUPERADMIN"] },
   { href: "/admin/learn", label: "Konten Learn", icon: Icon.book, roles: ["SUPERADMIN"] },
+  { href: "/admin/addons-management", label: "Manajemen Add-on", icon: Icon.inventory, roles: ["SUPERADMIN"] },
   { href: "/admin/announcements", label: "Pengumuman", icon: Icon.megaphone, roles: ["SUPERADMIN"] },
 ];
 
@@ -149,8 +151,8 @@ export default function Sidebar({
   const { theme, setTheme, mode, toggleMode } = useTheme();
   const brand = useBrand();
 
-  const storeProfile = useLiveQuery(() => getDb().storeProfile.get("default"));
-  const isCrmEnabled = storeProfile?.isCrmEnabled === true;
+  const activeModules = (user as any)?.activeModules || {};
+  const isCrmEnabled = !!activeModules["CRM"];
 
   const visibleNav = ALL_NAV.filter((item) => {
     const hasRole = user && item.roles.includes(user.role);

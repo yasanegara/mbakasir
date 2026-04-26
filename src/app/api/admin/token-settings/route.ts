@@ -22,6 +22,8 @@ const tokenConversionSchema = z.object({
   rewardQuantity: z.number().int().min(1, "Jumlah reward minimal 1"),
   rewardUnit: z.string().trim().min(1, "Satuan reward wajib diisi").max(64),
   description: z.string().trim().max(500).optional().or(z.literal("")),
+  longDescription: z.string().trim().max(2000).optional().or(z.literal("")),
+  icon: z.string().trim().max(100).optional().or(z.literal("")),
   isActive: z.boolean(),
   sortOrder: z.number().int().min(0),
 });
@@ -128,6 +130,8 @@ export async function POST(req: NextRequest) {
           rewardQuantity: conversion.rewardQuantity,
           rewardUnit: conversion.rewardUnit,
           description: conversion.description || null,
+          longDescription: conversion.longDescription || null,
+          icon: conversion.icon || null,
           isActive: conversion.isActive,
           sortOrder: index,
         })),

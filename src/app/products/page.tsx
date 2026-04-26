@@ -24,6 +24,7 @@ interface ProductFormState {
   costPrice: number;
   hasBoM: boolean;
   showInPos: boolean;
+  imageUrl: string;
 }
 
 interface BomDraftRow {
@@ -50,6 +51,7 @@ const INITIAL_FORM: ProductFormState = {
   costPrice: 0,
   hasBoM: false,
   showInPos: true,
+  imageUrl: "",
 };
 
 const EMPTY_BOM_ROW: BomDraftRow = {
@@ -82,14 +84,34 @@ function calculateSuggestedSellingPrice(
 
 export default function ProductsPage() {
   const { user } = useAuth();
+  const tenantId = user?.tenantId;
   const { toast } = useToast();
   const { isSyncing, error } = useInitialSync();
 
-  const products = useLiveQuery(() => getDb().products.toArray()) || [];
-  const rawMaterials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
-  const billOfMaterials = useLiveQuery(() => getDb().billOfMaterials.toArray()) || [];
-  const posTerminals = useLiveQuery(() => getDb().posTerminals.toArray()) || [];
-  const productAssignments = useLiveQuery(() => getDb().productAssignments.toArray()) || [];
+  const products = useLiveQuery(() => 
+    tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : Promise.resolve([])
+  , [tenantId]) || [];
+
+  const rawMaterials = useLiveQuery(() => 
+    tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : Promise.resolve([])
+  , [tenantId]) || [];
+
+  const billOfMaterials = useLiveQuery(() => {
+    if (!tenantId) return Promise.resolve([]);
+    // BoM doesn't have tenantId directly, we must filter by product localIds
+    const productIds = products.map(p => p.localId);
+    return getDb().billOfMaterials.where("productId").anyOf(productIds).toArray();
+  }, [tenantId, products.length]) || [];
+
+  const posTerminals = useLiveQuery(() => 
+    tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : Promise.resolve([])
+  , [tenantId]) || [];
+
+  const productAssignments = useLiveQuery(() => {
+    if (!tenantId) return Promise.resolve([]);
+    const productIds = products.map(p => p.localId);
+    return getDb().productAssignments.where("productId").anyOf(productIds).toArray();
+  }, [tenantId, products.length]) || [];
 
   const [terminalAssignments, setTerminalAssignments] = useState<{terminalId: string, stock: number}[]>([]);
 
@@ -174,6 +196,7 @@ export default function ProductsPage() {
       costPrice: product.costPrice,
       hasBoM: product.hasBoM,
       showInPos: product.showInPos ?? true,
+      imageUrl: product.imageUrl || "",
     });
 
     const existingBom = billOfMaterials.filter((b) => b.productId === product.localId);
@@ -301,7 +324,7 @@ export default function ProductsPage() {
         costPrice: effectiveCostPrice,
         stock: form.stock,
         unit: form.unit.trim(),
-        imageUrl: existingProduct?.imageUrl,
+        imageUrl: form.imageUrl.trim() || undefined,
         isActive: existingProduct ? existingProduct.isActive : true,
         showInPos: form.showInPos,
         hasBoM: validBomRows.length > 0,
@@ -628,6 +651,88 @@ export default function ProductsPage() {
                 onChange={(value) => setForm((prev) => ({ ...prev, price: value }))}
                 placeholder="15000"
               />
+
+              <div style={{ display: "grid", gap: "8px" }}>
+                <label className="input-label">Foto Produk</label>
+                <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+                  <div 
+                    style={{ 
+                      width: "80px", 
+                      height: "80px", 
+                      borderRadius: "12px", 
+                      background: "hsl(var(--bg-elevated))", 
+                      border: "1px dashed hsl(var(--border))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                      flexShrink: 0
+                    }}
+                  >
+                    {form.imageUrl ? (
+                      <img src={form.imageUrl} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <span style={{ fontSize: "24px", opacity: 0.3 }}>📸</span>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, display: "grid", gap: "8px" }}>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      id="product-image-upload"
+                      style={{ display: "none" }} 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 2 * 1024 * 1024) { 
+                            toast("Ukuran foto maksimal 2MB", "warning");
+                            return;
+                          }
+
+                          // 1. Coba upload ke server dulu (untuk Railway Volume)
+                          const formData = new FormData();
+                          formData.append("file", file);
+
+                          try {
+                            const res = await fetch("/api/upload/products", {
+                              method: "POST",
+                              body: formData,
+                            });
+                            
+                            if (res.ok) {
+                              const data = await res.json();
+                              setForm(prev => ({ ...prev, imageUrl: data.url }));
+                              toast("Foto berhasil diunggah ke server", "success");
+                              return;
+                            }
+                          } catch (err) {
+                            console.error("Server upload failed, falling back to local storage", err);
+                          }
+
+                          // 2. Fallback ke Base64 jika offline atau server error
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setForm(prev => ({ ...prev, imageUrl: reader.result as string }));
+                            toast("Server offline. Foto disimpan lokal (Base64).", "info");
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <label htmlFor="product-image-upload" className="btn btn-sm btn-outline" style={{ cursor: "pointer" }}>
+                        {form.imageUrl ? "Ganti Foto" : "Pilih Foto"}
+                      </label>
+                      {form.imageUrl && (
+                        <button type="button" className="btn btn-sm btn-ghost" style={{ color: "hsl(var(--error))" }} onClick={() => setForm(prev => ({ ...prev, imageUrl: "" }))}>
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+                    <span style={{ fontSize: "11px", color: "hsl(var(--text-muted))" }}>Maksimal 1MB. Foto akan tampil di Kasir & Toko Online.</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div
@@ -1149,15 +1254,41 @@ export default function ProductsPage() {
                       style={{ borderBottom: "1px solid hsl(var(--border))" }}
                     >
                       <td style={bodyCellStyle}>{product.sku || "-"}</td>
-                      <td style={{ ...bodyCellStyle, fontWeight: 600 }}>
-                        <div>{product.name}</div>
-                        {!product.showInPos && (
-                          <div style={{ marginTop: "4px" }}>
-                            <span className="badge badge-warning" style={{ fontSize: "10px", padding: "2px 6px" }}>
-                              Tersembunyi di POS
-                            </span>
+                      <td style={{ padding: "16px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div 
+                              style={{ 
+                                width: "40px", 
+                                height: "40px", 
+                                borderRadius: "8px", 
+                                background: "hsl(var(--bg-elevated))", 
+                                display: "flex", 
+                                alignItems: "center", 
+                                justifyContent: "center",
+                                overflow: "hidden",
+                                border: "1px solid hsl(var(--border))",
+                                flexShrink: 0
+                              }}
+                            >
+                              {product.imageUrl ? (
+                                <img src={product.imageUrl} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              ) : (
+                                <span style={{ fontSize: "18px", opacity: 0.3 }}>📦</span>
+                              )}
+                            </div>
+                            <div style={{ display: "grid", gap: "2px" }}>
+                              <div style={{ fontSize: "14px", fontWeight: 700, color: "hsl(var(--text-primary))" }}>
+                                {product.name}
+                              </div>
+                              {!product.showInPos && (
+                                <div style={{ marginTop: "4px" }}>
+                                  <span className="badge badge-warning" style={{ fontSize: "10px", padding: "2px 6px" }}>
+                                    Tersembunyi di POS
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
                       </td>
                       <td style={{ ...bodyCellStyle, color: "hsl(var(--text-secondary))" }}>
                         {product.category || "-"}

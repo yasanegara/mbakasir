@@ -55,6 +55,9 @@ export default function StorefrontClient({ slug }: { slug: string }) {
     notes: "",
   });
 
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+
   useEffect(() => {
     fetch(`/api/public/storefront?slug=${slug}`)
       .then((r) => r.json())
@@ -145,36 +148,93 @@ export default function StorefrontClient({ slug }: { slug: string }) {
   );
 
   // === SUCCESS SCREEN ===
-  if (step === "success") return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f0fdf4, #dcfce7)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-      <div style={{ background: "white", borderRadius: "20px", padding: "40px", maxWidth: "440px", width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.1)" }}>
-        <div style={{ fontSize: "64px", marginBottom: "16px" }}>✅</div>
-        <h2 style={{ fontSize: "22px", fontWeight: 800, color: "#16a34a", marginBottom: "8px" }}>Pesanan Berhasil!</h2>
-        <p style={{ color: "#555", fontSize: "14px", lineHeight: 1.6, marginBottom: "24px" }}>
-          Pesanan Anda telah diterima. Silakan transfer ke rekening berikut:
-        </p>
-        {storefront.bankAccountNo && (
-          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "12px", padding: "16px", marginBottom: "20px", textAlign: "left" }}>
-            <div style={{ fontSize: "12px", color: "#16a34a", fontWeight: 700, marginBottom: "8px" }}>INFO PEMBAYARAN</div>
-            <div style={{ fontWeight: 700, fontSize: "16px" }}>{storefront.bankAccountNo}</div>
-            <div style={{ color: "#555", fontSize: "13px", marginTop: "2px" }}>{storefront.bankName} — a.n. {storefront.bankAccountName}</div>
-            <div style={{ marginTop: "8px", fontWeight: 700, color: "#16a34a", fontSize: "18px" }}>
-              {formatRupiahFull(totalAmount)}
+  if (step === "success") {
+    const handleProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !orderId) return;
+
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        // 1. Upload file
+        const uploadRes = await fetch("/api/upload/proof", {
+          method: "POST",
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) throw new Error(uploadData.error);
+
+        // 2. Update Order
+        const updateRes = await fetch("/api/public/storefront", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId,
+            paymentProofUrl: uploadData.url,
+            slug
+          }),
+        });
+        if (!updateRes.ok) throw new Error("Gagal mengupdate pesanan");
+
+        setUploadedUrl(uploadData.url);
+      } catch (err: any) {
+        alert(err.message || "Gagal upload bukti");
+      } finally {
+        setIsUploading(false);
+      }
+    };
+
+    return (
+      <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #f0fdf4, #dcfce7)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+        <div style={{ background: "white", borderRadius: "20px", padding: "40px", maxWidth: "440px", width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.1)" }}>
+          <div style={{ fontSize: "64px", marginBottom: "16px" }}>✅</div>
+          <h2 style={{ fontSize: "22px", fontWeight: 800, color: "#16a34a", marginBottom: "8px" }}>Pesanan Berhasil!</h2>
+          <p style={{ color: "#555", fontSize: "14px", lineHeight: 1.6, marginBottom: "24px" }}>
+            Pesanan Anda telah diterima. Silakan transfer ke rekening berikut:
+          </p>
+          {storefront.bankAccountNo && (
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "12px", padding: "16px", marginBottom: "20px", textAlign: "left" }}>
+              <div style={{ fontSize: "12px", color: "#16a34a", fontWeight: 700, marginBottom: "8px" }}>INFO PEMBAYARAN</div>
+              <div style={{ fontWeight: 700, fontSize: "16px" }}>{storefront.bankAccountNo}</div>
+              <div style={{ color: "#555", fontSize: "13px", marginTop: "2px" }}>{storefront.bankName} — a.n. {storefront.bankAccountName}</div>
+              <div style={{ marginTop: "8px", fontWeight: 700, color: "#16a34a", fontSize: "18px" }}>
+                {formatRupiahFull(totalAmount)}
+              </div>
             </div>
+          )}
+          
+          <div style={{ marginBottom: "24px", padding: "20px", background: "#fafafa", borderRadius: "16px", border: "1px dashed #ddd" }}>
+            <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "12px" }}>SUDAH TRANSFER?</div>
+            {uploadedUrl ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                <span style={{ color: "#16a34a", fontSize: "13px", fontWeight: 600 }}>✅ Bukti transfer terkirim!</span>
+                <img src={uploadedUrl} alt="Bukti" style={{ width: "80px", height: "80px", objectFit: "cover", borderRadius: "8px" }} />
+              </div>
+            ) : (
+              <label style={{ display: "block", cursor: "pointer" }}>
+                <div style={{ padding: "10px", background: "white", border: "1px solid #ddd", borderRadius: "10px", fontSize: "13px", fontWeight: 600 }}>
+                  {isUploading ? "⏳ Mengunggah..." : "📸 Upload Bukti Transfer"}
+                </div>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleProofUpload} disabled={isUploading} />
+              </label>
+            )}
           </div>
-        )}
-        <p style={{ color: "#888", fontSize: "13px" }}>
-          Setelah transfer, hubungi toko untuk konfirmasi pembayaran.
-        </p>
-        <button
-          onClick={() => { setStep("browse"); setOrderId(null); }}
-          style={{ marginTop: "20px", background: "#16a34a", color: "white", border: "none", borderRadius: "10px", padding: "12px 24px", fontWeight: 700, cursor: "pointer", fontSize: "14px" }}
-        >
-          Belanja Lagi
-        </button>
+
+          <p style={{ color: "#888", fontSize: "13px" }}>
+            Setelah transfer, hubungi toko untuk konfirmasi pembayaran.
+          </p>
+          <button
+            onClick={() => { setStep("browse"); setOrderId(null); }}
+            style={{ marginTop: "20px", background: "#16a34a", color: "white", border: "none", borderRadius: "10px", padding: "12px 24px", fontWeight: 700, cursor: "pointer", fontSize: "14px" }}
+          >
+            Belanja Lagi
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   const accentColor = "#6366f1";
 

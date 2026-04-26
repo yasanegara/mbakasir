@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureTokenConfig } from "@/lib/token-settings";
 import { calculateTokenCostForQuantity, getTokenConversion } from "@/lib/token-settings-shared";
 import { ensureDefaultPosTerminal, getDefaultPosName, formatPosCode } from "@/lib/pos-terminals";
+import { getStorefrontConfigDelegate } from "@/lib/prisma";
 
 const activateSchema = z.object({
   reqId: z.string().optional(),
@@ -100,37 +101,30 @@ export async function POST(req: NextRequest) {
       } else if (parsed.targetKey === "STOREFRONT_MONTH") {
         const now = new Date();
         const rewardMonths = conversion.rewardQuantity * parsed.quantity;
-        const existing = await tx.storefrontConfig.findUnique({ where: { tenantId: tenant.id } });
+        const sfDelegate = getStorefrontConfigDelegate(tx);
+        const existing = await sfDelegate.findUnique({ where: { tenantId: tenant.id } });
 
         if (existing) {
-          // Perpanjang masa aktif
           const current = existing.activeUntil && existing.activeUntil > now ? existing.activeUntil : now;
           const newActiveUntil = new Date(current);
           newActiveUntil.setMonth(newActiveUntil.getMonth() + rewardMonths);
-          await tx.storefrontConfig.update({
+          await sfDelegate.update({
             where: { tenantId: tenant.id },
             data: { activeUntil: newActiveUntil, isActive: true }
           });
           description = `Agen memperpanjang Storefront ${rewardMonths} bulan untuk Toko ${tenant.name}`;
         } else {
-          // Buat baru — slug dari nama toko
           const baseSlug = tenant.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-          // Pastikan slug unik
           let slug = baseSlug;
           let attempt = 0;
-          while (await tx.storefrontConfig.findUnique({ where: { slug } })) {
+          while (await sfDelegate.findUnique({ where: { slug } })) {
             attempt++;
             slug = `${baseSlug}-${attempt}`;
           }
           const activeUntil = new Date(now);
           activeUntil.setMonth(activeUntil.getMonth() + rewardMonths);
-          await tx.storefrontConfig.create({
-            data: {
-              tenantId: tenant.id,
-              slug,
-              isActive: true,
-              activeUntil,
-            }
+          await sfDelegate.create({
+            data: { tenantId: tenant.id, slug, isActive: true, activeUntil }
           });
           description = `Agen mengaktifkan Storefront ${rewardMonths} bulan untuk Toko ${tenant.name} (URL: /store/${slug})`;
         }

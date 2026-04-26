@@ -5,6 +5,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth, useToast } from "@/contexts/AppProviders";
 import { formatDateShort } from "@/lib/utils";
 import OrderTokenClient from "./OrderTokenClient";
+import TokenLedgerModal from "@/components/ui/TokenLedgerModal";
 import {
   calculateTokenCostForQuantity,
   formatTokenConversion,
@@ -39,6 +40,7 @@ export default function AgentTokensPage() {
   });
   const [licenseConversion, setLicenseConversion] = useState<TokenConversionSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLedgerOpen, setIsLedgerOpen] = useState(false);
 
   function applyAgentData(data: {
     tenants?: AgentTenant[];
@@ -165,7 +167,18 @@ export default function AgentTokensPage() {
 
   return (
     <DashboardLayout title="Manajemen Lisensi (Agen)">
-      <div className="stat-card" style={{ marginBottom: "24px", maxWidth: "400px" }}>
+      <div 
+        className="stat-card" 
+        style={{ 
+          marginBottom: "24px", 
+          maxWidth: "400px", 
+          cursor: "pointer", 
+          transition: "transform 0.2s" 
+        }}
+        onClick={() => setIsLedgerOpen(true)}
+        onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+      >
         <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Saldo {tokenConfig.tokenName} Anda</span>
         <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
            <span className="stat-value">
@@ -251,6 +264,12 @@ export default function AgentTokensPage() {
             </tbody>
          </table>
       </div>
+
+      <TokenLedgerModal 
+        isOpen={isLedgerOpen} 
+        onClose={() => setIsLedgerOpen(false)} 
+        title={`Riwayat ${tokenConfig.tokenName}`}
+      />
     </DashboardLayout>
   );
 }
