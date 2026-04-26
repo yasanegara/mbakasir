@@ -4,7 +4,7 @@ import StorefrontClient from "./StorefrontClient";
 
 export async function generateMetadata({ params }: { params: Promise<any> }): Promise<Metadata> {
   const { slug } = await params;
-  const store = await prisma.storefrontConfig.findUnique({
+  const store = await prisma.storefrontConfig.findFirst({
     where: { slug, isActive: true },
     select: { tenant: { select: { name: true } }, description: true },
   });

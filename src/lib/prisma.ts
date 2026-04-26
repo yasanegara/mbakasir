@@ -95,6 +95,7 @@ export function getAgentTokenPurchaseRequestDelegate<T extends object>(
 // ── Storefront delegates ──────────────────────────────────────
 
 type StorefrontConfigDelegate = {
+  findFirst:  (...args: any[]) => Promise<any>;
   findUnique: (...args: any[]) => Promise<any>;
   findMany:   (...args: any[]) => Promise<any>;
   create:     (...args: any[]) => Promise<any>;

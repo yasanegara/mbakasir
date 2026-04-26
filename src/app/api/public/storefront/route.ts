@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
   const whereClause = domain ? { customDomain: domain, isActive: true } : { slug: slug!, isActive: true };
 
-  const storefront = await getStorefrontConfigDelegate(prisma).findUnique({
+  const storefront = await getStorefrontConfigDelegate(prisma).findFirst({
     where: whereClause,
     include: {
       tenant: {
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     const parsed = checkoutSchema.parse(data);
 
-    const storefront = await getStorefrontConfigDelegate(prisma).findUnique({
+    const storefront = await getStorefrontConfigDelegate(prisma).findFirst({
       where: { slug: parsed.slug, isActive: true },
       include: {
         tenant: {
@@ -175,7 +175,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Verifikasi order milik storefront yang benar
-    const storefront = await getStorefrontConfigDelegate(prisma).findUnique({
+    const storefront = await getStorefrontConfigDelegate(prisma).findFirst({
       where: { slug, isActive: true },
     });
 
@@ -183,8 +183,17 @@ export async function PATCH(req: NextRequest) {
       return Response.json({ error: "Toko tidak ditemukan" }, { status: 404 });
     }
 
-    const order = await getOnlineOrderDelegate(prisma).update({
+    const existingOrder = await getOnlineOrderDelegate(prisma).findFirst({
       where: { id: orderId, storefrontId: storefront.id },
+      select: { id: true },
+    });
+
+    if (!existingOrder) {
+      return Response.json({ error: "Pesanan tidak ditemukan" }, { status: 404 });
+    }
+
+    const order = await getOnlineOrderDelegate(prisma).update({
+      where: { id: orderId },
       data: { paymentProofUrl },
     });
 
