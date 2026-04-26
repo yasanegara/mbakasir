@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { ChangeEvent, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
@@ -179,6 +179,64 @@ export default function ProductsPage() {
     calculatedHpp !== null && suggestedSellingPrice !== null
       ? suggestedSellingPrice - calculatedHpp
       : null;
+
+  const handleProductImageChange = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    input.value = "";
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast("File harus berupa gambar", "warning");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast("Ukuran foto maksimal 2MB", "warning");
+      return;
+    }
+
+    const previewDataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string) || "");
+      reader.onerror = () => reject(new Error("Preview foto gagal dibuat"));
+      reader.readAsDataURL(file);
+    });
+
+    setForm((prev) => ({ ...prev, imageUrl: previewDataUrl }));
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload/products", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(
+          typeof data?.error === "string" ? data.error : "Upload foto produk gagal"
+        );
+      }
+
+      if (typeof data?.url === "string" && data.url.length > 0) {
+        setForm((prev) => ({ ...prev, imageUrl: data.url }));
+        toast("Foto berhasil diunggah ke server", "success");
+        return;
+      }
+
+      throw new Error("URL foto dari server tidak valid");
+    } catch (error) {
+      console.error("Product image upload failed, keeping local preview", error);
+      toast("Preview sudah tampil. Upload server gagal, foto tetap disimpan lokal.", "info");
+    }
+  };
 
   const resetCreateForm = () => {
     setForm(INITIAL_FORM);
@@ -687,43 +745,7 @@ export default function ProductsPage() {
                       accept="image/*" 
                       id="product-image-upload"
                       style={{ display: "none" }} 
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 2 * 1024 * 1024) { 
-                            toast("Ukuran foto maksimal 2MB", "warning");
-                            return;
-                          }
-
-                          // 1. Coba upload ke server dulu (untuk Railway Volume)
-                          const formData = new FormData();
-                          formData.append("file", file);
-
-                          try {
-                            const res = await fetch("/api/upload/products", {
-                              method: "POST",
-                              body: formData,
-                            });
-                            
-                            if (res.ok) {
-                              const data = await res.json();
-                              setForm(prev => ({ ...prev, imageUrl: data.url }));
-                              toast("Foto berhasil diunggah ke server", "success");
-                              return;
-                            }
-                          } catch (err) {
-                            console.error("Server upload failed, falling back to local storage", err);
-                          }
-
-                          // 2. Fallback ke Base64 jika offline atau server error
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setForm(prev => ({ ...prev, imageUrl: reader.result as string }));
-                            toast("Server offline. Foto disimpan lokal (Base64).", "info");
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
+                      onChange={handleProductImageChange}
                     />
                     <div style={{ display: "flex", gap: "8px" }}>
                       <label htmlFor="product-image-upload" className="btn btn-sm btn-outline" style={{ cursor: "pointer" }}>
@@ -735,7 +757,7 @@ export default function ProductsPage() {
                         </button>
                       )}
                     </div>
-                    <span style={{ fontSize: "11px", color: "hsl(var(--text-muted))" }}>Maksimal 1MB. Foto akan tampil di Kasir & Toko Online.</span>
+                    <span style={{ fontSize: "11px", color: "hsl(var(--text-muted))" }}>Maksimal 2MB. Preview tampil langsung, lalu foto diunggah ke server.</span>
                   </div>
                 </div>
               </div>

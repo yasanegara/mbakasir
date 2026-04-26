@@ -5,7 +5,7 @@ import { existsSync } from "fs";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<any> }
+  { params }: { params: Promise<{ path?: string[] }> }
 ) {
   const resolvedParams = await params;
   const pathParts: string[] = resolvedParams.path ?? [];
