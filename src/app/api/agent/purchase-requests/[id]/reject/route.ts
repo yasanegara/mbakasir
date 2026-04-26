@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -20,12 +21,16 @@ export async function POST(
         agentId: session.agentId, 
       },
       data: {
-        status: "REJECTED"
+        status: "CANCELLED"
       }
     });
+    
+    revalidatePath("/dashboard");
+    revalidatePath("/agent/transaksi");
 
     return Response.json({ success: true });
-  } catch (err) {
-    return Response.json({ error: "Gagal menolak pesanan" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Reject Tenant Request Error:", err);
+    return Response.json({ error: "Gagal menolak pesanan: " + err.message }, { status: 500 });
   }
 }

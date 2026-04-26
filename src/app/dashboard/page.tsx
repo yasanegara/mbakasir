@@ -110,6 +110,7 @@ export default async function DashboardPage() {
       packageName: request.packageName,
       tokenAmount: request.tokenAmount,
       totalPrice: Number(request.totalPrice),
+      agentId: request.agentId,
       createdAt: request.createdAt.toISOString(),
       agent: request.agent,
     }));

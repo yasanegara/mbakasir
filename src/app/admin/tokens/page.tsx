@@ -27,7 +27,15 @@ type PendingAgentTokenRequest = {
 // SUPERADMIN DASHBOARD: MINT TOKEN + BURN RATE ANALYTICS
 // ============================================================
 
-export default async function AdminTokensPage() {
+export default async function AdminTokensPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ agentId?: string; amount?: string; reqId?: string }>;
+}) {
+  const params = await searchParams;
+  const targetAgentId = params.agentId;
+  const targetAmount = params.amount ? Number(params.amount) : undefined;
+
   const tokenConfig = await ensureTokenConfig();
   const agentTokenRequestDelegate = getAgentTokenPurchaseRequestDelegate(prisma);
 
@@ -164,6 +172,7 @@ export default async function AdminTokensPage() {
             packageName: request.packageName,
             tokenAmount: request.tokenAmount,
             totalPrice: Number(request.totalPrice),
+            agentId: (request as any).agentId,
             createdAt: request.createdAt,
             agent: request.agent,
           }))}
@@ -234,7 +243,13 @@ export default async function AdminTokensPage() {
                   {agent.totalUsed.toLocaleString()} <span style={{ fontSize: "11px" }}>{sym}</span>
                 </td>
                 <td style={{ padding: "16px 20px", textAlign: "right" }}>
-                  <MintTokenClient agentId={agent.id} agentName={agent.name} tokenPrice={tokenPrice} />
+                  <MintTokenClient 
+                    agentId={agent.id} 
+                    agentName={agent.name} 
+                    tokenPrice={tokenPrice} 
+                    autoOpen={agent.id === targetAgentId}
+                    initialAmount={agent.id === targetAgentId ? targetAmount : undefined}
+                  />
                 </td>
               </tr>
             ))}

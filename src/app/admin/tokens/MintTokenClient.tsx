@@ -7,14 +7,18 @@ import { mintTokensAction } from "./actions";
 export default function MintTokenClient({ 
   agentId, 
   agentName, 
-  tokenPrice 
+  tokenPrice,
+  initialAmount,
+  autoOpen
 }: { 
   agentId: string; 
   agentName: string; 
   tokenPrice: number;
+  initialAmount?: number;
+  autoOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [amount, setAmount] = useState<number | "">("");
+  const [isOpen, setIsOpen] = useState(autoOpen || false);
+  const [amount, setAmount] = useState<number | "">(initialAmount || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +37,8 @@ export default function MintTokenClient({
       alert(`Minting ${amount} token untuk ${agentName} berhasil!`);
       setIsOpen(false);
       setAmount("");
+      // Refresh and clear query params
+      window.location.href = "/admin/tokens";
     } else {
       setError(res.error || "Gagal mint token.");
     }

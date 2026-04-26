@@ -10,6 +10,7 @@ export interface AgentTokenRequestItem {
   packageName: string;
   tokenAmount: number;
   totalPrice: number;
+  agentId?: string;
   createdAt: Date | string;
   agent: {
     name: string;
@@ -191,22 +192,31 @@ export default function AgentTokenRequestList({
                 <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
                   Masuk pada {formatDate(request.createdAt)}
                 </div>
-                <button 
-                  onClick={() => handleReject(request.id)}
-                  disabled={isSubmitting === request.id}
-                  style={{
-                    background: "transparent",
-                    border: "1px solid hsl(var(--error)/0.3)",
-                    color: "hsl(var(--error))",
-                    fontSize: "11px",
-                    padding: "4px 10px",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    opacity: isSubmitting === request.id ? 0.5 : 1
-                  }}
-                >
-                  {isSubmitting === request.id ? "Menghapus..." : "Hapus"}
-                </button>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button 
+                    onClick={() => handleReject(request.id)}
+                    disabled={isSubmitting === request.id}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid hsl(var(--error)/0.3)",
+                      color: "hsl(var(--error))",
+                      fontSize: "11px",
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      opacity: isSubmitting === request.id ? 0.5 : 1
+                    }}
+                  >
+                    {isSubmitting === request.id ? "Menghapus..." : "Hapus"}
+                  </button>
+                  <Link
+                    href={`/admin/tokens?agentId=${request.agentId || ""}&amount=${request.tokenAmount}&reqId=${request.id}`}
+                    className="btn btn-primary btn-sm"
+                    style={{ fontSize: "11px", padding: "4px 10px", borderRadius: "6px" }}
+                  >
+                    Proses
+                  </Link>
+                </div>
               </div>
             </div>
           ))}

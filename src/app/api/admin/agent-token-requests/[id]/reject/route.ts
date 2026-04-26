@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma, getAgentTokenPurchaseRequestDelegate } from "@/lib/prisma";
 
@@ -19,13 +20,24 @@ export async function POST(
   }
 
   try {
-    await agentTokenRequestDelegate.update({
+    // Gunakan prisma secara langsung jika tersedia
+    const delegate = (prisma as any).agentTokenPurchaseRequest || agentTokenRequestDelegate;
+    
+    if (!delegate) {
+      throw new Error("Model AgentTokenPurchaseRequest tidak ditemukan");
+    }
+
+    await delegate.update({
       where: { id },
-      data: { status: "REJECTED" }
+      data: { status: "CANCELLED" }
     });
 
+    revalidatePath("/dashboard");
+    revalidatePath("/admin/tokens");
+
     return Response.json({ success: true });
-  } catch (err) {
-    return Response.json({ error: "Gagal menolak permintaan" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Reject Agent Request Error:", err);
+    return Response.json({ error: "Gagal menolak permintaan: " + err.message }, { status: 500 });
   }
 }
