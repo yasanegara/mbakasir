@@ -74,7 +74,7 @@ export function buildWhatsappUrl(
     return null;
   }
 
-  return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
+  return `https://api.whatsapp.com/send?phone=${normalizedPhone}&text=${encodeURIComponent(message)}`;
 }
 
 /**
