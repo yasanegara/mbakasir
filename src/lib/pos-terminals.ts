@@ -1,7 +1,6 @@
 import "server-only";
-import type { Prisma, PrismaClient } from "@prisma/client";
 
-type PrismaLike = PrismaClient | Prisma.TransactionClient;
+type PrismaLike = any; 
 
 export function formatPosCode(sequence: number): string {
   return `POS-${String(Math.max(1, sequence)).padStart(3, "0")}`;
@@ -15,6 +14,14 @@ export async function ensureDefaultPosTerminal(
   prisma: PrismaLike,
   tenantId: string
 ){
+  // 1. Verify tenant exists to avoid foreign key violations (stale sessions)
+  const tenant = await (prisma as any).tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true }
+  });
+
+  if (!tenant) return null;
+
   const existingDefault = await prisma.posTerminal.findFirst({
     where: {
       tenantId,

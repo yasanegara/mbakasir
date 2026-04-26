@@ -66,7 +66,7 @@ export default async function DashboardPage() {
     });
     tokenBalance = agent?.tokenBalance || 0;
     (session as any).isPusat = isPusat;
-    agentRequests = reqs.map(r => ({
+    agentRequests = reqs.map((r: any) => ({
       ...r,
       totalPrice: Number(r.totalPrice),
       createdAt: r.createdAt.toISOString(),
@@ -123,7 +123,10 @@ export default async function DashboardPage() {
   let approvedPurchasedTokens = 0;
 
   if (session.role === "TENANT" && session.tenantId) {
-    await ensureDefaultPosTerminal(prisma, session.tenantId);
+    const initialized = await ensureDefaultPosTerminal(prisma, session.tenantId);
+    if (!initialized) {
+      redirect("/login");
+    }
 
     const [tokenConfig, dbTenant, approvedPurchaseSummary] = await Promise.all([
       ensureTokenConfig(),
@@ -284,7 +287,7 @@ export default async function DashboardPage() {
         {/* ── PENGUMUMAN DARI SUPERADMIN ────────────────────────── */}
         {announcements.length > 0 && (
           <div style={{ display: "grid", gap: "12px" }}>
-            {announcements.map((ann) => {
+            {announcements.map((ann: any) => {
               const types: any = {
                 info: { icon: "ℹ️", color: "hsl(var(--primary))", bg: "hsl(var(--primary)/0.08)" },
                 success: { icon: "✅", color: "hsl(var(--success))", bg: "hsl(var(--success)/0.08)" },
