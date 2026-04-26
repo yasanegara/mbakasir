@@ -10,6 +10,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
+    "db:reset-password": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/reset-account-password.ts",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "postinstall": "node -e \"process.env.DATABASE_URL && require('child_process').execSync('prisma generate',{stdio:'inherit'})\" || true"
