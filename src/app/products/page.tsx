@@ -180,6 +180,24 @@ export default function ProductsPage() {
       ? suggestedSellingPrice - calculatedHpp
       : null;
 
+  const persistEditingProductImage = async (imageUrl: string) => {
+    if (!editingId) return;
+
+    const existingProduct = products.find((product) => product.localId === editingId);
+    if (!existingProduct) return;
+
+    const updatedProduct: LocalProduct = {
+      ...existingProduct,
+      imageUrl: imageUrl.trim() || undefined,
+      syncStatus: "PENDING",
+      updatedAt: Date.now(),
+    };
+
+    const db = getDb();
+    await db.products.put(updatedProduct);
+    await enqueueSyncOp("products", editingId, "UPDATE", updatedProduct);
+  };
+
   const handleProductImageChange = async (
     event: ChangeEvent<HTMLInputElement>
   ) => {
@@ -208,6 +226,12 @@ export default function ProductsPage() {
 
     setForm((prev) => ({ ...prev, imageUrl: previewDataUrl }));
 
+    try {
+      await persistEditingProductImage(previewDataUrl);
+    } catch (error) {
+      console.error("Failed to persist local product image preview", error);
+    }
+
     const formData = new FormData();
     formData.append("file", file);
 
@@ -227,7 +251,18 @@ export default function ProductsPage() {
 
       if (typeof data?.url === "string" && data.url.length > 0) {
         setForm((prev) => ({ ...prev, imageUrl: data.url }));
-        toast("Foto berhasil diunggah ke server", "success");
+        try {
+          await persistEditingProductImage(data.url);
+        } catch (error) {
+          console.error("Failed to persist uploaded product image URL", error);
+        }
+
+        toast(
+          editingId
+            ? "Foto berhasil diunggah dan langsung tersimpan"
+            : "Foto berhasil diunggah ke server",
+          "success"
+        );
         return;
       }
 
