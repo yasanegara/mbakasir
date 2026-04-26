@@ -691,7 +691,7 @@ export default function POSPage() {
       </FixedPortal>
 
       {showShiftSummary && activeShift && (
-        <div className="modal-overlay" style={{ zIndex: 3000 }}>
+        <div className="modal-overlay active" style={{ zIndex: 3000 }}>
           <div className="modal-content" style={{ maxWidth: "450px" }}>
             <h2 style={{ marginBottom: "16px" }}>Rekap Shift</h2>
             <div style={{ padding: "20px", background: "hsl(var(--bg-elevated))", borderRadius: "12px", marginBottom: "20px" }}>
