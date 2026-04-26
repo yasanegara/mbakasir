@@ -61,6 +61,23 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Akun agen tidak ditemukan" }, { status: 404 });
     }
 
+    // CEK APAKAH ADA PERMINTAAN YANG MASIH PENDING
+    const pendingRequest = await agentTokenRequestDelegate.findFirst({
+      where: {
+        agentId: agent.id,
+        status: "PENDING",
+      },
+    });
+
+    if (pendingRequest) {
+      return Response.json(
+        { 
+          error: "Anda masih memiliki permintaan pembelian yang belum diproses atau dibatalkan. Mohon tunggu atau batalkan permintaan sebelumnya terlebih dahulu." 
+        }, 
+        { status: 400 }
+      );
+    }
+
     let packageName = "";
     let tokenAmount = 0;
     let totalPrice = 0;

@@ -27,6 +27,23 @@ export async function POST(req: NextRequest) {
     });
 
     if (!tenant) throw new Error("Tenant tidak valid");
+    
+    // CEK APAKAH ADA PERMINTAAN YANG MASIH PENDING
+    const pendingRequest = await prisma.tokenPurchaseRequest.findFirst({
+      where: {
+        tenantId: session.tenantId,
+        status: "PENDING",
+      },
+    });
+
+    if (pendingRequest) {
+      return Response.json(
+        { 
+          error: "Anda masih memiliki permintaan pembelian yang belum diproses atau dibatalkan oleh agen. Mohon tunggu konfirmasi agen sebelum membuat permintaan baru." 
+        }, 
+        { status: 400 }
+      );
+    }
 
     // Simpan history request agar Agent bisa memantau
     const newRequest = await prisma.tokenPurchaseRequest.create({
