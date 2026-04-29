@@ -14,6 +14,7 @@ import type {
   LocalShift,
   LocalStoreProfile,
 } from "@/lib/db";
+import BarcodeScanner from "@/components/common/BarcodeScanner";
 import { useInitialSync } from "@/hooks/useInitialSync";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
@@ -213,6 +214,7 @@ export default function POSPage() {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
+  const [showScanner, setShowScanner] = useState(false);
   const [showShiftSummary, setShowShiftSummary] = useState(false);
   const [isPinVerified, setIsPinVerified] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -629,7 +631,10 @@ export default function POSPage() {
     </div>
   );
 
-  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   if (isSyncing && products.length === 0) return (
     <DashboardLayout title="Kasir">
@@ -726,9 +731,16 @@ export default function POSPage() {
     <DashboardLayout title="Kasir (POS)" headerActions={activeShift ? <button className="btn btn-sm btn-ghost" style={{ color: "hsl(var(--error))" }} onClick={() => setShowShiftSummary(true)}>🔚 Tutup Shift</button> : null}>
       <div className="pos-layout">
         <div className="pos-products-area">
-          <div style={{ padding: "16px 20px", background: "hsl(var(--bg-elevated))", borderBottom: "1px solid hsl(var(--border))", display: "flex", gap: "12px", alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
+          <div style={{ padding: "16px 20px", background: "hsl(var(--bg-elevated))", borderBottom: "1px solid hsl(var(--border))", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, display: "flex", gap: "8px" }}>
                 <input className="input-field" placeholder="🔍 Cari nama atau SKU produk..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                <button 
+                  className="btn btn-outline" 
+                  onClick={() => setShowScanner(!showScanner)}
+                  title="Scan Barcode"
+                >
+                  📷 Scan
+                </button>
               </div>
               {currentTerminal && (
                 <div style={{ 
@@ -748,8 +760,23 @@ export default function POSPage() {
                 </div>
               )}
           </div>
+          
+          {showScanner && (
+            <div style={{ padding: "20px" }}>
+              <BarcodeScanner 
+                onScan={(code) => {
+                  setSearchQuery(code);
+                  setShowScanner(false);
+                  
+                  // Optional auto-add if exactly 1 match? Let's keep it simple: just search.
+                }} 
+                onClose={() => setShowScanner(false)} 
+              />
+            </div>
+          )}
+
           <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
-            {searchQuery === "" && winningProducts.length > 0 && (
+            {searchQuery === "" && winningProducts.length > 0 && !showScanner && (
               <div style={{ marginBottom: "24px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
                   <span style={{ fontSize: "20px" }}>🔥</span>

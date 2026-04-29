@@ -28,6 +28,7 @@
     "date-fns": "^4.1.0",
     "dexie": "^4.4.2",
     "dexie-react-hooks": "^4.4.0",
+    "html5-qrcode": "^2.3.8",
     "jsonwebtoken": "^9.0.3",
     "next": "16.2.4",
     "prisma": "^6.19.3",

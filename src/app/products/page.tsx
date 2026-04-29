@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import BarcodeScanner from "@/components/common/BarcodeScanner";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { useAuth, useToast } from "@/contexts/AppProviders";
@@ -120,6 +121,7 @@ export default function ProductsPage() {
   }, [tenantId, products.length]) ?? [];
 
   const [terminalAssignments, setTerminalAssignments] = useState<{terminalId: string, stock: number}[]>([]);
+  const [showSkuScanner, setShowSkuScanner] = useState(false);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -626,17 +628,38 @@ export default function ProductsPage() {
             >
               <div>
                 <label className="input-label" htmlFor="sku">
-                  SKU
+                  SKU / Barcode
                 </label>
-                <input
-                  id="sku"
-                  className="input-field"
-                  placeholder="PRD-001"
-                  value={form.sku}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, sku: event.target.value.toUpperCase() }))
-                  }
-                />
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    id="sku"
+                    className="input-field"
+                    placeholder="PRD-001 / 899..."
+                    value={form.sku}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, sku: event.target.value.toUpperCase() }))
+                    }
+                  />
+                  <button 
+                    type="button"
+                    className="btn btn-outline" 
+                    onClick={() => setShowSkuScanner(!showSkuScanner)}
+                    title="Scan Barcode"
+                  >
+                    📷 Scan
+                  </button>
+                </div>
+                {showSkuScanner && (
+                  <div style={{ marginTop: "12px" }}>
+                    <BarcodeScanner 
+                      onScan={(code) => {
+                        setForm((prev) => ({ ...prev, sku: code.toUpperCase() }));
+                        setShowSkuScanner(false);
+                      }} 
+                      onClose={() => setShowSkuScanner(false)} 
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
