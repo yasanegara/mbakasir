@@ -198,6 +198,9 @@ body {
   transition: background-color var(--transition-slow), color var(--transition-slow);
   /* Disable native pull-to-refresh on mobile */
   overscroll-behavior-y: contain;
+  /* Improve touch responsiveness */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ─── SCROLLBAR ──────────────────────────────────────────────── */

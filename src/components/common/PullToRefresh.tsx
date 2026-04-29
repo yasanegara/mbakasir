@@ -7,27 +7,83 @@ interface PullToRefreshProps {
   children: React.ReactNode;
 }
 
+/**
+ * MBAKASIR INTELLIGENCE PRO — PREMIUM PULL TO REFRESH
+ * Optimized for 120Hz displays, iPads, and high-sensitivity mobile screens.
+ */
 export default function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
-  const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
   const containerRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const spinnerRef = useRef<HTMLDivElement>(null);
+  
   const startY = useRef(0);
+  const currentPull = useRef(0);
   const isPulling = useRef(false);
 
-  const PULL_THRESHOLD = 80;
-  const MAX_PULL = 120;
+  const PULL_THRESHOLD = 90;
+  const MAX_PULL = 150;
+  const FRICTION = 0.45; // Smooth resistance
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    const indicator = indicatorRef.current;
+    const content = contentRef.current;
+    const spinner = spinnerRef.current;
+    
+    if (!container || !indicator || !content || !spinner) return;
+
+    const updateVisuals = (distance: number) => {
+      const opacity = Math.min(distance / (PULL_THRESHOLD * 0.7), 1);
+      const scale = Math.min(distance / PULL_THRESHOLD, 1);
+      const rotate = distance * 2.5;
+      const translateY = distance * 0.5;
+
+      // Direct DOM manipulation for maximum smoothness (bypassing React render cycle)
+      indicator.style.opacity = `${opacity}`;
+      indicator.style.transform = `translateX(-50%) translateY(${distance}px) rotate(${rotate}deg) scale(${scale})`;
+      content.style.transform = `translateY(${translateY}px)`;
+
+      // Change spinner border-top color if threshold reached
+      if (distance >= PULL_THRESHOLD) {
+        spinner.style.borderTopColor = "hsl(var(--success))";
+        if (distance === PULL_THRESHOLD && !isRefreshing) {
+           // Subtle haptic if supported
+           if ("vibrate" in navigator) navigator.vibrate(5);
+        }
+      } else {
+        spinner.style.borderTopColor = "hsl(var(--primary))";
+      }
+    };
+
+    const resetVisuals = (animate = true) => {
+      if (animate) {
+        indicator.style.transition = "all 0.4s cubic-bezier(0.19, 1, 0.22, 1)";
+        content.style.transition = "transform 0.4s cubic-bezier(0.19, 1, 0.22, 1)";
+      } else {
+        indicator.style.transition = "none";
+        content.style.transition = "none";
+      }
+      
+      indicator.style.opacity = "0";
+      indicator.style.transform = "translateX(-50%) translateY(0px) rotate(0deg) scale(0)";
+      content.style.transform = "translateY(0px)";
+      currentPull.current = 0;
+    };
 
     const handleTouchStart = (e: TouchEvent) => {
-      // Only allow pull to refresh if we are at the top of the container
-      if (window.scrollY === 0) {
+      // Only trigger at the very top of the page
+      if (window.scrollY <= 5 && !isRefreshing) {
         startY.current = e.touches[0].pageY;
         isPulling.current = true;
+        
+        // Disable transitions during pull
+        indicator.style.transition = "none";
+        content.style.transition = "none";
       }
-    }
+    };
 
     const handleTouchMove = (e: TouchEvent) => {
       if (!isPulling.current || isRefreshing) return;
@@ -36,95 +92,135 @@ export default function PullToRefresh({ onRefresh, children }: PullToRefreshProp
       const diff = currentY - startY.current;
 
       if (diff > 0) {
-        // Resistance effect: pull slower as it gets longer
-        const distance = Math.min(diff * 0.4, MAX_PULL);
-        setPullDistance(distance);
+        // Logarithmic-like resistance for natural feel
+        const distance = Math.min(diff * FRICTION, MAX_PULL);
+        currentPull.current = distance;
         
-        // Prevent default scrolling when pulling down at the top
-        if (distance > 5) {
-          if (e.cancelable) e.preventDefault();
+        updateVisuals(distance);
+
+        // Prevent system pull-to-refresh and unwanted scrolling
+        if (distance > 10 && e.cancelable) {
+          e.preventDefault();
         }
-      } else {
+      } else if (diff < 0) {
+        // If user scrolls up, abort pull
         isPulling.current = false;
-        setPullDistance(0);
+        resetVisuals();
       }
-    }
+    };
 
     const handleTouchEnd = async () => {
       if (!isPulling.current || isRefreshing) return;
       isPulling.current = false;
 
-      if (pullDistance >= PULL_THRESHOLD) {
+      const finalDistance = currentPull.current;
+
+      if (finalDistance >= PULL_THRESHOLD) {
         setIsRefreshing(true);
-        setPullDistance(PULL_THRESHOLD);
         
+        // Snap to refresh position
+        indicator.style.transition = "all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+        content.style.transition = "transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+        
+        indicator.style.transform = `translateX(-50%) translateY(${PULL_THRESHOLD * 0.8}px) scale(1)`;
+        content.style.transform = `translateY(${PULL_THRESHOLD * 0.4}px)`;
+        
+        // Trigger Haptic
+        if ("vibrate" in navigator) navigator.vibrate([10, 30, 10]);
+
         try {
           await onRefresh();
         } finally {
           setIsRefreshing(false);
-          setPullDistance(0);
+          resetVisuals();
         }
       } else {
-        setPullDistance(0);
+        resetVisuals();
       }
-    }
+    };
 
-    container.addEventListener("touchstart", handleTouchStart, { passive: false });
+    container.addEventListener("touchstart", handleTouchStart, { passive: true });
     container.addEventListener("touchmove", handleTouchMove, { passive: false });
-    container.addEventListener("touchend", handleTouchEnd);
+    container.addEventListener("touchend", handleTouchEnd, { passive: true });
 
     return () => {
       container.removeEventListener("touchstart", handleTouchStart);
       container.removeEventListener("touchmove", handleTouchMove);
       container.removeEventListener("touchend", handleTouchEnd);
-    }
-  }, [pullDistance, isRefreshing, onRefresh]);
+    };
+  }, [isRefreshing, onRefresh]);
 
   return (
-    <div ref={containerRef} style={{ position: "relative", minHeight: "100%" }}>
-      {/* Visual Indicator */}
+    <div 
+      ref={containerRef} 
+      className="ptr-container"
+      style={{ 
+        position: "relative", 
+        minHeight: "100%",
+        touchAction: "pan-x pan-y pinch-zoom" // Better gesture control
+      }}
+    >
+      {/* Visual Indicator (Spinner) */}
       <div 
+        ref={indicatorRef}
+        className="ptr-indicator"
         style={{ 
-          position: "absolute", 
-          top: `${pullDistance - 40}px`, 
+          position: "fixed", 
+          top: "10px", 
           left: "50%", 
-          transform: `translateX(-50%) rotate(${pullDistance * 3}deg) scale(${Math.min(pullDistance / PULL_THRESHOLD, 1)})`,
-          opacity: Math.min(pullDistance / 20, 1),
-          zIndex: 100,
+          transform: "translateX(-50%) scale(0)",
+          opacity: 0,
+          zIndex: 9999,
           background: "hsl(var(--bg-elevated))",
-          width: "40px",
-          height: "40px",
+          width: "42px",
+          height: "42px",
           borderRadius: "50%",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          boxShadow: "var(--shadow-md)",
-          border: "1px solid hsl(var(--border))",
-          transition: isRefreshing ? "none" : "top 0.2s ease, transform 0.1s linear, opacity 0.2s ease",
-          pointerEvents: "none"
+          boxShadow: "0 4px 15px rgba(0,0,0,0.25), var(--shadow-glow-primary)",
+          border: "1px solid hsl(var(--border-light))",
+          pointerEvents: "none",
+          willChange: "transform, opacity"
         }}
       >
         <div 
+          ref={spinnerRef}
           className={isRefreshing ? "animate-spin" : ""}
           style={{ 
-            width: "20px", 
-            height: "20px", 
-            border: "3px solid hsl(var(--primary) / 0.2)", 
+            width: "22px", 
+            height: "22px", 
+            border: "3px solid hsl(var(--text-muted) / 0.15)", 
             borderTopColor: "hsl(var(--primary))", 
-            borderRadius: "50%" 
+            borderRadius: "50%",
+            transition: "border-color 0.2s ease"
           }} 
         />
       </div>
 
-      {/* Content wrapper with transition */}
+      {/* Content wrapper */}
       <div 
+        ref={contentRef}
+        className="ptr-content"
         style={{ 
-          transform: `translateY(${pullDistance * 0.5}px)`,
-          transition: isPulling.current ? "none" : "transform 0.3s cubic-bezier(0.2, 0, 0, 1)"
+          willChange: "transform"
         }}
       >
         {children}
       </div>
+
+      <style jsx global>{`
+        .ptr-container {
+          user-select: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+        @keyframes ptr-spin {
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: ptr-spin 0.8s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }
