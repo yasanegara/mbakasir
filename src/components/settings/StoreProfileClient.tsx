@@ -10,8 +10,7 @@ interface StoreProfileClientProps {
   initialStoreName?: string; // dari server (DB Postgres) sebagai seed awal
 }
 
-type TabKey = "info" | "qris" | "wa";
-
+type TabKey = "info" | "qris" | "wa" | "danger";
 export default function StoreProfileClient({ tenantId, initialStoreName }: StoreProfileClientProps) {
   const { toast } = useToast();
   const { profile, saveProfile } = useStoreProfile(tenantId);
@@ -133,6 +132,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
     { key: "info", label: "Info Toko", icon: "🏪" },
     { key: "qris", label: "QRIS Statis", icon: "📲" },
     { key: "wa", label: "Template WA", icon: "💬" },
+    { key: "danger", label: "Bahaya", icon: "⚠️" },
   ];
 
   return (
@@ -535,6 +535,154 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
           >
             {isSaving ? "Menyimpan..." : "💾 Simpan Template WA"}
           </button>
+        </div>
+      )}
+      {/* ── TAB: DANGER ZONE ───────────────────────────────────── */}
+      {activeTab === "danger" && (
+        <div style={{ display: "grid", gap: "20px" }}>
+          <div>
+            <h3 style={{ fontSize: "16px", fontWeight: 700, color: "hsl(var(--error))" }}>⚠️ Area Berbahaya</h3>
+            <p style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", marginTop: "4px", lineHeight: 1.6 }}>
+              Tindakan di bawah ini tidak dapat dibatalkan. Pastikan Anda benar-benar ingin mereset data sebelum melanjutkan.
+            </p>
+          </div>
+
+          <div style={{ border: "1px solid hsl(var(--error)/0.3)", borderRadius: "12px", padding: "16px", background: "hsl(var(--error)/0.05)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+              <div>
+                <h4 style={{ fontWeight: 600 }}>Reset Data Transaksi</h4>
+                <p style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
+                  Menghapus semua riwayat penjualan, item terjual, dan shift kasir.
+                </p>
+              </div>
+              <button
+                className="btn btn-sm"
+                style={{ background: "hsl(var(--error))", color: "white" }}
+                onClick={async () => {
+                  if (confirm("Apakah Anda yakin ingin MENGHAPUS SEMUA DATA TRANSAKSI? Tindakan ini tidak bisa dibatalkan.")) {
+                    setIsSaving(true);
+                    try {
+                      const res = await fetch("/api/tenant/reset", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ type: "transactions" }),
+                      });
+                      if (!res.ok) throw new Error();
+                      
+                      // Reset lokal (Dexie)
+                      const { getDb } = await import("@/lib/db");
+                      const db = getDb();
+                      await db.sales.clear();
+                      await db.saleItems.clear();
+                      await db.shifts.clear();
+                      
+                      toast("✅ Data transaksi berhasil direset", "success");
+                    } catch {
+                      toast("Gagal mereset data transaksi", "error");
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }
+                }}
+                disabled={isSaving}
+              >
+                Reset Transaksi
+              </button>
+            </div>
+          </div>
+
+          <div style={{ border: "1px solid hsl(var(--error)/0.3)", borderRadius: "12px", padding: "16px", background: "hsl(var(--error)/0.05)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+              <div>
+                <h4 style={{ fontWeight: 600 }}>Reset Data Produk</h4>
+                <p style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
+                  Menghapus semua data produk, bahan baku, resep (BoM), dan alokasi stok.
+                </p>
+              </div>
+              <button
+                className="btn btn-sm"
+                style={{ background: "hsl(var(--error))", color: "white" }}
+                onClick={async () => {
+                  if (confirm("Apakah Anda yakin ingin MENGHAPUS SEMUA DATA PRODUK? Tindakan ini tidak bisa dibatalkan.")) {
+                    setIsSaving(true);
+                    try {
+                      const res = await fetch("/api/tenant/reset", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ type: "products" }),
+                      });
+                      if (!res.ok) throw new Error();
+                      
+                      // Reset lokal (Dexie)
+                      const { getDb } = await import("@/lib/db");
+                      const db = getDb();
+                      await db.products.clear();
+                      await db.rawMaterials.clear();
+                      await db.billOfMaterials.clear();
+                      await db.productAssignments.clear();
+                      
+                      toast("✅ Data produk berhasil direset", "success");
+                    } catch {
+                      toast("Gagal mereset data produk", "error");
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }
+                }}
+                disabled={isSaving}
+              >
+                Reset Produk
+              </button>
+            </div>
+          </div>
+          
+          <div style={{ border: "1px solid hsl(var(--error)/0.5)", borderRadius: "12px", padding: "16px", background: "hsl(var(--error)/0.1)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+              <div>
+                <h4 style={{ fontWeight: 600, color: "hsl(var(--error))" }}>Reset Semua Data (Produk & Transaksi)</h4>
+                <p style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
+                  Menghapus SEMUA data produk dan transaksi. Toko akan kembali kosong seperti baru.
+                </p>
+              </div>
+              <button
+                className="btn btn-sm"
+                style={{ background: "hsl(var(--error))", color: "white", fontWeight: 700 }}
+                onClick={async () => {
+                  if (confirm("PERINGATAN KERAS! Anda akan MENGHAPUS SEMUA DATA PRODUK & TRANSAKSI. Lanjutkan?")) {
+                    setIsSaving(true);
+                    try {
+                      const res = await fetch("/api/tenant/reset", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ type: "all" }),
+                      });
+                      if (!res.ok) throw new Error();
+                      
+                      // Reset lokal (Dexie)
+                      const { getDb } = await import("@/lib/db");
+                      const db = getDb();
+                      await db.sales.clear();
+                      await db.saleItems.clear();
+                      await db.shifts.clear();
+                      await db.products.clear();
+                      await db.rawMaterials.clear();
+                      await db.billOfMaterials.clear();
+                      await db.productAssignments.clear();
+                      
+                      toast("✅ Semua data berhasil direset", "success");
+                    } catch {
+                      toast("Gagal mereset semua data", "error");
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }
+                }}
+                disabled={isSaving}
+              >
+                Reset Semua Data
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>

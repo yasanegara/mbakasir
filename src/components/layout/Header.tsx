@@ -144,10 +144,49 @@ export default function Header({ title, onMenuClick, headerActions }: HeaderProp
           {mode === "dark" ? "🌙" : "☀️"}
         </button>
 
+        {/* Sync Button */}
+        {syncCount === 0 && isOnline && (
+          <button
+            onClick={() => {
+              window.dispatchEvent(new Event("force-sync"));
+              const icon = document.getElementById("manual-sync-icon");
+              if (icon) {
+                icon.classList.add("animate-spin");
+                setTimeout(() => icon.classList.remove("animate-spin"), 1000);
+              }
+            }}
+            className="btn btn-ghost btn-icon btn-sm"
+            title="Sinkronisasi Paksa"
+            style={{ padding: "6px", display: "flex", alignItems: "center", justifyContent: "center", height: "30px", width: "30px" }}
+          >
+            <svg
+              id="manual-sync-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              width={16}
+              height={16}
+              style={{ transition: "transform 0.3s ease", color: "hsl(var(--text-secondary))" }}
+            >
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3" />
+            </svg>
+          </button>
+        )}
+
         {/* Pending sync badge */}
         {syncCount > 0 && (
-          <div
-            title={`${syncCount} transaksi penjualan kasir (POS) tersimpan lokal dan sedang menunggu untuk diupload ke server pusat. Akan diupload saat sinyal internet pulih.`}
+          <button
+            onClick={() => {
+              window.dispatchEvent(new Event("force-sync"));
+              // Optional: Beri efek visual sederhana (optimistic)
+              const icon = document.getElementById("sync-icon");
+              if (icon) {
+                icon.classList.add("animate-spin");
+                setTimeout(() => icon.classList.remove("animate-spin"), 1000);
+              }
+            }}
+            title={`${syncCount} transaksi penjualan kasir (POS) tersimpan lokal. Klik untuk sinkronisasi paksa ke server.`}
             style={{
               display: "flex",
               alignItems: "center",
@@ -159,22 +198,31 @@ export default function Header({ title, onMenuClick, headerActions }: HeaderProp
               color: "hsl(var(--warning))",
               fontSize: "12px",
               fontWeight: 600,
-              cursor: "default",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "hsl(var(--warning) / 0.25)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "hsl(var(--warning) / 0.15)";
             }}
           >
             <svg
+              id="sync-icon"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth={2}
               width={12}
               height={12}
+              style={{ transition: "transform 0.3s ease" }}
             >
               <polyline points="23 4 23 10 17 10" />
               <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
             </svg>
             <span style={{ display: "none" }} className="md:inline">Belum Upload: </span>{syncCount}
-          </div>
+          </button>
         )}
 
         {/* Online / Offline indicator */}

@@ -164,13 +164,16 @@ export function useBackgroundSync() {
     // Set interval
     intervalRef.current = setInterval(runSync, SYNC_INTERVAL_MS);
 
-    // Listener: sync saat kembali online
+    // Listener: sync saat kembali online atau dipaksa
     const handleOnline = () => runSync();
+    const handleForceSync = () => runSync();
     window.addEventListener("online", handleOnline);
+    window.addEventListener("force-sync", handleForceSync);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("force-sync", handleForceSync);
     };
   }, [isEnabled, runSync]);
 
