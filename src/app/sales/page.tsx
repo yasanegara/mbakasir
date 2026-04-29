@@ -5,7 +5,8 @@ import { getDb, type LocalPosTerminal, type LocalSale, type LocalSaleItem } from
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { formatRupiahFull } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/contexts/AppProviders";
+import { useAuth, useToast } from "@/contexts/AppProviders";
+import SalesReturnModal from "@/components/common/SalesReturnModal";
 
 type OnlineOrderStatus =
   | "PENDING"
@@ -98,6 +99,8 @@ export default function SalesHistoryPage() {
   const [search, setSearch] = useState("");
   const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
   const [onlineOrdersLoading, setOnlineOrdersLoading] = useState(false);
+  const [returnTargetId, setReturnTargetId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const tenantId = user?.tenantId;
 
@@ -114,6 +117,11 @@ export default function SalesHistoryPage() {
 
   const posTerminals = useLiveQuery<LocalPosTerminal[]>(
     () => (tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : []),
+    [tenantId]
+  ) ?? [];
+
+  const returns = useLiveQuery(
+    () => (tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : []),
     [tenantId]
   ) ?? [];
 
@@ -199,6 +207,16 @@ export default function SalesHistoryPage() {
       (a, b) => b.createdAt - a.createdAt
     );
   }, [onlineOrders, posTerminals, saleItems, sales]);
+
+  const returnTargetSale = useMemo(() => {
+    if (!returnTargetId) return null;
+    return sales.find(s => s.localId === returnTargetId);
+  }, [returnTargetId, sales]);
+
+  const returnTargetItems = useMemo(() => {
+    if (!returnTargetId) return [];
+    return saleItems.filter(i => i.saleLocalId === returnTargetId);
+  }, [returnTargetId, saleItems]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return unifiedTransactions;

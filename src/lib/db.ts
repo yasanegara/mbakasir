@@ -200,6 +200,29 @@ export interface LocalShoppingItem {
   updatedAt: number;
 }
 
+export interface LocalSalesReturn {
+  id?: string;
+  localId: string;
+  tenantId: string;
+  saleLocalId: string;
+  invoiceNo: string;
+  totalAmount: number;
+  reason?: string;
+  createdAt: number;
+  syncStatus: "PENDING" | "SYNCED" | "CONFLICT";
+}
+
+export interface LocalSalesReturnItem {
+  id: string;
+  localId: string;
+  returnLocalId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+  condition: "GOOD" | "DAMAGED";
+}
+
 // ─── DEXIE DATABASE CLASS ─────────────────────────────────────
 
 export class MbakasirDatabase extends Dexie {
@@ -216,6 +239,8 @@ export class MbakasirDatabase extends Dexie {
   storeProfile!: EntityTable<LocalStoreProfile, "id">;
   productAssignments!: EntityTable<LocalProductAssignment, "id">;
   posTerminals!: EntityTable<LocalPosTerminal, "id">;
+  salesReturns!: EntityTable<LocalSalesReturn, "localId">;
+  salesReturnItems!: EntityTable<LocalSalesReturnItem, "localId">;
 
   constructor() {
     super("MbakasirDB");
@@ -251,6 +276,11 @@ export class MbakasirDatabase extends Dexie {
     this.version(5).stores({
       sales: "localId, id, tenantId, userId, shiftLocalId, terminalId, status, paymentMethod, syncStatus, createdAt, [tenantId+status]",
       productAssignments: "id, productId, terminalId, stock",
+    });
+
+    this.version(6).stores({
+      salesReturns: "localId, id, tenantId, saleLocalId, invoiceNo, syncStatus, createdAt",
+      salesReturnItems: "localId, returnLocalId, productId",
     });
   }
 }

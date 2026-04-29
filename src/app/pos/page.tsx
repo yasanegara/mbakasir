@@ -15,6 +15,7 @@ import type {
   LocalStoreProfile,
 } from "@/lib/db";
 import BarcodeScanner from "@/components/common/BarcodeScanner";
+import SalesReturnModal from "@/components/common/SalesReturnModal";
 import { useInitialSync } from "@/hooks/useInitialSync";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
@@ -149,6 +150,20 @@ export default function POSPage() {
   ) ?? [];
   const activeShift = shifts?.find((s) => !s.closedAt);
 
+  const sales = useLiveQuery(
+    () => (tenantId ? getDb().sales.where("tenantId").equals(tenantId).reverse().sortBy("createdAt") : []),
+    [tenantId]
+  ) ?? [];
+
+  const saleItems = useLiveQuery(
+    () => {
+      if (!tenantId || sales.length === 0) return [];
+      const saleIds = sales.slice(0, 50).map(s => s.localId);
+      return getDb().saleItems.where("saleLocalId").anyOf(saleIds).toArray();
+    },
+    [tenantId, sales.length]
+  ) ?? [];
+
   const shiftSales = useLiveQuery<LocalSale[]>(
     async () => {
       if (!activeShift) return [];
@@ -266,6 +281,8 @@ export default function POSPage() {
   const [brand, setBrand] = useState<any>(null);
   const [printRekapShift, setPrintRekapShift] = useState(false);
   const [showItemDetails, setShowItemDetails] = useState(false);
+  const [showReturnSelector, setShowReturnSelector] = useState(false);
+  const [returnTargetId, setReturnTargetId] = useState<string | null>(null);
 
   const handlePrintRekap = () => {
     setPrintRekapShift(true);
@@ -768,7 +785,23 @@ export default function POSPage() {
   }
 
   return (
-    <DashboardLayout title="Kasir (POS)" headerActions={activeShift ? <button className="btn btn-sm btn-ghost" style={{ color: "hsl(var(--error))" }} onClick={() => setShowShiftSummary(true)}>🔚 Tutup Shift</button> : null}>
+    <DashboardLayout 
+      title="Kasir (POS)" 
+      headerActions={
+        <div style={{ display: "flex", gap: "8px" }}>
+          {activeShift && (
+            <button className="btn btn-sm btn-ghost" onClick={() => setShowReturnSelector(true)}>
+              🔄 Retur
+            </button>
+          )}
+          {activeShift ? (
+            <button className="btn btn-sm btn-ghost" style={{ color: "hsl(var(--error))" }} onClick={() => setShowShiftSummary(true)}>
+              🔚 Tutup Shift
+            </button>
+          ) : null}
+        </div>
+      }
+    >
       <div className="pos-layout">
         <div className="pos-products-area">
           <div style={{ padding: "16px 20px", background: "hsl(var(--bg-elevated))", borderBottom: "1px solid hsl(var(--border))", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
@@ -1082,6 +1115,52 @@ export default function POSPage() {
             )}
           </div>
         </div>
+      )}
+      {showReturnSelector && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", padding: "20px", backdropFilter: "blur(4px)" }}>
+          <div className="card animate-slide-up" style={{ width: "100%", maxWidth: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column", padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid hsl(var(--border))", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ fontWeight: 800 }}>Pilih Transaksi untuk Retur</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowReturnSelector(false)}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
+              {sales.filter(s => s.status === "COMPLETED").slice(0, 20).map(sale => (
+                <button 
+                  key={sale.localId}
+                  className="btn btn-ghost"
+                  style={{ width: "100%", justifyContent: "space-between", marginBottom: "8px", height: "auto", padding: "12px", border: "1px solid hsl(var(--border))" }}
+                  onClick={() => {
+                    setReturnTargetId(sale.localId);
+                    setShowReturnSelector(false);
+                  }}
+                >
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontWeight: 700, fontSize: "13px" }}>{sale.invoiceNo}</div>
+                    <div style={{ fontSize: "11px", opacity: 0.6 }}>{new Date(sale.createdAt).toLocaleString()}</div>
+                  </div>
+                  <div style={{ fontWeight: 800, color: "hsl(var(--primary))" }}>{formatRupiahFull(sale.totalAmount)}</div>
+                </button>
+              ))}
+              {sales.filter(s => s.status === "COMPLETED").length === 0 && (
+                <div style={{ padding: "40px", textAlign: "center", color: "hsl(var(--text-muted))" }}>
+                  Belum ada transaksi yang bisa diretur.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {returnTargetId && (
+        <SalesReturnModal 
+          sale={sales.find(s => s.localId === returnTargetId)!}
+          items={saleItems.filter(i => i.saleLocalId === returnTargetId)}
+          onClose={() => setReturnTargetId(null)}
+          onSuccess={() => {
+            setReturnTargetId(null);
+            toast("Stok telah diperbarui.", "success");
+          }}
+        />
       )}
     </DashboardLayout>
   );
