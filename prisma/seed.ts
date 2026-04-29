@@ -266,11 +266,11 @@ async function main() {
 
   // ─── Demo Products ─────────────────────────────────────────
   const products = [
-    { sku: "ES-001", name: "Es Teh Manis", category: "Minuman", price: 5000, costPrice: 1500, stock: 999, hasBoM: true },
-    { sku: "NS-001", name: "Nasi Goreng Spesial", category: "Makanan", price: 25000, costPrice: 10000, stock: 50, hasBoM: false },
-    { sku: "AY-001", name: "Ayam Bakar", category: "Makanan", price: 35000, costPrice: 15000, stock: 30, hasBoM: false },
-    { sku: "JU-001", name: "Jus Alpukat", category: "Minuman", price: 18000, costPrice: 7000, stock: 999, hasBoM: true },
-    { sku: "RO-001", name: "Roti Bakar Coklat", category: "Snack", price: 12000, costPrice: 4000, stock: 100, hasBoM: false },
+    { sku: "ES-001", name: "Es Teh Manis", category: "Minuman", price: 5000, costPrice: 1500, stock: 999, hasBoM: true, imageUrl: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=500&q=80" },
+    { sku: "NS-001", name: "Nasi Goreng Spesial", category: "Makanan", price: 25000, costPrice: 10000, stock: 50, hasBoM: false, imageUrl: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=500&q=80" },
+    { sku: "AY-001", name: "Ayam Bakar", category: "Makanan", price: 35000, costPrice: 15000, stock: 30, hasBoM: false, imageUrl: "https://images.unsplash.com/photo-1598514982205-f36b96d1e8d4?w=500&q=80" },
+    { sku: "JU-001", name: "Jus Alpukat", category: "Minuman", price: 18000, costPrice: 7000, stock: 999, hasBoM: true, imageUrl: "https://images.unsplash.com/photo-1603569283847-aa295f0d016a?w=500&q=80" },
+    { sku: "RO-001", name: "Roti Bakar Coklat", category: "Snack", price: 12000, costPrice: 4000, stock: 100, hasBoM: false, imageUrl: "https://images.unsplash.com/photo-1525351484163-7529414344d8?w=500&q=80" },
   ];
 
   const seededProducts = new Map<string, { id: string; localId: string | null }>();
@@ -288,6 +288,7 @@ async function main() {
         isActive: true,
         hasBoM: p.hasBoM,
         syncStatus: "SYNCED",
+        imageUrl: p.imageUrl,
       },
       create: {
         tenantId: demoTenant.id,
