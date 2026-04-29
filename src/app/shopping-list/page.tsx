@@ -296,6 +296,8 @@ export default function ShoppingListPage() {
     [tenantId]
   ) ?? [];
 
+  const storeProfile = useLiveQuery(() => getDb().storeProfile.get("default"));
+
   const [showAdd, setShowAdd] = useState(false);
   const [activeTab, setActiveTab] = useState<"belanja" | "selesai">("belanja");
 
@@ -617,9 +619,64 @@ export default function ShoppingListPage() {
 
         {/* Tombol cetak */}
         <div style={{ display: "flex", justifyContent: "flex-end" }} className="no-print">
-          <button className="btn btn-ghost" style={{ fontSize: "13px" }} onClick={() => window.print()}>
+          <button 
+            className="btn btn-ghost" 
+            style={{ fontSize: "13px" }} 
+            onClick={() => window.print()}
+            disabled={pendingItems.length === 0}
+          >
             🖨️ Cetak Daftar Belanja
           </button>
+        </div>
+      </div>
+
+      {/* ──────────────────────────────────────────────────────────────── */}
+      {/* PRINT AREA — Hanya muncul saat Cetak (via globals.css) */}
+      {/* ──────────────────────────────────────────────────────────────── */}
+      <div id="print-area" style={{ padding: "40px", color: "black", background: "white" }}>
+        <div style={{ textAlign: "center", marginBottom: "30px", borderBottom: "2px solid black", paddingBottom: "20px" }}>
+          <h1 style={{ fontSize: "24px", margin: "0 0 5px 0", textTransform: "uppercase" }}>
+            Daftar Belanja {storeProfile?.storeName || user?.name || "Toko"}
+          </h1>
+          <p style={{ margin: 0, fontSize: "14px" }}>
+            Tanggal: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+          </p>
+        </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "20px" }}>
+          <thead>
+            <tr>
+              <th style={{ border: "1px solid black", padding: "10px", textAlign: "left", width: "40px" }}>No</th>
+              <th style={{ border: "1px solid black", padding: "10px", textAlign: "left" }}>Nama Item</th>
+              <th style={{ border: "1px solid black", padding: "10px", textAlign: "center", width: "100px" }}>Jumlah</th>
+              <th style={{ border: "1px solid black", padding: "10px", textAlign: "left", width: "80px" }}>Satuan</th>
+              <th style={{ border: "1px solid black", padding: "10px", textAlign: "left" }}>Catatan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pendingItems.length > 0 ? (
+              pendingItems.sort((a, b) => a.createdAt - b.createdAt).map((item, idx) => (
+                <tr key={item.id}>
+                  <td style={{ border: "1px solid black", padding: "10px", textAlign: "center" }}>{idx + 1}</td>
+                  <td style={{ border: "1px solid black", padding: "10px" }}>
+                    <div style={{ fontWeight: "bold" }}>{item.name}</div>
+                    <div style={{ fontSize: "12px" }}>{item.sku ? `SKU: ${item.sku}` : (item.category ? `Kat: ${item.category}` : "")}</div>
+                  </td>
+                  <td style={{ border: "1px solid black", padding: "10px", textAlign: "center", fontWeight: "bold" }}>{item.qtyToBuy}</td>
+                  <td style={{ border: "1px solid black", padding: "10px" }}>{item.unit}</td>
+                  <td style={{ border: "1px solid black", padding: "10px", fontSize: "12px" }}>{item.notes || "-"}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} style={{ border: "1px solid black", padding: "20px", textAlign: "center" }}>Tidak ada item untuk dibeli.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        <div style={{ marginTop: "40px", fontSize: "12px", fontStyle: "italic", textAlign: "center", opacity: 0.7 }}>
+          Dicetak melalui aplikasi MbakKasir pada {new Date().toLocaleString("id-ID")}
         </div>
       </div>
 

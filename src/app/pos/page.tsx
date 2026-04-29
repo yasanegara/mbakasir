@@ -227,7 +227,14 @@ export default function POSPage() {
 
     // Dengarkan event scan dari Header (jika sedang di halaman POS)
     const handleGlobalScan = (e: any) => {
-      setSearchQuery(e.detail);
+      const code = e.detail;
+      const product = products.find(p => p.sku === code.toUpperCase());
+      if (product) {
+        addToCart(product);
+        toast(`Ditambah: ${product.name}`, "success");
+      } else {
+        setSearchQuery(code);
+      }
     };
 
     // Shortcut F9 untuk Scanner
@@ -244,7 +251,7 @@ export default function POSPage() {
       window.removeEventListener("global-barcode-scanned", handleGlobalScan);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [products]);
 
   const [showShiftSummary, setShowShiftSummary] = useState(false);
   const [isPinVerified, setIsPinVerified] = useState(false);
@@ -817,10 +824,14 @@ export default function POSPage() {
             <div style={{ padding: "20px" }}>
               <BarcodeScanner 
                 onScan={(code) => {
-                  setSearchQuery(code);
-                  setShowScanner(false);
-                  
-                  // Optional auto-add if exactly 1 match? Let's keep it simple: just search.
+                  const product = products.find(p => p.sku === code.toUpperCase());
+                  if (product) {
+                    addToCart(product);
+                    toast(`Ditambah: ${product.name}`, "success");
+                  } else {
+                    toast(`Produk SKU ${code} tidak ditemukan`, "warning");
+                    setSearchQuery(code);
+                  }
                 }} 
                 onClose={() => setShowScanner(false)} 
               />
