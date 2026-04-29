@@ -102,6 +102,14 @@ const Icon = {
       <path d="M3 11l19-9-9 19-2-8-8-2z" />
     </svg>
   ),
+  opname: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="M9 2h6" />
+      <path d="M12 11v6" />
+      <path d="M9 14h6" />
+    </svg>
+  ),
   storefront: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
       <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" />
@@ -113,6 +121,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Icon.dashboard, roles: ["SUPERADMIN", "AGENT", "TENANT", "CASHIER"] },
   { href: "/pos", label: "Kasir (POS)", icon: Icon.pos, roles: ["CASHIER", "TENANT"] },
   { href: "/products", label: "Produk", icon: Icon.products, roles: ["TENANT"] },
+  { href: "/stock-opname", label: "Stock Opname", icon: Icon.opname, roles: ["TENANT"] },
   { href: "/inventory", label: "Bahan Baku", icon: Icon.inventory, roles: ["TENANT"] },
   { href: "/sales", label: "Riwayat Transaksi", icon: Icon.history, roles: ["TENANT", "CASHIER"] },
   { href: "/customers", label: "Data Pelanggan", icon: Icon.users, roles: ["TENANT"] },

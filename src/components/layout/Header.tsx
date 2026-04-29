@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, useTheme } from "@/contexts/AppProviders";
 import { formatDate } from "@/lib/utils";
-import BarcodeScanner from "@/components/common/BarcodeScanner";
+
 
 // ============================================================
 // HEADER — Info shift, tanggal, status online/offline
@@ -22,7 +22,7 @@ export default function Header({ title, onMenuClick, headerActions }: HeaderProp
   const [isOnline, setIsOnline] = useState(true);
   const [now, setNow] = useState(new Date());
   const [syncCount, setSyncCount] = useState(0);
-  const [showScanner, setShowScanner] = useState(false);
+
   const router = useRouter();
 
   // Update jam setiap 30 detik
@@ -148,15 +148,7 @@ export default function Header({ title, onMenuClick, headerActions }: HeaderProp
           {mode === "dark" ? "🌙" : "☀️"}
         </button>
 
-        {/* Global Scanner Button */}
-        <button
-          onClick={() => setShowScanner(true)}
-          className="btn btn-ghost btn-icon btn-sm"
-          title="Scan Barcode Cepat"
-          style={{ padding: "6px", fontSize: "16px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", height: "30px", width: "30px", lineHeight: 1, color: "hsl(var(--primary))" }}
-        >
-          📷
-        </button>
+
 
         {/* Sync Button */}
         {syncCount === 0 && isOnline && (
@@ -259,29 +251,7 @@ export default function Header({ title, onMenuClick, headerActions }: HeaderProp
 
       </div>
 
-      {/* Global Scanner Modal */}
-      {showScanner && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)", padding: "20px" }}>
-          <div style={{ background: "hsl(var(--bg-elevated))", padding: "24px", borderRadius: "16px", width: "100%", maxWidth: "450px", position: "relative" }}>
-            <h3 style={{ fontSize: "18px", fontWeight: 700, marginBottom: "8px", textAlign: "center" }}>Scan Barcode Cepat</h3>
-            <p style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", textAlign: "center", marginBottom: "16px" }}>
-              Scan produk untuk langsung dicarikan di Kasir (POS).
-            </p>
-            <BarcodeScanner 
-              onScan={(code) => {
-                setShowScanner(false);
-                if (window.location.pathname.includes("/pos")) {
-                  window.dispatchEvent(new CustomEvent("global-barcode-scanned", { detail: code }));
-                } else {
-                  localStorage.setItem("pending_barcode_scan", code);
-                  router.push("/pos");
-                }
-              }} 
-              onClose={() => setShowScanner(false)} 
-            />
-          </div>
-        </div>
-      )}
+
     </header>
   );
 }

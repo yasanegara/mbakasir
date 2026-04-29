@@ -229,8 +229,21 @@ export default function POSPage() {
     const handleGlobalScan = (e: any) => {
       setSearchQuery(e.detail);
     };
+
+    // Shortcut F9 untuk Scanner
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F9") {
+        e.preventDefault();
+        setShowScanner(prev => !prev);
+      }
+    };
+
     window.addEventListener("global-barcode-scanned", handleGlobalScan);
-    return () => window.removeEventListener("global-barcode-scanned", handleGlobalScan);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("global-barcode-scanned", handleGlobalScan);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   const [showShiftSummary, setShowShiftSummary] = useState(false);
@@ -752,14 +765,33 @@ export default function POSPage() {
       <div className="pos-layout">
         <div className="pos-products-area">
           <div style={{ padding: "16px 20px", background: "hsl(var(--bg-elevated))", borderBottom: "1px solid hsl(var(--border))", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, display: "flex", gap: "8px" }}>
-                <input className="input-field" placeholder="🔍 Cari nama atau SKU produk..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <div style={{ flex: 1, position: "relative" }}>
+                <input 
+                  className="input-field" 
+                  placeholder="🔍 Cari nama atau SKU produk..." 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  style={{ paddingRight: "100px" }}
+                />
                 <button 
-                  className="btn btn-outline" 
+                  className="btn btn-ghost btn-sm" 
                   onClick={() => setShowScanner(!showScanner)}
-                  title="Scan Barcode"
+                  title="Scan Barcode (F9)"
+                  style={{ 
+                    position: "absolute", 
+                    right: "8px", 
+                    top: "50%", 
+                    transform: "translateY(-50%)",
+                    background: "hsl(var(--bg-elevated))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                    height: "32px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    gap: "4px"
+                  }}
                 >
-                  📷 Scan
+                  📷 <span className="hidden md:inline">Scan (F9)</span>
                 </button>
               </div>
               {currentTerminal && (

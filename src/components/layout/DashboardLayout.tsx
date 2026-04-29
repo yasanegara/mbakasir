@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import TenantLockWrapper from "./TenantLockWrapper";
+import PullToRefresh from "@/components/common/PullToRefresh";
 
 // ============================================================
 // MAIN LAYOUT (App Shell)
@@ -52,7 +53,9 @@ export default function DashboardLayout({
         />
 
         <main className="page-body">
-          <TenantLockWrapper>{children}</TenantLockWrapper>
+          <PullToRefresh onRefresh={async () => { window.location.reload(); }}>
+            <TenantLockWrapper>{children}</TenantLockWrapper>
+          </PullToRefresh>
         </main>
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useState, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import BarcodeScanner from "@/components/common/BarcodeScanner";
 import RestockModal from "@/components/common/RestockModal";
@@ -192,6 +192,17 @@ export default function ProductsPage() {
       setRestockingProduct(null);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "F9") {
+        e.preventDefault();
+        setShowSkuScanner(prev => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -670,6 +681,13 @@ export default function ProductsPage() {
           <div style={{ display: "flex", gap: "10px" }}>
             <button
               className="btn btn-outline"
+              onClick={() => setShowSkuScanner(true)}
+              title="Scan Barcode untuk Restock atau Tambah Baru (F9)"
+            >
+              📷 Scan (F9)
+            </button>
+            <button
+              className="btn btn-outline"
               onClick={() => window.location.reload()}
             >
               🔄 Sinkron Data
@@ -734,20 +752,7 @@ export default function ProductsPage() {
                     Mencari info produk dari database barcode internasional...
                   </div>
                 )}
-                {showSkuScanner && !isLookingUp && (
-                  <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", padding: "20px" }}>
-                    <div style={{ background: "hsl(var(--bg-elevated))", padding: "24px", borderRadius: "20px", width: "100%", maxWidth: "460px", boxShadow: "0 24px 80px rgba(0,0,0,0.4)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                        <div>
-                          <h3 style={{ fontSize: "18px", fontWeight: 700 }}>📷 Scan Barcode Produk</h3>
-                          <p style={{ fontSize: "12px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>Nama, kategori &amp; foto terisi otomatis dari internet.</p>
-                        </div>
-                        <button type="button" onClick={() => setShowSkuScanner(false)} style={{ background: "hsl(var(--bg-card))", border: "1px solid hsl(var(--border))", borderRadius: "50%", width: "32px", height: "32px", fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-                      </div>
-                      <BarcodeScanner onScan={lookupBarcode} onClose={() => setShowSkuScanner(false)} />
-                    </div>
-                  </div>
-                )}
+
               </div>
 
               <div>
@@ -1552,6 +1557,20 @@ export default function ProductsPage() {
           </table>
         </section>
       </div>
+      {showSkuScanner && !isLookingUp && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", padding: "20px" }}>
+          <div style={{ background: "hsl(var(--bg-elevated))", padding: "24px", borderRadius: "20px", width: "100%", maxWidth: "460px", boxShadow: "0 24px 80px rgba(0,0,0,0.4)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div>
+                <h3 style={{ fontSize: "18px", fontWeight: 700 }}>📷 Scan Barcode Produk</h3>
+                <p style={{ fontSize: "12px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>Nama, kategori &amp; foto terisi otomatis dari internet.</p>
+              </div>
+              <button type="button" onClick={() => setShowSkuScanner(false)} style={{ background: "hsl(var(--bg-card))", border: "1px solid hsl(var(--border))", borderRadius: "50%", width: "32px", height: "32px", fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+            <BarcodeScanner onScan={lookupBarcode} onClose={() => setShowSkuScanner(false)} />
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
