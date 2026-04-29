@@ -25,6 +25,7 @@ import {
   generateUUID,
   formatDate,
 } from "@/lib/utils";
+import { playPaymentSuccess } from "@/lib/sounds";
 import { renderWaTemplate } from "@/hooks/useStoreProfile";
 
 function getSuggestedAmounts(total: number): number[] {
@@ -215,6 +216,23 @@ export default function POSPage() {
     return () => clearInterval(timer);
   }, []);
   const [showScanner, setShowScanner] = useState(false);
+  
+  useEffect(() => {
+    // Cek apakah ada scan tertunda dari Header (saat pindah halaman ke POS)
+    const pendingScan = localStorage.getItem("pending_barcode_scan");
+    if (pendingScan) {
+      setSearchQuery(pendingScan);
+      localStorage.removeItem("pending_barcode_scan");
+    }
+
+    // Dengarkan event scan dari Header (jika sedang di halaman POS)
+    const handleGlobalScan = (e: any) => {
+      setSearchQuery(e.detail);
+    };
+    window.addEventListener("global-barcode-scanned", handleGlobalScan);
+    return () => window.removeEventListener("global-barcode-scanned", handleGlobalScan);
+  }, []);
+
   const [showShiftSummary, setShowShiftSummary] = useState(false);
   const [isPinVerified, setIsPinVerified] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -436,6 +454,8 @@ export default function POSPage() {
         }
         await enqueueSyncOp("sales", saleLocalId, "CREATE", { ...sale, items: saleItems });
       });
+
+      playPaymentSuccess();
 
       setLastReceipt({
         items: cart.map(i => ({ name: i.product.name, qty: i.qty, price: i.product.price })),

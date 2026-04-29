@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { formatRupiahFull } from "@/lib/utils";
+import { playOrderReceived } from "@/lib/sounds";
 
 interface Product {
   id: string;
@@ -136,6 +137,7 @@ export default function StorefrontClient({ slug, domain }: { slug?: string; doma
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setOrderId(data.orderId);
+      playOrderReceived();
       setStep("success");
       setCart([]);
     } catch (err: any) {

@@ -3,6 +3,7 @@
 import { ChangeEvent, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import BarcodeScanner from "@/components/common/BarcodeScanner";
+import RestockModal from "@/components/common/RestockModal";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { useAuth, useToast } from "@/contexts/AppProviders";
@@ -122,6 +123,75 @@ export default function ProductsPage() {
 
   const [terminalAssignments, setTerminalAssignments] = useState<{terminalId: string, stock: number}[]>([]);
   const [showSkuScanner, setShowSkuScanner] = useState(false);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [restockingProduct, setRestockingProduct] = useState<LocalProduct | null>(null);
+
+  const lookupBarcode = async (code: string) => {
+    setShowSkuScanner(false);
+    setIsLookingUp(true);
+    const safetyTimer = setTimeout(() => setIsLookingUp(false), 10_000);
+    try {
+      // LANGKAH 1: Cek produk milik sendiri di database lokal (IndexedDB)
+      const db = getDb();
+      const existingProduct = await db.products
+        .filter(p => p.sku === code.toUpperCase())
+        .first();
+
+      if (existingProduct) {
+        // Produk sudah ada → tampilkan popup restock
+        clearTimeout(safetyTimer);
+        setIsLookingUp(false);
+        setRestockingProduct(existingProduct);
+        return;
+      }
+
+      // LANGKAH 2: Belum ada di lokal --> coba database barcode internet
+      const res = await fetch(`/api/product-lookup?barcode=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      if (data.found && data.name) {
+        setForm(prev => ({
+          ...prev,
+          sku: code.toUpperCase(),
+          name: data.name,
+          category: data.category || "",
+          imageUrl: data.imageUrl || "",
+        }));
+        toast(`\uD83C\uDF10 Info dari internet: "${data.name}" \u2014 lengkapi harga & stok.`, "success");
+      } else {
+        setForm(prev => ({ ...prev, sku: code.toUpperCase() }));
+        toast(`Barcode ${code} belum ada di database. Isi data produk secara manual.`, "info");
+      }
+      setShowCreateForm(true);
+    } catch {
+      toast("Gagal mencari data produk. Cek koneksi internet.", "warning");
+      setForm(prev => ({ ...prev, sku: code.toUpperCase() }));
+      setShowCreateForm(true);
+    } finally {
+      clearTimeout(safetyTimer);
+      setIsLookingUp(false);
+    }
+  };
+
+  const handleRestock = async (additionalStock: number, newCostPrice: number, newAvgHpp: number) => {
+    if (!restockingProduct) return;
+    try {
+      const db = getDb();
+      const updated = {
+        ...restockingProduct,
+        stock: restockingProduct.stock + additionalStock,
+        costPrice: newAvgHpp,
+        syncStatus: "PENDING" as const,
+        updatedAt: Date.now(),
+      };
+      await db.products.put(updated);
+      await enqueueSyncOp("products", updated.localId, "UPDATE", updated);
+      toast(`\u2705 Restock berhasil! Stok: ${updated.stock} ${updated.unit} \u00B7 HPP baru: ${updated.costPrice.toLocaleString("id-ID")}`, "success");
+    } catch {
+      toast("Gagal menyimpan restock.", "error");
+    } finally {
+      setRestockingProduct(null);
+    }
+  };
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -520,6 +590,13 @@ export default function ProductsPage() {
 
   return (
     <DashboardLayout title="Manajemen Produk">
+      {restockingProduct && (
+        <RestockModal
+          product={restockingProduct}
+          onConfirm={handleRestock}
+          onCancel={() => setRestockingProduct(null)}
+        />
+      )}
       <div style={{ display: "grid", gap: "24px" }}>
         {error && (
           <div className="card" style={{ background: "hsl(var(--error) / 0.1)", borderColor: "hsl(var(--error))", color: "hsl(var(--error))", padding: "12px 16px", fontSize: "14px" }}>
@@ -643,21 +720,32 @@ export default function ProductsPage() {
                   <button 
                     type="button"
                     className="btn btn-outline" 
-                    onClick={() => setShowSkuScanner(!showSkuScanner)}
-                    title="Scan Barcode"
+                    onClick={() => setShowSkuScanner(true)}
+                    title="Scan Barcode — Auto isi info produk"
+                    disabled={isLookingUp}
+                    style={{ whiteSpace: "nowrap" }}
                   >
-                    📷 Scan
+                    {isLookingUp ? "⏳ Mencari..." : "📷 Scan"}
                   </button>
                 </div>
-                {showSkuScanner && (
-                  <div style={{ marginTop: "12px" }}>
-                    <BarcodeScanner 
-                      onScan={(code) => {
-                        setForm((prev) => ({ ...prev, sku: code.toUpperCase() }));
-                        setShowSkuScanner(false);
-                      }} 
-                      onClose={() => setShowSkuScanner(false)} 
-                    />
+                {isLookingUp && (
+                  <div style={{ marginTop: "8px", padding: "10px 14px", background: "hsl(var(--primary) / 0.08)", borderRadius: "8px", border: "1px solid hsl(var(--primary) / 0.2)", fontSize: "13px", color: "hsl(var(--primary))", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span className="animate-spin" style={{ display: "inline-block" }}>⏳</span>
+                    Mencari info produk dari database barcode internasional...
+                  </div>
+                )}
+                {showSkuScanner && !isLookingUp && (
+                  <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", padding: "20px" }}>
+                    <div style={{ background: "hsl(var(--bg-elevated))", padding: "24px", borderRadius: "20px", width: "100%", maxWidth: "460px", boxShadow: "0 24px 80px rgba(0,0,0,0.4)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                        <div>
+                          <h3 style={{ fontSize: "18px", fontWeight: 700 }}>📷 Scan Barcode Produk</h3>
+                          <p style={{ fontSize: "12px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>Nama, kategori &amp; foto terisi otomatis dari internet.</p>
+                        </div>
+                        <button type="button" onClick={() => setShowSkuScanner(false)} style={{ background: "hsl(var(--bg-card))", border: "1px solid hsl(var(--border))", borderRadius: "50%", width: "32px", height: "32px", fontSize: "16px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                      </div>
+                      <BarcodeScanner onScan={lookupBarcode} onClose={() => setShowSkuScanner(false)} />
+                    </div>
                   </div>
                 )}
               </div>

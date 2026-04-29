@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { formatRupiahFull } from "@/lib/utils";
+import { playOrderReceived } from "@/lib/sounds";
 
 type OrderStatus = "PENDING" | "CONFIRMED" | "PAID" | "PROCESSING" | "SHIPPED" | "DELIVERED" | "CANCELLED";
 
@@ -55,19 +56,39 @@ export default function OrderManagerClient() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<string | null>(null);
+  const lastOrderIdRef = useRef<string | null>(null);
 
-  const loadOrders = async () => {
-    setLoading(true);
+  const loadOrders = async (isPoll = false) => {
+    if (!isPoll) setLoading(true);
     try {
       const res = await fetch(`/api/tenant/orders?status=${filter}`);
       const data = await res.json();
-      setOrders(data.orders || []);
+      const newOrders = data.orders || [];
+      
+      // Jika ada order baru (ID paling atas berubah)
+      if (newOrders.length > 0) {
+        const newestId = newOrders[0].id;
+        if (lastOrderIdRef.current && newestId !== lastOrderIdRef.current) {
+          playOrderReceived();
+        }
+        lastOrderIdRef.current = newestId;
+      }
+      
+      setOrders(newOrders);
     } finally {
-      setLoading(false);
+      if (!isPoll) setLoading(false);
     }
   };
 
   useEffect(() => { loadOrders(); }, [filter]);
+
+  // Polling pesanan baru setiap 30 detik
+  useEffect(() => {
+    const timer = setInterval(() => {
+      loadOrders(true);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [filter]);
 
   const updateStatus = async (orderId: string, status: OrderStatus, trackingNumber?: string) => {
     setSubmitting(orderId);
