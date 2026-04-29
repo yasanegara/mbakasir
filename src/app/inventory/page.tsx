@@ -294,7 +294,9 @@ export default function InventoryPage() {
                   min="0"
                   step="0.001"
                   className="input-field"
-                  value={form.stock}
+                  value={form.stock === 0 ? "" : form.stock}
+                  placeholder="0"
+                  onFocus={(e) => e.target.select()}
                   onChange={(event) =>
                     setForm((prev) => ({
                       ...prev,
@@ -314,7 +316,9 @@ export default function InventoryPage() {
                   min="0"
                   step="0.001"
                   className="input-field"
-                  value={form.minStock}
+                  value={form.minStock === 0 ? "" : form.minStock}
+                  placeholder="0"
+                  onFocus={(e) => e.target.select()}
                   onChange={(event) =>
                     setForm((prev) => ({
                       ...prev,

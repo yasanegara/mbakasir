@@ -713,7 +713,9 @@ export default function ProductsPage() {
                   min="0"
                   step="1"
                   className="input-field"
-                  value={form.stock}
+                  value={form.stock === 0 ? "" : form.stock}
+                  placeholder="0"
+                  onFocus={(e) => e.target.select()}
                   onChange={(event) =>
                     setForm((prev) => ({
                       ...prev,
@@ -923,7 +925,8 @@ export default function ProductsPage() {
                                     type="number"
                                     className="input-field"
                                     style={{ height: "32px", padding: "0 8px", fontSize: "12px" }}
-                                    value={assignment.stock}
+                                    value={assignment.stock === 0 ? "" : assignment.stock}
+                                    placeholder="0"
                                     onFocus={(e) => e.target.select()}
                                     onChange={(e) => {
                                       const newVal = parseFloat(e.target.value) || 0;
@@ -1006,7 +1009,9 @@ export default function ProductsPage() {
                             min="0.001"
                             step="0.001"
                             className="input-field"
-                            value={row.quantity}
+                            value={row.quantity === 0 ? "" : row.quantity}
+                            placeholder="0"
+                            onFocus={(e) => e.target.select()}
                             onChange={(event) =>
                               setBomRows((prev) =>
                                 prev.map((item, rowIndex) =>
