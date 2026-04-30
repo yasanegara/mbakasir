@@ -166,7 +166,7 @@ export default function Sidebar({
   const storeProfile = useLiveQuery(
     () =>
       user?.role === "TENANT" || user?.role === "CASHIER"
-        ? getDb().storeProfile.get("default")
+        ? getDb().storeProfile.get("default").then(p => p || (user.tenantId ? getDb().storeProfile.get(user.tenantId) : undefined))
         : undefined,
     [user?.role]
   );

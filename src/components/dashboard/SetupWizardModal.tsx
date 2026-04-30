@@ -16,7 +16,9 @@ export default function SetupWizardModal() {
   const [currentCash, setCurrentCash] = useState(0);
   
   const tenantId = user?.tenantId;
-  const storeProfile = useLiveQuery(() => tenantId ? getDb().storeProfile.get(tenantId) : undefined, [tenantId]);
+  const storeProfile = useLiveQuery(() => 
+    tenantId ? getDb().storeProfile.get("default").then(p => p || getDb().storeProfile.get(tenantId)) : getDb().storeProfile.get("default")
+  , [tenantId]);
   const products = useLiveQuery(() => getDb().products.toArray()) || [];
   const materials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
   const assets = useLiveQuery(() => getDb().assets.toArray()) || [];
@@ -31,7 +33,7 @@ export default function SetupWizardModal() {
     if (storeProfile === undefined && tenantId) {
        const initProfile = async () => {
          const db = getDb();
-         const exists = await db.storeProfile.get(tenantId);
+         const exists = (await db.storeProfile.get("default")) || (await db.storeProfile.get(tenantId));
          if (!exists) {
            await db.storeProfile.put({
              id: tenantId,
@@ -55,12 +57,13 @@ export default function SetupWizardModal() {
       const db = getDb();
       const updated = {
         ...storeProfile,
+        id: "default",
         initialCapital: finalCapital,
         initialSetupCompleted: true,
         updatedAt: Date.now(),
       };
       await db.storeProfile.put(updated);
-      await enqueueSyncOp("storeProfile", tenantId, "UPDATE", updated);
+      await enqueueSyncOp("storeProfile", "default", "UPDATE", updated);
       toast("Pengaturan awal berhasil disimpan! Selamat berbisnis.", "success");
     } catch {
       toast("Gagal menyimpan pengaturan.", "error");

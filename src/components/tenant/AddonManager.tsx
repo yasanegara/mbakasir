@@ -2,36 +2,41 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { getDb } from "@/lib/db";
-import { useToast } from "@/contexts/AppProviders";
+import { useAuth, useToast } from "@/contexts/AppProviders";
 import { useState } from "react";
 
 export default function AddonManager() {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
   
-  const storeProfile = useLiveQuery(() => getDb().storeProfile.get("default"));
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
+  const storeProfile = useLiveQuery(() => 
+    tenantId ? getDb().storeProfile.get(tenantId).then(p => p || getDb().storeProfile.get("default")) : getDb().storeProfile.get("default")
+  , [tenantId]);
   const isCrmEnabled = storeProfile?.isCrmEnabled === true;
 
   const handleToggleCrm = async () => {
     setIsProcessing(true);
     try {
       const db = getDb();
-      const current = await db.storeProfile.get("default");
+      const current = (await db.storeProfile.get(tenantId || "default")) || (await db.storeProfile.get("default"));
+      const key = current?.id || tenantId || "default";
       
       if (!current) {
         // Jika belum ada, buat record default
         // Kita butuh tenantId dari session, tapi untuk lokal kita bisa coba ambil dari tabel tenants
         const tenant = await db.tenants.toCollection().first();
         await db.storeProfile.add({
-          id: "default",
-          tenantId: tenant?.localId || "unknown",
+          id: key,
+          tenantId: tenantId || tenant?.localId || "unknown",
           storeName: tenant?.name || "Toko Saya",
           isCrmEnabled: true,
           updatedAt: Date.now(),
         });
         toast("Fitur Data Pelanggan Diaktifkan!", "success");
       } else {
-        await db.storeProfile.update("default", {
+        await db.storeProfile.update(key, {
           isCrmEnabled: !isCrmEnabled,
           updatedAt: Date.now(),
         });

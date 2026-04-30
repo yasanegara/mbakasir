@@ -57,7 +57,9 @@ export default function ReportsPage() {
   const returns = useLiveQuery(() => getDb().salesReturns.toArray()) || [];
   const shifts = useLiveQuery(() => getDb().shifts.toArray()) || [];
   const allExpenses = useLiveQuery(() => getDb().expenses.toArray()) || [];
-  const storeProfile = useLiveQuery(() => getDb().storeProfile.get("default"));
+  const storeProfile = useLiveQuery(() => 
+    tenantId ? getDb().storeProfile.get(tenantId).then(p => p || getDb().storeProfile.get("default")) : getDb().storeProfile.get("default")
+  , [tenantId]);
   const rawMaterials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
   const allAssets = useLiveQuery(() => getDb().assets.toArray()) || [];
   const returnItems = useLiveQuery(() => getDb().salesReturnItems.toArray()) || [];

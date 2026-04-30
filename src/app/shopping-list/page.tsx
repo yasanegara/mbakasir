@@ -296,7 +296,9 @@ export default function ShoppingListPage() {
     [tenantId]
   ) ?? [];
 
-  const storeProfile = useLiveQuery(() => getDb().storeProfile.get("default"));
+  const storeProfile = useLiveQuery(() => 
+    tenantId ? getDb().storeProfile.get(tenantId).then(p => p || getDb().storeProfile.get("default")) : getDb().storeProfile.get("default")
+  , [tenantId]);
 
   const [showAdd, setShowAdd] = useState(false);
   const [activeTab, setActiveTab] = useState<"belanja" | "selesai">("belanja");
