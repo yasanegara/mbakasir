@@ -52,21 +52,31 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<"summary" | "pl" | "cashflow" | "balance">("summary");
   const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
   
-  const sales = useLiveQuery(() => getDb().sales.where("status").equals("COMPLETED").toArray()) || [];
-  const saleItems = useLiveQuery(() => getDb().saleItems.toArray()) || [];
-  const posTerminals = useLiveQuery(() => getDb().posTerminals.toArray()) || [];
-  const products = useLiveQuery(() => getDb().products.toArray()) || [];
-  const shoppingList = useLiveQuery(() => getDb().shoppingList.where("status").equals("done").toArray()) || [];
-  const returns = useLiveQuery(() => getDb().salesReturns.toArray()) || [];
-  const shifts = useLiveQuery(() => getDb().shifts.toArray()) || [];
-  const allExpenses = useLiveQuery(() => getDb().expenses.toArray()) || [];
-  const storeProfile = useLiveQuery(() => 
-    tenantId ? getDb().storeProfile.get(tenantId).then(p => p || getDb().storeProfile.get("default")) : getDb().storeProfile.get("default")
-  , [tenantId]);
-  const rawMaterials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
-  const allAssets = useLiveQuery(() => getDb().assets.toArray()) || [];
-  const returnItems = useLiveQuery(() => getDb().salesReturnItems.toArray()) || [];
-  const initialCapital = storeProfile?.initialCapital || 0;
+  const sales = useLiveQuery(() => tenantId ? getDb().sales.where("tenantId").equals(tenantId).and(s => s.status === "COMPLETED").toArray() : [], [tenantId]) || [];
+  const saleItems = useLiveQuery(() => tenantId ? getDb().saleItems.toArray() : [], [tenantId]) || [];
+  const posTerminals = useLiveQuery(() => tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const products = useLiveQuery(() => tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const shoppingList = useLiveQuery(() => tenantId ? getDb().shoppingList.where("tenantId").equals(tenantId).and(s => s.status === "done").toArray() : [], [tenantId]) || [];
+  const returns = useLiveQuery(() => tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const shifts = useLiveQuery(() => tenantId ? getDb().shifts.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const allExpenses = useLiveQuery(() => tenantId ? getDb().expenses.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const storeProfile = useLiveQuery(async () => {
+    const pDefault = await getDb().storeProfile.get("default");
+    if (!tenantId) return pDefault;
+    const pTenant = await getDb().storeProfile.get(tenantId);
+    return pTenant || pDefault;
+  }, [tenantId]);
+  
+  const initialCapitalValue = useLiveQuery(async () => {
+    const pDefault = await getDb().storeProfile.get("default");
+    if (!tenantId) return pDefault?.initialCapital || 0;
+    const pTenant = await getDb().storeProfile.get(tenantId);
+    return pTenant?.initialCapital || pDefault?.initialCapital || 0;
+  }, [tenantId]) || 0;
+  const rawMaterials = useLiveQuery(() => tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const allAssets = useLiveQuery(() => tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const returnItems = useLiveQuery(() => tenantId ? getDb().salesReturnItems.toArray() : [], [tenantId]) || [];
+  const initialCapital = initialCapitalValue;
 
   useEffect(() => {
     let cancelled = false;
@@ -247,49 +257,61 @@ export default function ReportsPage() {
     const operasional = allExpenses.reduce((sum, e) => sum + e.amount, 0);
     const pembelianAset = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
     
-    // Asumsi: Aset yang diinput dihitung sebagai kas keluar, 
-    // KECUALI jika aset itu bagian dari modal awal (sudah ada saat setup)
-    // Untuk simplifikasi, kita hitung semua perubahan kas dari nol sejak awal.
+    // Klasifikasi Arus Kas
+    const operating = masuk - belanja - retur - operasional;
+    const investing = -pembelianAset;
+    const financing = initialCapital; // Kita asumsikan modal awal adalah pendanaan masuk di awal
     
-    return { masuk, belanja, retur, operasional, pembelianAset, saldo: masuk - belanja - retur - operasional - pembelianAset };
-  }, [allExpenses, realizedOnlineOrders, returns, sales, shoppingList, allAssets]);
+    return { 
+      masuk, belanja, retur, operasional, pembelianAset,
+      operating,
+      investing,
+      financing,
+      saldo: masuk - belanja - retur - operasional - pembelianAset // Tetap hitung saldo murni arus kas untuk tab Cash Flow
+    };
+  }, [allExpenses, realizedOnlineOrders, returns, sales, shoppingList, allAssets, initialCapital]);
 
   // ==========================
   // NERACA (BALANCE SHEET)
   // ==========================
   const balanceSheet = useMemo(() => {
-    // 1. ASET
-    // Kas = Modal Awal + Perubahan Kas (Masuk - Keluar)
-    const kasSekarang = initialCapital + cashFlow.saldo;
-    
-    // Nilai Persediaan = Produk + Bahan Baku
+    // 1. EKUITAS (MODAL & LABA)
+    // Modal Awal adalah angka yang diinput user sebagai total investasi awal
+    const modalAwal = initialCapital;
+    const labaBerjalan = profitLoss.bottomLine;
+    const totalEkuitas = modalAwal + labaBerjalan;
+
+    // 2. ASET (KEKAYAAN)
+    // Nilai Persediaan & Aset Tetap saat ini
     const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
     const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
     const totalPersediaan = persediaanProduk + persediaanBahan;
-
-    // Aset Tetap (Peralatan, Mesin, dll)
     const asetTetap = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
+    
+    // Kas dihitung sebagai penyeimbang (Balancer) agar Aset = Ekuitas
+    // Kas = Total Ekuitas - Aset Non-Kas
+    const kasSekarang = totalEkuitas - totalPersediaan - asetTetap;
     
     const totalAset = kasSekarang + totalPersediaan + asetTetap;
 
-    // 2. LIABILITAS & EKUITAS
-    // Agar Neraca selalu imbang di sistem fleksibel ini:
-    // Modal Awal = Total Aset - Laba Berjalan
-    // Ini merefleksikan total investasi awal (Tunai + Barang + Alat)
-    const labaBerjalan = profitLoss.bottomLine;
-    const modalAwalTerhitung = totalAset - labaBerjalan;
-    const totalEkuitas = modalAwalTerhitung + labaBerjalan;
+    // Check if HPP is missing
+    const productHppMissing = products.some(p => p.stock > 0 && (!p.costPrice || p.costPrice === 0));
+    const materialHppMissing = rawMaterials.some(m => m.stock > 0 && (!m.costPerUnit || m.costPerUnit === 0));
 
     return { 
       kasDiLaci: kasSekarang, 
       persediaan: totalPersediaan, 
+      persediaanProduk,
+      persediaanBahan,
       asetTetap, 
       totalAset, 
-      modalAwal: modalAwalTerhitung, 
+      modalAwal, 
       labaBerjalan, 
-      totalEkuitas 
+      totalEkuitas,
+      productHppMissing,
+      materialHppMissing
     };
-  }, [initialCapital, cashFlow.saldo, products, rawMaterials, allAssets, profitLoss.bottomLine]);
+  }, [initialCapital, products, rawMaterials, allAssets, profitLoss.bottomLine]);
 
   // ==========================
   // EXPORT FUNCTIONS
@@ -520,31 +542,56 @@ export default function ReportsPage() {
       {activeTab === "cashflow" && (
         <div className="card" style={{ maxWidth: "600px", margin: "0 auto", padding: "40px" }}>
            <h2 style={{ textAlign: "center", marginBottom: "30px", fontSize: "24px", fontWeight: 900 }}>LAPORAN ARUS KAS</h2>
-           <div style={{ display: "grid", gap: "20px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px" }}>
-                 <span style={{ fontWeight: 600 }}>Total Kas Masuk (Penjualan)</span>
-                 <span style={{ color: "hsl(var(--success))", fontWeight: 800 }}>{formatRupiahFull(cashFlow.masuk)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px" }}>
-                 <span style={{ fontWeight: 600 }}>Total Kas Keluar (Belanja Stok)</span>
-                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(cashFlow.belanja)})</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px" }}>
-                 <span style={{ fontWeight: 600 }}>Total Kas Keluar (Operasional)</span>
-                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(cashFlow.operasional)})</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px" }}>
-                 <span style={{ fontWeight: 600 }}>Total Kas Keluar (Beli Aset)</span>
-                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(cashFlow.pembelianAset)})</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
-                 <span style={{ fontWeight: 600 }}>Total Retur</span>
-                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(cashFlow.retur)})</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "22px", marginTop: "20px", background: "hsl(var(--success)/0.05)", padding: "16px", borderRadius: "12px" }}>
-                 <span style={{ fontWeight: 800 }}>SALDO AKHIR KAS</span>
-                 <span style={{ color: "hsl(var(--success))", fontWeight: 900 }}>{formatRupiahFull(cashFlow.saldo)}</span>
-              </div>
+           
+           {/* OPERATING */}
+           <div style={{ marginBottom: "24px" }}>
+             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--primary))", borderBottom: "2px solid hsl(var(--primary))", marginBottom: "12px" }}>
+               A. AKTIVITAS OPERASI (OPERATING)
+             </h3>
+             <div style={{ display: "grid", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Pemasukan Penjualan</span><span style={{ color: "hsl(var(--success))" }}>{formatRupiahFull(cashFlow.masuk)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Pengeluaran Belanja Stok</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.belanja)})</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Biaya Operasional</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.operasional)})</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Retur Penjualan</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.retur)})</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid hsl(var(--border))", paddingTop: "8px", marginTop: "4px" }}>
+                  <span>Total Arus Kas Operasi</span>
+                  <span style={{ color: cashFlow.operating >= 0 ? "hsl(var(--success))" : "hsl(var(--error))" }}>{formatRupiahFull(cashFlow.operating)}</span>
+                </div>
+             </div>
+           </div>
+
+           {/* INVESTING */}
+           <div style={{ marginBottom: "24px" }}>
+             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--warning))", borderBottom: "2px solid hsl(var(--warning))", marginBottom: "12px" }}>
+               B. AKTIVITAS INVESTASI (INVESTING)
+             </h3>
+             <div style={{ display: "grid", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Pembelian Aset Tetap</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.pembelianAset)})</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid hsl(var(--border))", paddingTop: "8px", marginTop: "4px" }}>
+                  <span>Total Arus Kas Investasi</span>
+                  <span style={{ color: cashFlow.investing >= 0 ? "hsl(var(--success))" : "hsl(var(--error))" }}>{formatRupiahFull(cashFlow.investing)}</span>
+                </div>
+             </div>
+           </div>
+
+           {/* FINANCING */}
+           <div style={{ marginBottom: "24px" }}>
+             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--success))", borderBottom: "2px solid hsl(var(--success))", marginBottom: "12px" }}>
+               C. AKTIVITAS PENDANAAN (FINANCING)
+             </h3>
+             <div style={{ display: "grid", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modal Awal Pemilik</span><span style={{ color: "hsl(var(--success))" }}>{formatRupiahFull(cashFlow.financing)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid hsl(var(--border))", paddingTop: "8px", marginTop: "4px" }}>
+                  <span>Total Arus Kas Pendanaan</span>
+                  <span style={{ color: cashFlow.financing >= 0 ? "hsl(var(--success))" : "hsl(var(--error))" }}>{formatRupiahFull(cashFlow.financing)}</span>
+                </div>
+             </div>
+           </div>
+
+           {/* SALDO AKHIR */}
+           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "22px", marginTop: "20px", background: "hsl(var(--success)/0.05)", padding: "16px", borderRadius: "12px", border: "2px solid hsl(var(--success)/0.2)" }}>
+              <span style={{ fontWeight: 800 }}>SALDO KAS AKHIR</span>
+              <span style={{ color: "hsl(var(--success))", fontWeight: 900 }}>{formatRupiahFull(cashFlow.saldo)}</span>
            </div>
         </div>
       )}
@@ -557,8 +604,19 @@ export default function ReportsPage() {
              <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--primary))", marginBottom: "12px", borderBottom: "2px solid hsl(var(--primary))" }}>ASET (KEKAYAAN)</h3>
              <div style={{ display: "grid", gap: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}><span>Kas di Tangan / Laci</span><span>{formatRupiahFull(balanceSheet.kasDiLaci)}</span></div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Persediaan Barang (Nilai Modal)</span><span>{formatRupiahFull(balanceSheet.persediaan)}</span></div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Aset Tetap (Peralatan/Mesin)</span><span>{formatRupiahFull(balanceSheet.asetTetap)}</span></div>
+                 <div style={{ display: "flex", justifyContent: "space-between" }}>
+                   <span>Persediaan Barang (Nilai Modal)</span>
+                   <div style={{ textAlign: "right" }}>
+                     <div>{formatRupiahFull(balanceSheet.persediaan)}</div>
+                     {balanceSheet.productHppMissing && (
+                       <div style={{ fontSize: "10px", color: "hsl(var(--error))", fontWeight: 600 }}>⚠️ Sebagian produk belum ada HPP</div>
+                     )}
+                     {balanceSheet.materialHppMissing && (
+                       <div style={{ fontSize: "10px", color: "hsl(var(--error))", fontWeight: 600 }}>⚠️ Sebagian bahan belum ada HPP</div>
+                     )}
+                   </div>
+                 </div>
+                 <div style={{ display: "flex", justifyContent: "space-between" }}><span>Aset Tetap (Peralatan/Mesin)</span><span>{formatRupiahFull(balanceSheet.asetTetap)}</span></div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "18px", marginTop: "10px", borderTop: "1px solid hsl(var(--border))", paddingTop: "10px" }}>
                   <span>TOTAL ASET</span><span>{formatRupiahFull(balanceSheet.totalAset)}</span>
                 </div>

@@ -31,7 +31,32 @@ export default function InventoryTab() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const rawMaterials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
+  const rawMaterials = useLiveQuery(
+    () => (user?.tenantId ? getDb().rawMaterials.where("tenantId").equals(user.tenantId).toArray() : []),
+    [user?.tenantId]
+  ) || [];
+
+  const billOfMaterials = useLiveQuery(() => {
+    if (!user?.tenantId) return [];
+    return getDb().billOfMaterials.toArray(); // Simplifikasi: BoM biasanya sedikit
+  }, [user?.tenantId]) || [];
+
+  const products = useLiveQuery(() => {
+    if (!user?.tenantId) return [];
+    return getDb().products.where("tenantId").equals(user.tenantId).toArray();
+  }, [user?.tenantId]) || [];
+
+  const bomCountByProductId = billOfMaterials.reduce<Record<string, number>>(
+    (acc, bom) => {
+      acc[bom.productId] = (acc[bom.productId] || 0) + 1;
+      return acc;
+    },
+    {}
+  );
+
+  const productsWithBoM = products.filter(
+    (product) => (bomCountByProductId[product.localId] || 0) > 0
+  ).length;
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -175,10 +200,15 @@ export default function InventoryTab() {
           <span className="stat-value">{lowStockMaterials.length}</span>
         </div>
         <div className="stat-card" style={{ background: "var(--gradient-primary)" }}>
-          <span style={{ ...statLabelStyle, color: "white", opacity: 0.8 }}>Nilai Persediaan</span>
+          <span style={{ ...statLabelStyle, color: "white", opacity: 0.8 }}>Nilai Persediaan Bahan</span>
           <span className="stat-value" style={{ color: "white", WebkitTextFillColor: "white" }}>
             {formatRupiahFull(totalInventoryValue)}
           </span>
+        </div>
+        <div className="stat-card">
+          <span style={statLabelStyle}>Resep BoM Aktif</span>
+          <span className="stat-value">{productsWithBoM}</span>
+          <span style={statHintStyle}>{billOfMaterials.length} item bahan di resep</span>
         </div>
       </section>
 
@@ -257,5 +287,6 @@ export default function InventoryTab() {
 }
 
 const statLabelStyle: React.CSSProperties = { fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 };
+const statHintStyle: React.CSSProperties = { fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "4px", display: "block" };
 const headerCellStyle: React.CSSProperties = { padding: "12px 16px", fontSize: "14px", fontWeight: 600, color: "hsl(var(--text-secondary))" };
 const bodyCellStyle: React.CSSProperties = { padding: "16px", fontSize: "14px" };

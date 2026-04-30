@@ -17,7 +17,7 @@ export default function SetupWizardModal() {
   
   const tenantId = user?.tenantId;
   const storeProfile = useLiveQuery(() => 
-    tenantId ? getDb().storeProfile.get("default").then(p => p || getDb().storeProfile.get(tenantId)) : getDb().storeProfile.get("default")
+    tenantId ? getDb().storeProfile.get(tenantId).then(p => p || getDb().storeProfile.get("default")) : getDb().storeProfile.get("default")
   , [tenantId]);
   const products = useLiveQuery(() => getDb().products.toArray()) || [];
   const materials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
@@ -57,13 +57,13 @@ export default function SetupWizardModal() {
       const db = getDb();
       const updated = {
         ...storeProfile,
-        id: "default",
+        id: tenantId,
         initialCapital: finalCapital,
         initialSetupCompleted: true,
         updatedAt: Date.now(),
       };
       await db.storeProfile.put(updated);
-      await enqueueSyncOp("storeProfile", "default", "UPDATE", updated);
+      await enqueueSyncOp("storeProfile", tenantId, "UPDATE", updated);
       toast("Pengaturan awal berhasil disimpan! Selamat berbisnis.", "success");
     } catch {
       toast("Gagal menyimpan pengaturan.", "error");
@@ -140,13 +140,13 @@ export default function SetupWizardModal() {
             />
 
             <div style={{ marginTop: "20px", padding: "16px", background: "hsl(var(--primary) / 0.05)", borderRadius: "12px", border: "1px solid hsl(var(--primary) / 0.2)" }}>
-              <div style={{ fontSize: "12px", color: "hsl(var(--text-secondary))" }}>Total Modal Awal Terhitung:</div>
+              <div style={{ fontSize: "12px", color: "hsl(var(--text-secondary))" }}>Total Modal Awal Terhitung (Tunai + Stok + Aset):</div>
               <div style={{ fontSize: "18px", fontWeight: 800, color: "hsl(var(--primary))" }}>{formatRupiahFull(inventoryValue + assetsValue + currentCash)}</div>
             </div>
 
             <div style={{ marginTop: "24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <button className="btn btn-ghost" onClick={() => setStep(1)}>Kembali</button>
-              <button className="btn btn-primary" onClick={() => handleFinish(inventoryValue + assetsValue + currentCash)}>Konfirmasi Modal</button>
+              <button className="btn btn-primary" onClick={() => handleFinish(currentCash)}>Konfirmasi Modal</button>
             </div>
           </div>
         )}

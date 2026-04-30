@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 interface SalesReturnModalProps {
   sale: LocalSale;
   items: LocalSaleItem[];
+  currentCash: number;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -23,7 +24,7 @@ interface ReturnItemDraft {
   condition: "GOOD" | "DAMAGED";
 }
 
-export default function SalesReturnModal({ sale, items, onClose, onSuccess }: SalesReturnModalProps) {
+export default function SalesReturnModal({ sale, items, currentCash, onClose, onSuccess }: SalesReturnModalProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [reason, setReason] = useState("");
@@ -61,6 +62,12 @@ export default function SalesReturnModal({ sale, items, onClose, onSuccess }: Sa
     if (totalReturnAmount === 0) {
       toast("Pilih setidaknya satu item untuk diretur.", "warning");
       return;
+    }
+
+    if (totalReturnAmount > currentCash) {
+       if (!confirm(`⚠️ Kas di laci (${formatRupiahFull(currentCash)}) tidak cukup untuk mengembalikan uang (${formatRupiahFull(totalReturnAmount)}). Tetap lanjutkan?`)) {
+          return;
+       }
     }
 
     setLoading(true);

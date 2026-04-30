@@ -181,10 +181,35 @@ export default function POSPage() {
     [activeShift?.localId, shiftSales.length]
   ) ?? [];
 
+  const rawMaterials = useLiveQuery(() => tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const allAssets = useLiveQuery(() => tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const allExpenses = useLiveQuery(() => tenantId ? getDb().expenses.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  
   const returns = useLiveQuery(
     () => (tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : []),
     [tenantId]
   ) ?? [];
+
+  const globalInitialCapital = useMemo(() => {
+    return storeProfile?.initialCapital || 0;
+  }, [storeProfile]);
+
+  const globalCashBalance = useMemo(() => {
+    const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
+    const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalReturns = returns.reduce((sum, r) => sum + r.totalAmount, 0);
+    const totalAssetValue = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
+    const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * (p.costPrice || 0)), 0);
+    const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * (m.costPerUnit || 0)), 0);
+    const totalPersediaan = persediaanProduk + persediaanBahan;
+
+    return globalInitialCapital + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan;
+  }, [globalInitialCapital, sales, allExpenses, returns, allAssets, products, rawMaterials]);
+
+  const isHppMissing = useMemo(() => {
+    return products.some(p => p.stock > 0 && (!p.costPrice || p.costPrice === 0)) || 
+           rawMaterials.some(m => m.stock > 0 && (!m.costPerUnit || m.costPerUnit === 0));
+  }, [products, rawMaterials]);
 
   const allSaleItems = useLiveQuery(() => getDb().saleItems.toArray()) || [];
 
@@ -215,6 +240,10 @@ export default function POSPage() {
     return shiftReturns.reduce((sum, r) => sum + r.totalAmount, 0);
   }, [shiftReturns]);
 
+  const currentCashInDrawer = useMemo(() => {
+    return (activeShift?.openingCash || 0) + tunaiTotal - shiftReturnTotal;
+  }, [activeShift?.openingCash, tunaiTotal, shiftReturnTotal]);
+
   const soldItemsSummary = useMemo(() => {
     const map = new Map<string, { name: string; qty: number; price: number; subtotal: number }>();
     shiftSaleItems.forEach(item => {
@@ -238,6 +267,12 @@ export default function POSPage() {
   const [paidAmount, setPaidAmount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [openingCash, setOpeningCash] = useState(0);
+  
+  useEffect(() => {
+    if (globalCashBalance > 0 && openingCash === 0) {
+      setOpeningCash(globalCashBalance);
+    }
+  }, [globalCashBalance]);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -297,6 +332,9 @@ export default function POSPage() {
   const [showItemDetails, setShowItemDetails] = useState(false);
   const [showReturnSelector, setShowReturnSelector] = useState(false);
   const [returnTargetId, setReturnTargetId] = useState<string | null>(null);
+
+  const currentSaleForReturn = sales.find(s => s.localId === returnTargetId);
+  const currentItemsForReturn = saleItems.filter(i => i.saleLocalId === returnTargetId);
 
   const handlePrintRekap = () => {
     setPrintRekapShift(true);
@@ -425,6 +463,19 @@ export default function POSPage() {
 
   const handleCheckout = async () => {
     if (cart.length === 0 || !isPaidSufficient || !user?.tenantId) return;
+    
+    if (paymentMethod === "CASH" && changeAmount > currentCashInDrawer) {
+      if (!confirm(`⚠️ Uang di laci (${formatRupiahFull(currentCashInDrawer)}) tidak cukup untuk kembalian (${formatRupiahFull(changeAmount)}). Tetap lanjutkan?`)) {
+        return;
+      }
+    }
+
+    if (isHppMissing) {
+      if (!confirm(`⚠️ Beberapa produk belum ada Harga Beli (HPP). Ini akan membuat perhitungan Kas di Laci menjadi tidak akurat. Tetap lanjutkan?`)) {
+        return;
+      }
+    }
+
     try {
       const db = getDb();
       const saleLocalId = generateUUID();
@@ -674,8 +725,13 @@ export default function POSPage() {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: "12px", fontSize: "14px" }}>
                 <span>Kembalian:</span>
-                <span style={{ fontWeight: 600, color: changeAmount > 0 ? "hsl(var(--success))" : "inherit" }}>{formatRupiahFull(changeAmount)}</span>
+                <span style={{ fontWeight: 600, color: changeAmount > currentCashInDrawer ? "hsl(var(--error))" : (changeAmount > 0 ? "hsl(var(--success))" : "inherit") }}>{formatRupiahFull(changeAmount)}</span>
               </div>
+              {changeAmount > currentCashInDrawer && (
+                <div style={{ fontSize: "11px", color: "hsl(var(--error))", textAlign: "right", marginTop: "4px", fontWeight: 700 }}>
+                  ⚠️ Kas di laci tidak cukup ({formatRupiahFull(currentCashInDrawer)})
+                </div>
+              )}
             </div>
          )}
          <button className="btn btn-primary btn-xl btn-block" disabled={cart.length === 0 || !isPaidSufficient} onClick={handleCheckout}>Bayar Sekarang</button>
@@ -867,6 +923,24 @@ export default function POSPage() {
                 </div>
               )}
           </div>
+
+          {isHppMissing && (
+            <div style={{ 
+              margin: "12px 20px 0",
+              background: "hsl(var(--error) / 0.1)", 
+              color: "hsl(var(--error))", 
+              padding: "10px 16px", 
+              borderRadius: "12px", 
+              fontSize: "13px", 
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              border: "1px solid hsl(var(--error) / 0.2)"
+            }}>
+              ⚠️ Beberapa produk/bahan belum ada Harga Beli (HPP). Laporan kas mungkin tidak akurat!
+            </div>
+          )}
           
           {showScanner && (
             <div style={{ padding: "20px" }}>
@@ -1189,10 +1263,11 @@ export default function POSPage() {
         </div>
       )}
 
-      {returnTargetId && (
+      {returnTargetId && currentSaleForReturn && (
         <SalesReturnModal 
-          sale={sales.find(s => s.localId === returnTargetId)!}
-          items={saleItems.filter(i => i.saleLocalId === returnTargetId)}
+          sale={currentSaleForReturn}
+          items={currentItemsForReturn}
+          currentCash={currentCashInDrawer}
           onClose={() => setReturnTargetId(null)}
           onSuccess={() => {
             setReturnTargetId(null);

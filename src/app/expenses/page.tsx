@@ -4,7 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { getDb, enqueueSyncOp } from "@/lib/db";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { formatRupiahFull } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useAuth, useToast } from "@/contexts/AppProviders";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
@@ -35,9 +35,40 @@ export default function ExpensesPage() {
     [tenantId]
   ) ?? [];
 
+  const sales = useLiveQuery(() => tenantId ? getDb().sales.where("tenantId").equals(tenantId).and(s => s.status === "COMPLETED").toArray() : [], [tenantId]) || [];
+  const rawMaterials = useLiveQuery(() => tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const products = useLiveQuery(() => tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const allAssets = useLiveQuery(() => tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const returns = useLiveQuery(() => tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  
+  const initialCapital = useLiveQuery(async () => {
+    const pDefault = await getDb().storeProfile.get("default");
+    if (!tenantId) return pDefault?.initialCapital || 0;
+    const pTenant = await getDb().storeProfile.get(tenantId);
+    return pTenant?.initialCapital || pDefault?.initialCapital || 0;
+  }, [tenantId]) || 0;
+
+  const currentCash = useMemo(() => {
+    const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalReturns = returns.reduce((sum, r) => sum + r.totalAmount, 0);
+    const totalAssetValue = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
+    const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
+    const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
+    const totalPersediaan = persediaanProduk + persediaanBahan;
+
+    return initialCapital + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan;
+  }, [initialCapital, sales, expenses, returns, allAssets, products, rawMaterials]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !tenantId || !amount) return;
+
+    if (amount > currentCash) {
+      if (!confirm(`⚠️ Kas di laci (${formatRupiahFull(currentCash)}) tidak cukup untuk membayar biaya ini (${formatRupiahFull(amount)}). Tetap lanjutkan?`)) {
+        return;
+      }
+    }
 
     const localId = uuidv4();
     const newExpense = {

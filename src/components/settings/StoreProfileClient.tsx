@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/contexts/AppProviders";
 import { useStoreProfile, DEFAULT_WA_RECEIPT_TEMPLATE, DEFAULT_WA_ORDER_TEMPLATE } from "@/hooks/useStoreProfile";
 import { LocalStoreProfile } from "@/lib/db";
+import { CurrencyInput } from "@/components/ui/CurrencyInput";
 
 interface StoreProfileClientProps {
   tenantId: string;
@@ -23,6 +24,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [initialCapital, setInitialCapital] = useState(0);
   const [qrisImageUrl, setQrisImageUrl] = useState("");
   const [footerNote, setFooterNote] = useState("Terima kasih atas kunjungan Anda!");
   const [waReceiptTemplate, setWaReceiptTemplate] = useState(DEFAULT_WA_RECEIPT_TEMPLATE);
@@ -40,6 +42,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
       setFooterNote(profile.footerNote || "Terima kasih atas kunjungan Anda!");
       setWaReceiptTemplate(profile.waReceiptTemplate || DEFAULT_WA_RECEIPT_TEMPLATE);
       setWaOrderTemplate(profile.waOrderTemplate || DEFAULT_WA_ORDER_TEMPLATE);
+      setInitialCapital(profile.initialCapital || 0);
     } else if (initialStoreName) {
       setStoreName(initialStoreName);
     }
@@ -52,7 +55,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
     }
     setIsSaving(true);
     try {
-      await saveProfile({ storeName: storeName.trim(), address, phone, logoUrl, footerNote });
+      await saveProfile({ storeName: storeName.trim(), address, phone, logoUrl, footerNote, initialCapital });
       toast("✅ Data toko disimpan", "success");
     } catch {
       toast("Gagal menyimpan data toko", "error");
@@ -261,7 +264,14 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="0812xxxxxxxx"
-                type="tel"
+              />
+            </div>
+            <div>
+              <CurrencyInput
+                label="Modal Tunai Awal (Saldo Kas Awal)"
+                value={initialCapital}
+                onChange={setInitialCapital}
+                placeholder="0"
               />
             </div>
           </div>

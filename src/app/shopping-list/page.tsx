@@ -290,11 +290,33 @@ export default function ShoppingListPage() {
   const products = useLiveQuery(() => getDb().products.toArray()) || [];
   const rawMaterials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
   const shoppingItems = useLiveQuery<LocalShoppingItem[]>(
-    () => tenantId
-      ? getDb().shoppingList.where("tenantId").equals(tenantId).toArray()
-      : Promise.resolve([] as LocalShoppingItem[]),
+    () => (tenantId ? getDb().shoppingList.where("tenantId").equals(tenantId).toArray() : []),
     [tenantId]
   ) ?? [];
+
+  const sales = useLiveQuery(() => tenantId ? getDb().sales.where("tenantId").equals(tenantId).and(s => s.status === "COMPLETED").toArray() : [], [tenantId]) || [];
+  const expenses = useLiveQuery(() => tenantId ? getDb().expenses.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const allAssets = useLiveQuery(() => tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const returns = useLiveQuery(() => tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  
+  const initialCapitalValue = useLiveQuery(async () => {
+    const pDefault = await getDb().storeProfile.get("default");
+    if (!tenantId) return pDefault?.initialCapital || 0;
+    const pTenant = await getDb().storeProfile.get(tenantId);
+    return pTenant?.initialCapital || pDefault?.initialCapital || 0;
+  }, [tenantId]) || 0;
+
+  const currentCash = useMemo(() => {
+    const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalReturns = returns.reduce((sum, r) => sum + r.totalAmount, 0);
+    const totalAssetValue = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
+    const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
+    const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
+    const totalPersediaan = persediaanProduk + persediaanBahan;
+
+    return initialCapitalValue + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan;
+  }, [initialCapitalValue, sales, expenses, returns, allAssets, products, rawMaterials]);
 
   const storeProfile = useLiveQuery(() => 
     tenantId ? getDb().storeProfile.get(tenantId).then(p => p || getDb().storeProfile.get("default")) : getDb().storeProfile.get("default")
@@ -354,6 +376,14 @@ export default function ShoppingListPage() {
     const now = Date.now();
 
     if (item.status === "pending") {
+      const itemCost = item.type === "product" ? (item.qtyToBuy * (item.costPrice || 0)) : (item.qtyToBuy * (item.costPerUnit || 0));
+      
+      if (itemCost > currentCash) {
+        if (!confirm(`⚠️ Kas di laci (${formatRupiahFull(currentCash)}) tidak cukup untuk belanja ini (${formatRupiahFull(itemCost)}). Tetap lanjutkan?`)) {
+          return;
+        }
+      }
+
       // Tandai selesai
       await db.shoppingList.update(item.id, { status: "done", completedAt: now, updatedAt: now });
 
@@ -460,9 +490,63 @@ export default function ShoppingListPage() {
     toast("🗑️ Item dihapus", "info");
   }, [toast]);
 
-  // ── Split pending vs done ──
   const pendingItems = shoppingItems.filter(i => i.status === "pending");
   const doneItems = shoppingItems.filter(i => i.status === "done");
+
+  const handleSeedDummy = async () => {
+    const db = getDb();
+    const now = Date.now();
+    const dummyItems: LocalShoppingItem[] = [
+      {
+        id: generateUUID(),
+        tenantId,
+        type: "product",
+        status: "pending",
+        name: "Susu UHT Full Cream",
+        sku: "M-MILK101",
+        category: "Bahan Minuman",
+        unit: "Liter",
+        qtyToBuy: 12,
+        costPrice: 18000,
+        price: 22000,
+        isNew: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: generateUUID(),
+        tenantId,
+        type: "product",
+        status: "pending",
+        name: "Kopi Arabica Gayo 1kg",
+        sku: "K-GAYO202",
+        category: "Kopi",
+        unit: "Pack",
+        qtyToBuy: 5,
+        costPrice: 120000,
+        price: 150000,
+        isNew: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: generateUUID(),
+        tenantId,
+        type: "rawMaterial",
+        status: "pending",
+        name: "Gula Pasir",
+        unit: "kg",
+        qtyToBuy: 10,
+        costPerUnit: 14500,
+        minStock: 5,
+        isNew: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+    await db.shoppingList.bulkAdd(dummyItems);
+    toast("✅ Dummy belanja berhasil ditambahkan", "success");
+  };
 
   const completionRate = shoppingItems.length > 0
     ? Math.round((doneItems.length / shoppingItems.length) * 100)
@@ -490,7 +574,12 @@ export default function ShoppingListPage() {
               {pendingItems.length} item perlu dibeli · {doneItems.length} sudah selesai
             </p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {shoppingItems.length === 0 && (
+              <button className="btn btn-sm btn-ghost no-print" style={{ color: "white", borderColor: "rgba(255,255,255,0.4)" }} onClick={handleSeedDummy}>
+                🧪 Isi Dummy
+              </button>
+            )}
             {shoppingItems.length > 0 && (
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "32px", fontWeight: 800, lineHeight: 1 }}>{completionRate}%</div>

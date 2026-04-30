@@ -228,6 +228,8 @@ export default function ProductsPage() {
     (product) => (bomCountByProductId[product.localId] || 0) > 0
   ).length;
 
+  const totalProductValue = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
+
   const bomCostRows: BomCostRow[] = form.hasBoM
     ? bomRows
         .filter((row) => row.rawMaterialId && row.quantity > 0)
@@ -711,11 +713,9 @@ export default function ProductsPage() {
           </div>
 
           <div className="stat-card">
-            <span style={statLabelStyle}>BoM Aktif</span>
-            <span className="stat-value">{productsWithBoM}</span>
-            <span style={statHintStyle}>
-              {billOfMaterials.length.toLocaleString("id-ID")} resep bahan baku
-            </span>
+            <span style={statLabelStyle}>Nilai Persediaan Produk</span>
+            <span className="stat-value">{formatRupiahFull(totalProductValue)}</span>
+            <span style={statHintStyle}>Berdasarkan Harga Beli/HPP</span>
           </div>
 
           <div className="stat-card" style={{ background: "var(--gradient-primary)" }}>
