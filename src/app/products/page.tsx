@@ -620,6 +620,7 @@ export default function ProductsPage() {
       for (const item of dummyData) {
         const localId = generateUUID();
         const product = {
+          id: localId,
           localId,
           tenantId: user.tenantId,
           name: item.name,

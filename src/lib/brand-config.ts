@@ -28,7 +28,7 @@ const DEFAULT_BRAND: BrandConfigSnapshot = {
   metaDescription:
     "SaaS POS & ERP Mikro dengan arsitektur Local-First. Toko bisa jualan tanpa internet, data sync otomatis ke cloud.",
   logoUrl: "/brand/mbakasir-logo.svg",
-  faviconUrl: "/icon.svg",
+  faviconUrl: "/favicon.ico",
   primaryColor: "#111111",
   supportPhone: "6281234567890",
   supportMessage: "Halo MbaKasir, saya butuh bantuan",

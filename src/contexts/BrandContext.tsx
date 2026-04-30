@@ -16,7 +16,7 @@ const DEFAULT_BRAND: BrandSnapshot = {
   appName: "MbaKasir Intelligence Pro",
   tagline: "Teman UMKM Indonesia",
   logoUrl: "/brand/mbakasir-logo.svg",
-  faviconUrl: "/icon.svg",
+  faviconUrl: "/favicon.ico",
   primaryColor: "#111111",
   supportPhone: "6281234567890",
   supportMessage: "Halo MbaKasir, saya butuh bantuan",

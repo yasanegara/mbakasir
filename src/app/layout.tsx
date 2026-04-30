@@ -12,7 +12,7 @@ function isAppleIconCandidate(url: string | null): boolean {
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await getBrandConfig();
-  const iconUrl = brand.faviconUrl ?? "/icon.svg";
+  const iconUrl = brand.faviconUrl ?? "/favicon.ico";
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     ? process.env.NEXT_PUBLIC_APP_URL
