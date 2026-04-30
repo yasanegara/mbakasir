@@ -43,7 +43,7 @@ export default function ExpensesPage() {
     const newExpense = {
       localId,
       tenantId,
-      userId: user.id,
+      userId: user.sub,
       category,
       amount: amount,
       notes,

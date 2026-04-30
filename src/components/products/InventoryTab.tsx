@@ -143,6 +143,7 @@ export default function InventoryTab() {
       for (const item of dummyData) {
         const localId = generateUUID();
         const material: LocalRawMaterial = {
+          id: localId,
           localId,
           tenantId: user.tenantId,
           name: item.name,

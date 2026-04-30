@@ -16,10 +16,7 @@ export async function POST(req: NextRequest) {
       await prisma.$transaction([
         prisma.saleItem.deleteMany({ where: { sale: { tenantId: session.tenantId } } }),
         prisma.sale.deleteMany({ where: { tenantId: session.tenantId } }),
-        prisma.salesReturnItem.deleteMany({ where: { salesReturn: { tenantId: session.tenantId } } }),
-        prisma.salesReturn.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.shift.deleteMany({ where: { tenantId: session.tenantId } }),
-        prisma.expense.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.onlineOrderItem.deleteMany({ where: { order: { tenantId: session.tenantId } } }),
         prisma.onlineOrder.deleteMany({ where: { tenantId: session.tenantId } }),
       ]);
@@ -33,7 +30,6 @@ export async function POST(req: NextRequest) {
         prisma.saleItem.deleteMany({ where: { product: { tenantId: session.tenantId } } }), 
         prisma.product.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.rawMaterial.deleteMany({ where: { tenantId: session.tenantId } }),
-        prisma.fixedAsset.deleteMany({ where: { tenantId: session.tenantId } }),
       ]);
       return Response.json({ message: "Data produk & aset berhasil direset" });
     } else if (type === "all") {
@@ -41,11 +37,7 @@ export async function POST(req: NextRequest) {
       await prisma.$transaction([
         prisma.saleItem.deleteMany({ where: { sale: { tenantId: session.tenantId } } }),
         prisma.sale.deleteMany({ where: { tenantId: session.tenantId } }),
-        prisma.salesReturnItem.deleteMany({ where: { salesReturn: { tenantId: session.tenantId } } }),
-        prisma.salesReturn.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.shift.deleteMany({ where: { tenantId: session.tenantId } }),
-        prisma.expense.deleteMany({ where: { tenantId: session.tenantId } }),
-        prisma.fixedAsset.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.onlineOrderItem.deleteMany({ where: { order: { tenantId: session.tenantId } } }),
         prisma.onlineOrder.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.billOfMaterial.deleteMany({ where: { product: { tenantId: session.tenantId } } }),
