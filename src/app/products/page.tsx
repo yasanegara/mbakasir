@@ -8,6 +8,9 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
 import { useAuth, useToast } from "@/contexts/AppProviders";
 import { useInitialSync } from "@/hooks/useInitialSync";
+import InventoryTab from "@/components/products/InventoryTab";
+import StockOpnameTab from "@/components/products/StockOpnameTab";
+import StockAlertTab from "@/components/products/StockAlertTab";
 import {
   enqueueSyncOp,
   getDb,
@@ -125,6 +128,7 @@ export default function ProductsPage() {
   const [showSkuScanner, setShowSkuScanner] = useState(false);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [restockingProduct, setRestockingProduct] = useState<LocalProduct | null>(null);
+  const [activeTab, setActiveTab] = useState<"products" | "materials" | "opname" | "alert">("products");
 
   const lookupBarcode = async (code: string) => {
     setShowSkuScanner(false);
@@ -599,8 +603,74 @@ export default function ProductsPage() {
     }
   };
 
+  const handleGenerateDummy = async () => {
+    if (!user?.tenantId) return;
+    if (!confirm("Generate 5 produk dummy lengkap dengan foto untuk testing?")) return;
+    
+    const dummyData = [
+      { name: "Kopi Gula Aren", price: 18000, costPrice: 7000, category: "Kopi", sku: "KOP-001", image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=400" },
+      { name: "Green Tea Latte", price: 22000, costPrice: 9000, category: "Tea", sku: "TEA-001", image: "https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=400" },
+      { name: "Croissant Almond", price: 25000, costPrice: 12000, category: "Bakery", sku: "BAK-001", image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400" },
+      { name: "Espresso Double", price: 15000, costPrice: 5000, category: "Kopi", sku: "KOP-002", image: "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=400" },
+      { name: "Mineral Water", price: 5000, costPrice: 2500, category: "Drinks", sku: "DRK-001", image: "https://images.unsplash.com/photo-1550575022-77811ad03671?w=400" },
+    ];
+
+    try {
+      const db = getDb();
+      for (const item of dummyData) {
+        const localId = generateUUID();
+        const product = {
+          localId,
+          tenantId: user.tenantId,
+          name: item.name,
+          price: item.price,
+          costPrice: item.costPrice,
+          category: item.category,
+          sku: item.sku,
+          stock: 50,
+          unit: "pcs",
+          imageUrl: item.image,
+          isActive: true,
+          showInPos: true,
+          hasBoM: false,
+          syncStatus: "PENDING" as const,
+          updatedAt: Date.now()
+        };
+        await db.products.add(product);
+        await enqueueSyncOp("products", localId, "CREATE", product);
+      }
+      toast("5 Produk dummy berhasil ditambahkan!", "success");
+    } catch {
+      toast("Gagal generate produk dummy", "error");
+    }
+  };
+
   return (
     <DashboardLayout title="Manajemen Produk">
+      <div style={{ display: "flex", gap: "12px", marginBottom: "24px", overflowX: "auto", paddingBottom: "4px" }}>
+        {[
+          { id: "products", label: "📦 Semua Produk" },
+          { id: "materials", label: "🥫 Bahan Baku" },
+          { id: "opname", label: "📋 Stock Opname" },
+          { id: "alert", label: "⚠️ Stok Kritis" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            className={`btn btn-sm ${activeTab === tab.id ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => setActiveTab(tab.id as any)}
+            style={{ borderRadius: "100px", padding: "8px 20px", whiteSpace: "nowrap" }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "materials" && <InventoryTab />}
+      {activeTab === "opname" && <StockOpnameTab />}
+      {activeTab === "alert" && <StockAlertTab onSwitchTab={(tab) => setActiveTab(tab)} />}
+
+      {activeTab === "products" && (
+        <>
       {restockingProduct && (
         <RestockModal
           product={restockingProduct}
@@ -679,6 +749,13 @@ export default function ProductsPage() {
           </div>
 
           <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              className="btn btn-ghost"
+              onClick={handleGenerateDummy}
+              title="Generate Produk Contoh"
+            >
+              🪄 Dummy Produk
+            </button>
             <button
               className="btn btn-outline"
               onClick={() => setShowSkuScanner(true)}
@@ -1570,6 +1647,8 @@ export default function ProductsPage() {
             <BarcodeScanner onScan={lookupBarcode} onClose={() => setShowSkuScanner(false)} />
           </div>
         </div>
+      )}
+        </>
       )}
     </DashboardLayout>
   );

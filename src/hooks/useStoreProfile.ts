@@ -1,5 +1,5 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { getDb, LocalStoreProfile } from "@/lib/db";
+import { getDb, LocalStoreProfile, enqueueSyncOp } from "@/lib/db";
 
 // Template default WA Struk
 export const DEFAULT_WA_RECEIPT_TEMPLATE = `*🧾 STRUK BELANJA*
@@ -42,6 +42,7 @@ export const DEFAULT_STORE_PROFILE: Omit<LocalStoreProfile, "tenantId" | "update
   storeName: "",
   address: "",
   phone: "",
+  logoUrl: "",
   qrisImageUrl: "",
   footerNote: "Terima kasih atas kunjungan Anda!",
   waReceiptTemplate: DEFAULT_WA_RECEIPT_TEMPLATE,
@@ -68,15 +69,19 @@ export function useStoreProfile(tenantId: string | undefined) {
     const now = Date.now();
     const existing = await db.storeProfile.get(tenantId);
     if (existing) {
-      await db.storeProfile.update(tenantId, { ...data, updatedAt: now });
+      const updated = { ...data, updatedAt: now };
+      await db.storeProfile.update(tenantId, updated);
+      await enqueueSyncOp("storeProfile", tenantId, "UPDATE", { ...existing, ...updated });
     } else {
-      await db.storeProfile.put({
+      const payload = {
         ...DEFAULT_STORE_PROFILE,
         ...data,
         id: tenantId,
         tenantId,
         updatedAt: now,
-      });
+      };
+      await db.storeProfile.put(payload);
+      await enqueueSyncOp("storeProfile", tenantId, "CREATE", payload);
     }
   };
 

@@ -181,6 +181,11 @@ export default function POSPage() {
     [activeShift?.localId, shiftSales.length]
   ) ?? [];
 
+  const returns = useLiveQuery(
+    () => (tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : []),
+    [tenantId]
+  ) ?? [];
+
   const allSaleItems = useLiveQuery(() => getDb().saleItems.toArray()) || [];
 
   const winningProducts = useMemo(() => {
@@ -200,6 +205,15 @@ export default function POSPage() {
   const qrisTotal = useMemo(() => {
     return shiftSales.filter(s => s.paymentMethod === "QRIS").reduce((sum, s) => sum + s.totalAmount, 0);
   }, [shiftSales]);
+
+  const shiftReturns = useMemo(() => {
+    if (!activeShift) return [];
+    return returns.filter(r => r.createdAt >= activeShift.startedAt);
+  }, [activeShift, returns]);
+
+  const shiftReturnTotal = useMemo(() => {
+    return shiftReturns.reduce((sum, r) => sum + r.totalAmount, 0);
+  }, [shiftReturns]);
 
   const soldItemsSummary = useMemo(() => {
     const map = new Map<string, { name: string; qty: number; price: number; subtotal: number }>();
@@ -300,8 +314,9 @@ export default function POSPage() {
      msg += `Modal Awal: ${formatRupiahFull(activeShift?.openingCash || 0)}\n`;
      msg += `Tunai: ${formatRupiahFull(tunaiTotal)}\n`;
      msg += `QRIS: ${formatRupiahFull(qrisTotal)}\n`;
+     if (shiftReturnTotal > 0) msg += `Retur: -${formatRupiahFull(shiftReturnTotal)}\n`;
      msg += `Total Penjualan: ${formatRupiahFull(activeShift?.totalSales || 0)}\n`;
-     msg += `Ekspektasi Kas Laci: ${formatRupiahFull((activeShift?.openingCash || 0) + tunaiTotal)}\n\n`;
+     msg += `Ekspektasi Kas Laci: ${formatRupiahFull((activeShift?.openingCash || 0) + tunaiTotal - shiftReturnTotal)}\n\n`;
      
      if (soldItemsSummary.length > 0) {
         msg += `*Barang Laku*\n`;
@@ -933,7 +948,10 @@ export default function POSPage() {
           <div className="cart-sticky-bar animate-slide-up" onClick={() => setIsCartOpen(true)}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: "8px", width: "40px", height: "40px", display: "flex", alignItems: "center", justifyContent: "center" }}>🛒</div>
-              <div style={{ color: "white" }}><span style={{ fontSize: "12px", opacity: 0.9 }}>{cart.reduce((a,c)=>a+c.qty, 0)} Item</span><br/><b>{formatRupiahFull(totalAmount)}</b></div>
+              <div style={{ color: "white" }}>
+                <span style={{ fontSize: "12px", opacity: 0.9 }}>{cart.reduce((a,c)=>a+c.qty, 0)} Item</span><br/>
+                <b>{formatRupiahFull(totalAmount)}</b>
+              </div>
             </div>
             <div style={{ color: "white", fontWeight: 700 }}>Bayar ›</div>
           </div>
@@ -942,56 +960,86 @@ export default function POSPage() {
 
       {showShiftSummary && activeShift && (
         <div className="modal-overlay active" style={{ zIndex: 3000 }}>
-          <div className="card" style={{ width: "100%", maxWidth: "500px", maxHeight: "90vh", overflowY: "auto", padding: "24px" }}>
-            <h2 style={{ marginBottom: "16px" }}>Rekap Shift</h2>
-            <div style={{ padding: "20px", background: "hsl(var(--bg-elevated))", borderRadius: "12px", marginBottom: "20px" }}>
-               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}><span>Modal Awal:</span><span>{formatRupiahFull(activeShift.openingCash)}</span></div>
-               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}><span>Penjualan Tunai:</span><span>{formatRupiahFull(tunaiTotal)}</span></div>
-               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}><span>Penjualan QRIS:</span><span>{formatRupiahFull(qrisTotal)}</span></div>
-               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px", fontWeight: 700 }}><span>Total Penjualan:</span><span style={{ color: "hsl(var(--primary))" }}>{formatRupiahFull(activeShift.totalSales)}</span></div>
-               <div style={{ borderTop: "1px dashed #ccc", paddingTop: "12px", marginTop: "10px", fontWeight: 800, fontSize: "18px", display: "flex", justifyContent: "space-between" }}>
-                  <span>Ekspektasi Kas Laci:</span><span>{formatRupiahFull(activeShift.openingCash + tunaiTotal)}</span>
+          <div className="card animate-slide-up" style={{ width: "100%", maxWidth: "550px", maxHeight: "90vh", overflowY: "auto", padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "24px", background: "var(--gradient-primary)", color: "white", textAlign: "center" }}>
+               <div style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.9, marginBottom: "4px" }}>Laporan Penutupan</div>
+               <h2 style={{ fontSize: "24px", fontWeight: 900, color: "white" }}>REKAP SHIFT</h2>
+               <div style={{ fontSize: "13px", opacity: 0.8, marginTop: "4px" }}>
+                 {new Date(activeShift.startedAt).toLocaleString()} — Sekarang
                </div>
             </div>
 
-            <div style={{ marginBottom: "20px" }}>
-              <button className="btn btn-outline btn-block btn-sm" onClick={() => setShowItemDetails(!showItemDetails)}>
-                {showItemDetails ? "▲ Sembunyikan Detail Produk" : "▼ Tampilkan Detail Produk Laku & Stok Menipis"}
-              </button>
-              {showItemDetails && (
-                <div style={{ marginTop: "12px", padding: "12px", background: "hsl(var(--bg-elevated))", borderRadius: "8px", fontSize: "13px" }}>
-                  <div style={{ fontWeight: 700, marginBottom: "8px" }}>📦 Barang Laku ({soldItemsSummary.length} Item)</div>
-                  {soldItemsSummary.length === 0 ? <div style={{ opacity: 0.6 }}>Belum ada penjualan di shift ini.</div> : null}
-                  <div style={{ maxHeight: "150px", overflowY: "auto" }}>
-                    {soldItemsSummary.map(item => (
-                      <div key={item.name} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "4px", marginBottom: "4px" }}>
-                        <span>{item.name} <span style={{ fontWeight: 600 }}>x{item.qty}</span></span>
-                        <span>{formatRupiahFull(item.subtotal)}</span>
-                      </div>
-                    ))}
-                  </div>
+            <div style={{ padding: "24px", display: "grid", gap: "24px" }}>
+               <div className="card" style={{ background: "hsl(var(--bg-elevated))", border: "1.5px solid hsl(var(--primary) / 0.2)", position: "relative" }}>
+                 <div style={{ fontSize: "14px", fontWeight: 700, marginBottom: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                   💵 Ringkasan Kas Laci
+                 </div>
+                 <div style={{ display: "grid", gap: "10px" }}>
+                   <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modal Awal:</span><span style={{ fontWeight: 600 }}>{formatRupiahFull(activeShift.openingCash)}</span></div>
+                   <div style={{ display: "flex", justifyContent: "space-between" }}><span>Penjualan Tunai:</span><span style={{ fontWeight: 600, color: "hsl(var(--success))" }}>+{formatRupiahFull(tunaiTotal)}</span></div>
+                   <div style={{ display: "flex", justifyContent: "space-between" }}><span>Total Retur (Tunai):</span><span style={{ fontWeight: 600, color: "hsl(var(--error))" }}>-{formatRupiahFull(shiftReturnTotal)}</span></div>
+                   <div style={{ borderTop: "1.5px solid hsl(var(--border))", paddingTop: "12px", marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 700, fontSize: "15px" }}>Uang di Laci:</span>
+                      <span style={{ fontWeight: 900, fontSize: "20px", color: "hsl(var(--primary))" }}>{formatRupiahFull(activeShift.openingCash + tunaiTotal - shiftReturnTotal)}</span>
+                   </div>
+                 </div>
+               </div>
 
-                  <div style={{ fontWeight: 700, marginBottom: "8px", marginTop: "16px", color: "hsl(var(--error))" }}>⚠️ Stok Menipis ({lowStockProducts.length} Produk &lt;= 5)</div>
-                  {lowStockProducts.length === 0 ? <div style={{ opacity: 0.6 }}>Semua stok aman.</div> : null}
-                  <div style={{ maxHeight: "100px", overflowY: "auto" }}>
-                    {lowStockProducts.map(p => (
-                      <div key={p.localId} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "4px", marginBottom: "4px" }}>
-                        <span>{p.name}</span>
-                        <span style={{ color: p.stock <= 0 ? "hsl(var(--error))" : "inherit", fontWeight: 600 }}>Sisa: {p.stock}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+               <div className="card" style={{ background: "hsl(var(--bg-elevated))", border: "1px solid hsl(var(--border))" }}>
+                 <div style={{ fontSize: "14px", fontWeight: 700, marginBottom: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
+                   📱 Transaksi Non-Tunai
+                 </div>
+                 <div style={{ display: "flex", justifyContent: "space-between" }}>
+                   <span>Pembayaran QRIS/Digital:</span>
+                   <span style={{ fontWeight: 700, color: "hsl(var(--primary))" }}>{formatRupiahFull(qrisTotal)}</span>
+                 </div>
+               </div>
 
-            <div style={{ display: "grid", gap: "10px", gridTemplateColumns: "1fr 1fr", marginBottom: "12px" }}>
-               <button className="btn btn-outline" onClick={sendRekapWa}>📲 Kirim via WA</button>
-               <button className="btn btn-outline" onClick={handlePrintRekap}>🖨️ Cetak Rekap</button>
-            </div>
-            <div style={{ display: "grid", gap: "10px" }}>
-              <button className="btn btn-primary btn-lg" onClick={confirmCloseShift}>Tutup & Akhiri Shift</button>
-              <button className="btn btn-ghost" onClick={() => setShowShiftSummary(false)}>Kembali</button>
+               <div>
+                 <button className="btn btn-ghost btn-block" onClick={() => setShowItemDetails(!showItemDetails)} style={{ fontSize: "13px", height: "40px" }}>
+                   {showItemDetails ? "Hide Item Details ▲" : "Show Item Details & Stock Warnings ▼"}
+                 </button>
+                 
+                 {showItemDetails && (
+                   <div style={{ marginTop: "16px", display: "grid", gap: "16px", animation: "fadeIn 0.3s ease" }}>
+                      <div className="card" style={{ padding: "16px", background: "hsl(var(--bg-card))" }}>
+                        <div style={{ fontWeight: 800, fontSize: "13px", marginBottom: "12px", textTransform: "uppercase", color: "hsl(var(--text-secondary))" }}>📦 Barang Terjual ({soldItemsSummary.length})</div>
+                        {soldItemsSummary.length === 0 ? <div style={{ fontSize: "13px", opacity: 0.6, padding: "10px", textAlign: "center" }}>Belum ada penjualan.</div> : null}
+                        <div style={{ maxHeight: "200px", overflowY: "auto", display: "grid", gap: "8px" }}>
+                          {soldItemsSummary.map(item => (
+                            <div key={item.name} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", borderBottom: "1px solid hsl(var(--border) / 0.5)", paddingBottom: "6px" }}>
+                              <span style={{ flex: 1 }}>{item.name} <span style={{ fontWeight: 700, color: "hsl(var(--primary))" }}>x{item.qty}</span></span>
+                              <span style={{ fontWeight: 600 }}>{formatRupiahFull(item.subtotal)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {lowStockProducts.length > 0 && (
+                        <div className="card" style={{ padding: "16px", background: "hsl(var(--error) / 0.05)", border: "1px solid hsl(var(--error) / 0.2)" }}>
+                          <div style={{ fontWeight: 800, fontSize: "13px", marginBottom: "12px", textTransform: "uppercase", color: "hsl(var(--error))" }}>⚠️ Stok Menipis</div>
+                          <div style={{ display: "grid", gap: "8px" }}>
+                            {lowStockProducts.map(p => (
+                              <div key={p.localId} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+                                <span>{p.name}</span>
+                                <span style={{ fontWeight: 800, color: "hsl(var(--error))" }}>{p.stock} {p.unit}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                   </div>
+                 )}
+               </div>
+
+               <div style={{ display: "grid", gap: "12px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    <button className="btn btn-outline" onClick={sendRekapWa} style={{ height: "48px" }}>📲 WhatsApp</button>
+                    <button className="btn btn-outline" onClick={handlePrintRekap} style={{ height: "48px" }}>🖨️ Cetak Struk</button>
+                  </div>
+                  <button className="btn btn-primary btn-lg" onClick={confirmCloseShift} style={{ height: "56px", fontSize: "18px", fontWeight: 900 }}>Tutup & Akhiri Shift</button>
+                  <button className="btn btn-ghost" onClick={() => setShowShiftSummary(false)}>Batal</button>
+               </div>
             </div>
           </div>
         </div>
@@ -1002,54 +1050,51 @@ export default function POSPage() {
           <div style={{ fontFamily: "'Courier New', Courier, monospace", fontSize: "12px", width: "300px", margin: "0 auto", padding: "10px", color: "#000" }}>
             <div style={{ textAlign: "center", marginBottom: "15px" }}>
               <div style={{ fontSize: "16px", fontWeight: 800, textTransform: "uppercase" }}>REKAP SHIFT</div>
-              <div style={{ fontSize: "14px", fontWeight: 700 }}>{storeName || "MbaKasir"}</div>
+              <div style={{ fontSize: "14px", fontWeight: 800 }}>{storeName || "MbaKasir"}</div>
+              {storeAddress && <div style={{ fontSize: "10px" }}>{storeAddress}</div>}
               <div style={{ borderTop: "1px dashed #000", marginTop: "10px", paddingTop: "5px", fontSize: "10px", display: "flex", justifyContent: "space-between" }}>
                 <span>Kasir: {user?.name || '-'}</span>
                 <span>{new Date().toLocaleString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               </div>
             </div>
-
-            <div style={{ borderTop: "1px dashed #000", paddingTop: "8px", display: "grid", gap: "4px", marginBottom: "10px" }}>
+            <div style={{ borderTop: "1px dashed #000", borderBottom: "1px dashed #000", padding: "8px 0", display: "grid", gap: "4px", marginBottom: "10px" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>Modal Awal</span><span>{formatRupiahFull(activeShift?.openingCash || 0)}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Tunai</span><span>{formatRupiahFull(tunaiTotal)}</span>
+                <span>Total Tunai (+)</span><span>{formatRupiahFull(tunaiTotal)}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>QRIS</span><span>{formatRupiahFull(qrisTotal)}</span>
+                <span>Total Retur (-)</span><span>{formatRupiahFull(shiftReturnTotal)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, marginTop: "4px", borderTop: "1px solid #000", paddingTop: "4px" }}>
-                <span>Ekspektasi Kas Laci</span><span>{formatRupiahFull((activeShift?.openingCash || 0) + tunaiTotal)}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, marginTop: "4px", borderTop: "1px solid #000", paddingTop: "4px", fontSize: "13px" }}>
+                <span>KAS DI LACI</span><span>{formatRupiahFull((activeShift?.openingCash || 0) + tunaiTotal - shiftReturnTotal)}</span>
               </div>
             </div>
-
+            <div style={{ display: "grid", gap: "4px", marginBottom: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Non-Tunai (QRIS)</span><span>{formatRupiahFull(qrisTotal)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+                <span>TOTAL OMZET</span><span>{formatRupiahFull((activeShift?.totalSales || 0))}</span>
+              </div>
+            </div>
             {soldItemsSummary.length > 0 && (
               <div style={{ marginBottom: "10px", borderTop: "1px dashed #000", paddingTop: "8px" }}>
-                <div style={{ fontWeight: 800, marginBottom: "4px" }}>ITEM LAKU</div>
+                <div style={{ fontWeight: 800, marginBottom: "6px", textAlign: "center" }}>--- DETAIL PRODUK ---</div>
                 {soldItemsSummary.map((item: any, i: number) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
-                    <span>{item.name} x{item.qty}</span>
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "2px" }}>
+                    <span style={{ flex: 1 }}>{item.name} x{item.qty}</span>
                     <span>{formatRupiahFull(item.subtotal)}</span>
                   </div>
                 ))}
               </div>
             )}
-
-            {lowStockProducts.length > 0 && (
-              <div style={{ marginBottom: "10px", borderTop: "1px dashed #000", paddingTop: "8px" }}>
-                <div style={{ fontWeight: 800, marginBottom: "4px" }}>STOK MENIPIS ({"<="}5)</div>
-                {lowStockProducts.map((p: any, i: number) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
-                    <span>{p.name}</span>
-                    <span>Sisa: {p.stock}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div style={{ textAlign: "center", marginTop: "20px", borderTop: "1px dashed #000", paddingTop: "10px", fontSize: "11px" }}>
-              Terima Kasih
+            <div style={{ textAlign: "center", marginTop: "20px", borderTop: "1px dashed #000", paddingTop: "10px", fontSize: "10px" }}>
+              Laporan Shift Selesai
+            </div>
+            <div style={{ textAlign: "center", fontSize: "9px", opacity: 0.5 }}>
+              {brand?.footerPoweredByText || "Powered by MbaKasir Intelligence"}
             </div>
           </div>
         </div>
@@ -1058,7 +1103,6 @@ export default function POSPage() {
       {lastReceipt && (
         <div id="print-receipt" style={{ display: "none" }}>
           <div style={{ fontFamily: "'Courier New', Courier, monospace", fontSize: "12px", width: "300px", margin: "0 auto", padding: "10px", color: "#000" }}>
-            {/* Header */}
             <div style={{ textAlign: "center", marginBottom: "15px" }}>
               <div style={{ fontSize: "16px", fontWeight: 800, textTransform: "uppercase" }}>{storeName || "MbaKasir"}</div>
               {storeAddress && <div style={{ fontSize: "11px", marginTop: "2px" }}>{storeAddress}</div>}
@@ -1068,8 +1112,6 @@ export default function POSPage() {
                 <span>{new Date().toLocaleString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
               </div>
             </div>
-
-            {/* Items */}
             <div style={{ marginBottom: "10px" }}>
               {lastReceipt.items.map((item: any, i: number) => (
                 <div key={i} style={{ marginBottom: "6px" }}>
@@ -1083,8 +1125,6 @@ export default function POSPage() {
                 </div>
               ))}
             </div>
-
-            {/* Totals */}
             <div style={{ borderTop: "1px dashed #000", paddingTop: "8px", display: "grid", gap: "4px" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>Subtotal</span><span>{formatRupiahFull(lastReceipt.subtotal)}</span>
@@ -1102,12 +1142,9 @@ export default function POSPage() {
                 {lastReceipt.change > 0 && <span>Kembali: {formatRupiahFull(lastReceipt.change)}</span>}
               </div>
             </div>
-
-            {/* Footer */}
             <div style={{ textAlign: "center", marginTop: "20px", borderTop: "1px dashed #000", paddingTop: "10px", fontSize: "11px", fontStyle: "italic" }}>
               {storeFooter || "Terima kasih atas kunjungan Anda!"}
             </div>
-            
             {brand?.showFooterPoweredBy !== false && (
               <div style={{ textAlign: "center", marginTop: "10px", fontSize: "9px", opacity: 0.5 }}>
                 {brand?.footerPoweredByText || "Powered by MbaKasir Intelligence"}
@@ -1116,6 +1153,7 @@ export default function POSPage() {
           </div>
         </div>
       )}
+
       {showReturnSelector && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", padding: "20px", backdropFilter: "blur(4px)" }}>
           <div className="card animate-slide-up" style={{ width: "100%", maxWidth: "500px", maxHeight: "80vh", display: "flex", flexDirection: "column", padding: 0, overflow: "hidden" }}>

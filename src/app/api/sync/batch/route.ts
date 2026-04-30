@@ -100,6 +100,8 @@ async function processSyncItem(
       return upsertShift(localId, payload, tenantId);
     case "productAssignments":
       return upsertProductAssignment(localId, payload, tenantId);
+    case "storeProfile":
+      return upsertStoreProfile(localId, payload, tenantId);
     default:
       return { localId, success: false, error: `Unknown table: ${table}` };
   }
@@ -388,4 +390,29 @@ async function upsertProductAssignment(
   });
 
   return { localId, success: true, serverId: assignment.id };
+}
+
+// ─── STORE PROFILE UPSERT ────────────────────────────────────
+
+async function upsertStoreProfile(
+  localId: string,
+  payload: Record<string, unknown>,
+  tenantId?: string
+): Promise<SyncResult> {
+  const targetTenantId = (payload.tenantId as string) || tenantId;
+  if (!targetTenantId) {
+    return { localId, success: false, error: "Tenant context missing" };
+  }
+
+  await prisma.tenant.update({
+    where: { id: targetTenantId },
+    data: {
+      name: payload.storeName as string | undefined,
+      logoUrl: payload.logoUrl as string | undefined,
+      address: payload.address as string | undefined,
+      phone: payload.phone as string | undefined,
+    },
+  });
+
+  return { localId, success: true };
 }

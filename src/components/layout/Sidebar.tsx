@@ -115,21 +115,25 @@ const Icon = {
       <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" />
     </svg>
   ),
+  expenses: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
 };
 
 const ALL_NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Icon.dashboard, roles: ["SUPERADMIN", "AGENT", "TENANT", "CASHIER"] },
   { href: "/pos", label: "Kasir (POS)", icon: Icon.pos, roles: ["CASHIER", "TENANT"] },
+  { href: "/orders", label: "Storefront", icon: Icon.storefront, roles: ["TENANT"] },
   { href: "/products", label: "Produk", icon: Icon.products, roles: ["TENANT"] },
-  { href: "/stock-opname", label: "Stock Opname", icon: Icon.opname, roles: ["TENANT"] },
-  { href: "/inventory", label: "Bahan Baku", icon: Icon.inventory, roles: ["TENANT"] },
+  { href: "/expenses", label: "Biaya Operasional", icon: Icon.expenses, roles: ["TENANT"] },
+  { href: "/assets", label: "Aset Tetap", icon: Icon.products, roles: ["TENANT"] },
   { href: "/sales", label: "Riwayat Transaksi", icon: Icon.history, roles: ["TENANT", "CASHIER"] },
   { href: "/customers", label: "Data Pelanggan", icon: Icon.users, roles: ["TENANT"] },
   { href: "/reports", label: "Laporan", icon: Icon.report, roles: ["TENANT"] },
   { href: "/employees", label: "Karyawan", icon: Icon.employees, roles: ["TENANT"] },
-  { href: "/stock-alert", label: "Stok Kritis", icon: Icon.alert, roles: ["TENANT"] },
   { href: "/shopping-list", label: "Daftar Belanja", icon: Icon.shoppingList, roles: ["TENANT"] },
-  { href: "/orders", label: "Pesanan Online", icon: Icon.storefront, roles: ["TENANT"] },
   { href: "/marketplace", label: "Add On", icon: Icon.inventory, roles: ["TENANT"] },
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },

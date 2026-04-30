@@ -5,6 +5,9 @@ import { getDb } from "@/lib/db";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { formatRupiahFull } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 type OnlineOrderStatus =
   | "PENDING"
@@ -42,13 +45,23 @@ const REALIZED_ONLINE_ORDER_STATUSES = new Set<OnlineOrderStatus>([
 // ============================================================
 
 export default function ReportsPage() {
-  const [period] = useState("Hari Ini"); // Filter dummy utk prototype
+  const [period] = useState("Semua Waktu");
+  const [activeTab, setActiveTab] = useState<"summary" | "pl" | "cashflow" | "balance">("summary");
   const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
   
   const sales = useLiveQuery(() => getDb().sales.where("status").equals("COMPLETED").toArray()) || [];
   const saleItems = useLiveQuery(() => getDb().saleItems.toArray()) || [];
   const posTerminals = useLiveQuery(() => getDb().posTerminals.toArray()) || [];
   const products = useLiveQuery(() => getDb().products.toArray()) || [];
+  const shoppingList = useLiveQuery(() => getDb().shoppingList.where("status").equals("done").toArray()) || [];
+  const returns = useLiveQuery(() => getDb().salesReturns.toArray()) || [];
+  const shifts = useLiveQuery(() => getDb().shifts.toArray()) || [];
+  const allExpenses = useLiveQuery(() => getDb().expenses.toArray()) || [];
+  const storeProfile = useLiveQuery(() => getDb().storeProfile.get("default"));
+  const rawMaterials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
+  const allAssets = useLiveQuery(() => getDb().assets.toArray()) || [];
+  const returnItems = useLiveQuery(() => getDb().salesReturnItems.toArray()) || [];
+  const initialCapital = storeProfile?.initialCapital || 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -121,8 +134,26 @@ export default function ReportsPage() {
     }
 
     const netProfit = revenue - cogs;
-    return { revenue, cogs, netProfit };
-  }, [productCostMap, realizedOnlineOrders, saleItems, sales]);
+    const returnTotal = returns.reduce((sum, r) => sum + r.totalAmount, 0);
+    
+    // Kurangi COGS dari item yang dikembalikan (jika kondisi baik/masuk stok lagi)
+    let returnedCogs = 0;
+    for (const rItem of returnItems) {
+      if (rItem.condition === "GOOD") {
+        const cost = productCostMap.get(rItem.productId) || 0;
+        returnedCogs += (cost * rItem.quantity);
+      }
+    }
+
+    const finalRevenue = revenue - returnTotal;
+    const finalCogs = cogs - returnedCogs;
+    const finalNetProfit = finalRevenue - finalCogs;
+
+    const expenseTotal = allExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const bottomLine = finalNetProfit - expenseTotal;
+    
+    return { revenue: finalRevenue, cogs: finalCogs, netProfit: finalNetProfit, expenseTotal, bottomLine };
+  }, [allExpenses, productCostMap, realizedOnlineOrders, saleItems, sales, returns, returnItems]);
 
   // ==========================
   // ANALISIS PARETO 80/20
@@ -201,8 +232,169 @@ export default function ReportsPage() {
     return Object.values(stats).sort((a, b) => b.revenue - a.revenue);
   }, [posTerminals, realizedOnlineOrders, sales]);
 
+  // ==========================
+  // ARUS KAS (CASH FLOW)
+  // ==========================
+  const cashFlow = useMemo(() => {
+    const masuk = sales.reduce((sum, s) => sum + s.totalAmount, 0) + realizedOnlineOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
+    const belanja = shoppingList.reduce((sum, item) => sum + (item.qtyToBuy * (item.costPrice || item.costPerUnit || 0)), 0);
+    const retur = returns.reduce((sum, r) => sum + r.totalAmount, 0);
+    const operasional = allExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const pembelianAset = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
+    
+    // Asumsi: Aset yang diinput dihitung sebagai kas keluar, 
+    // KECUALI jika aset itu bagian dari modal awal (sudah ada saat setup)
+    // Untuk simplifikasi, kita hitung semua perubahan kas dari nol sejak awal.
+    
+    return { masuk, belanja, retur, operasional, pembelianAset, saldo: masuk - belanja - retur - operasional - pembelianAset };
+  }, [allExpenses, realizedOnlineOrders, returns, sales, shoppingList, allAssets]);
+
+  // ==========================
+  // NERACA (BALANCE SHEET)
+  // ==========================
+  const balanceSheet = useMemo(() => {
+    // 1. ASET
+    // Kas = Modal Awal + Perubahan Kas (Masuk - Keluar)
+    const kasSekarang = initialCapital + cashFlow.saldo;
+    
+    // Nilai Persediaan = Produk + Bahan Baku
+    const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
+    const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
+    const totalPersediaan = persediaanProduk + persediaanBahan;
+
+    // Aset Tetap (Peralatan, Mesin, dll)
+    const asetTetap = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
+    
+    const totalAset = kasSekarang + totalPersediaan + asetTetap;
+
+    // 2. LIABILITAS & EKUITAS
+    // Agar Neraca selalu imbang di sistem fleksibel ini:
+    // Modal Awal = Total Aset - Laba Berjalan
+    // Ini merefleksikan total investasi awal (Tunai + Barang + Alat)
+    const labaBerjalan = profitLoss.bottomLine;
+    const modalAwalTerhitung = totalAset - labaBerjalan;
+    const totalEkuitas = modalAwalTerhitung + labaBerjalan;
+
+    return { 
+      kasDiLaci: kasSekarang, 
+      persediaan: totalPersediaan, 
+      asetTetap, 
+      totalAset, 
+      modalAwal: modalAwalTerhitung, 
+      labaBerjalan, 
+      totalEkuitas 
+    };
+  }, [initialCapital, cashFlow.saldo, products, rawMaterials, allAssets, profitLoss.bottomLine]);
+
+  // ==========================
+  // EXPORT FUNCTIONS
+  // ==========================
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+
+    // Sheet Laba Rugi
+    const plData = [
+      ["LAPORAN LABA RUGI"],
+      ["Periode", period],
+      [],
+      ["Keterangan", "Nilai"],
+      ["Pendapatan (Revenue)", profitLoss.revenue],
+      ["HPP (COGS)", profitLoss.cogs],
+      ["Laba Kotor", profitLoss.netProfit],
+      ["Biaya Operasional", profitLoss.expenseTotal],
+      ["Laba Bersih", profitLoss.bottomLine],
+    ];
+    const wsPL = XLSX.utils.aoa_to_sheet(plData);
+    XLSX.utils.book_append_sheet(wb, wsPL, "Laba Rugi");
+
+    // Sheet Neraca
+    const bsData = [
+      ["LAPORAN NERACA (BALANCE SHEET)"],
+      [],
+      ["ASET"],
+      ["Kas di Tangan", balanceSheet.kasDiLaci],
+      ["Persediaan Barang", balanceSheet.persediaan],
+      ["TOTAL ASET", balanceSheet.totalAset],
+      [],
+      ["EKUITAS"],
+      ["Modal Pemilik", balanceSheet.modalAwal],
+      ["Laba Berjalan", balanceSheet.labaBerjalan],
+      ["TOTAL EKUITAS", balanceSheet.totalEkuitas],
+    ];
+    const wsBS = XLSX.utils.aoa_to_sheet(bsData);
+    XLSX.utils.book_append_sheet(wb, wsBS, "Neraca");
+
+    XLSX.writeFile(wb, `Laporan_Mbakasir_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.text("LAPORAN KEUANGAN MBAKASIR", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Periode: ${period} | Dicetak: ${new Date().toLocaleString()}`, 14, 22);
+
+    // Laba Rugi Table
+    autoTable(doc, {
+      startY: 30,
+      head: [["LAPORAN LABA RUGI", "NILAI"]],
+      body: [
+        ["Pendapatan Kotor", formatRupiahFull(profitLoss.revenue)],
+        ["Harga Pokok Penjualan (HPP)", formatRupiahFull(profitLoss.cogs)],
+        ["Laba Kotor", formatRupiahFull(profitLoss.netProfit)],
+        ["Biaya Operasional", formatRupiahFull(profitLoss.expenseTotal)],
+        ["Laba Bersih (Final)", formatRupiahFull(profitLoss.bottomLine)],
+      ],
+      theme: "striped",
+    });
+
+    // Neraca Table
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 15,
+      head: [["NERACA (BALANCE SHEET)", "NILAI"]],
+      body: [
+        ["ASET: Kas & Setara Kas", formatRupiahFull(balanceSheet.kasDiLaci)],
+        ["ASET: Persediaan Barang", formatRupiahFull(balanceSheet.persediaan)],
+        ["TOTAL ASET", formatRupiahFull(balanceSheet.totalAset)],
+        ["---", "---"],
+        ["EKUITAS: Modal", formatRupiahFull(balanceSheet.modalAwal)],
+        ["EKUITAS: Laba Ditahan", formatRupiahFull(balanceSheet.labaBerjalan)],
+        ["TOTAL EKUITAS", formatRupiahFull(balanceSheet.totalEkuitas)],
+      ],
+      theme: "grid",
+    });
+
+    doc.save(`Laporan_Keuangan_${new Date().getTime()}.pdf`);
+  };
+
   return (
-    <DashboardLayout title={`Laporan Transaksi - ${period}`}>
+    <DashboardLayout title={`Laporan Keuangan`}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "16px" }}>
+        <div style={{ display: "flex", gap: "8px", background: "hsl(var(--bg-elevated))", padding: "4px", borderRadius: "12px", border: "1px solid hsl(var(--border))" }}>
+          {[
+            { id: "summary", label: "Ringkasan", icon: "📊" },
+            { id: "pl", label: "Laba Rugi", icon: "💰" },
+            { id: "cashflow", label: "Arus Kas", icon: "💸" },
+            { id: "balance", label: "Neraca", icon: "⚖️" },
+          ].map(tab => (
+            <button 
+              key={tab.id}
+              className={`btn btn-sm ${activeTab === tab.id ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => setActiveTab(tab.id as any)}
+              style={{ borderRadius: "8px" }}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button className="btn btn-outline btn-sm" onClick={exportToExcel}>📗 Excel</button>
+          <button className="btn btn-primary btn-sm" onClick={exportToPDF}>📕 PDF</button>
+        </div>
+      </div>
+
+      {activeTab === "summary" && (
+        <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "24px", marginBottom: "30px" }}>
         
         {/* REVENUE CARD */}
@@ -227,11 +419,11 @@ export default function ReportsPage() {
 
         {/* PROFIT CARD */}
         <div className="stat-card" style={{ background: "var(--gradient-primary)" }}>
-           <span style={{ fontSize: "14px", color: "white", opacity: 0.9, fontWeight: 600 }}>Laba Kotor (Net Profit)</span>
+           <span style={{ fontSize: "14px", color: "white", opacity: 0.9, fontWeight: 600 }}>Laba Bersih (Net Profit)</span>
            <span className="stat-value" style={{ color: "white", WebkitTextFillColor: "white", textShadow: "0 2px 4px rgba(0,0,0,0.2)" }}>
-              {formatRupiahFull(profitLoss.netProfit)}
+              {formatRupiahFull(profitLoss.bottomLine)}
            </span>
-           <span style={{ fontSize: "12px", color: "white", opacity: 0.8, marginTop: "8px" }}>Margin: {profitLoss.revenue === 0 ? "0" : Math.round((profitLoss.netProfit / profitLoss.revenue) * 100)}%</span>
+           <span style={{ fontSize: "12px", color: "white", opacity: 0.8, marginTop: "8px" }}>Margin: {profitLoss.revenue === 0 ? "0" : Math.round((profitLoss.bottomLine / profitLoss.revenue) * 100)}%</span>
         </div>
 
       </div>
@@ -293,6 +485,105 @@ export default function ReportsPage() {
             </tbody>
          </table>
       </div>
+        </>
+      )}
+
+      {activeTab === "pl" && (
+        <div className="card" style={{ maxWidth: "600px", margin: "0 auto", padding: "40px" }}>
+           <h2 style={{ textAlign: "center", marginBottom: "30px", fontSize: "24px", fontWeight: 900 }}>LAPORAN LABA RUGI</h2>
+           <div style={{ display: "grid", gap: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
+                 <span style={{ fontWeight: 600 }}>Pendapatan Kotor (Omzet)</span>
+                 <span style={{ color: "hsl(var(--success))", fontWeight: 800 }}>{formatRupiahFull(profitLoss.revenue)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
+                 <span style={{ fontWeight: 600 }}>Harga Pokok Penjualan (HPP)</span>
+                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(profitLoss.cogs)})</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
+                 <span style={{ fontWeight: 600 }}>Biaya Operasional</span>
+                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(profitLoss.expenseTotal)})</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "22px", marginTop: "20px", background: "hsl(var(--primary)/0.05)", padding: "16px", borderRadius: "12px" }}>
+                 <span style={{ fontWeight: 800 }}>LABA BERSIH</span>
+                 <span style={{ color: "hsl(var(--primary))", fontWeight: 900 }}>{formatRupiahFull(profitLoss.bottomLine)}</span>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {activeTab === "cashflow" && (
+        <div className="card" style={{ maxWidth: "600px", margin: "0 auto", padding: "40px" }}>
+           <h2 style={{ textAlign: "center", marginBottom: "30px", fontSize: "24px", fontWeight: 900 }}>LAPORAN ARUS KAS</h2>
+           <div style={{ display: "grid", gap: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px" }}>
+                 <span style={{ fontWeight: 600 }}>Total Kas Masuk (Penjualan)</span>
+                 <span style={{ color: "hsl(var(--success))", fontWeight: 800 }}>{formatRupiahFull(cashFlow.masuk)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px" }}>
+                 <span style={{ fontWeight: 600 }}>Total Kas Keluar (Belanja Stok)</span>
+                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(cashFlow.belanja)})</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px" }}>
+                 <span style={{ fontWeight: 600 }}>Total Kas Keluar (Operasional)</span>
+                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(cashFlow.operasional)})</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px" }}>
+                 <span style={{ fontWeight: 600 }}>Total Kas Keluar (Beli Aset)</span>
+                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(cashFlow.pembelianAset)})</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
+                 <span style={{ fontWeight: 600 }}>Total Retur</span>
+                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(cashFlow.retur)})</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "22px", marginTop: "20px", background: "hsl(var(--success)/0.05)", padding: "16px", borderRadius: "12px" }}>
+                 <span style={{ fontWeight: 800 }}>SALDO AKHIR KAS</span>
+                 <span style={{ color: "hsl(var(--success))", fontWeight: 900 }}>{formatRupiahFull(cashFlow.saldo)}</span>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {activeTab === "balance" && (
+        <div className="card" style={{ maxWidth: "600px", margin: "0 auto", padding: "40px" }}>
+           <h2 style={{ textAlign: "center", marginBottom: "30px", fontSize: "24px", fontWeight: 900 }}>LAPORAN NERACA</h2>
+           
+           <div style={{ marginBottom: "30px" }}>
+             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--primary))", marginBottom: "12px", borderBottom: "2px solid hsl(var(--primary))" }}>ASET (KEKAYAAN)</h3>
+             <div style={{ display: "grid", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Kas di Tangan / Laci</span><span>{formatRupiahFull(balanceSheet.kasDiLaci)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Persediaan Barang (Nilai Modal)</span><span>{formatRupiahFull(balanceSheet.persediaan)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Aset Tetap (Peralatan/Mesin)</span><span>{formatRupiahFull(balanceSheet.asetTetap)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "18px", marginTop: "10px", borderTop: "1px solid hsl(var(--border))", paddingTop: "10px" }}>
+                  <span>TOTAL ASET</span><span>{formatRupiahFull(balanceSheet.totalAset)}</span>
+                </div>
+             </div>
+           </div>
+
+           <div>
+             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--success))", marginBottom: "12px", borderBottom: "2px solid hsl(var(--success))" }}>EKUITAS (MODAL & LABA)</h3>
+             <div style={{ display: "grid", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Modal Awal (Tunai + Stok + Aset)</span>
+                  <span>{formatRupiahFull(balanceSheet.modalAwal)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Laba Berjalan</span>
+                  <span style={{ color: balanceSheet.labaBerjalan >= 0 ? "hsl(var(--success))" : "hsl(var(--error))", fontWeight: 700 }}>
+                    {formatRupiahFull(balanceSheet.labaBerjalan)}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "18px", marginTop: "10px", borderTop: "1px solid hsl(var(--border))", paddingTop: "10px" }}>
+                  <span>TOTAL EKUITAS</span><span>{formatRupiahFull(balanceSheet.totalEkuitas)}</span>
+                </div>
+             </div>
+           </div>
+
+           <div style={{ marginTop: "40px", padding: "12px", background: "hsl(var(--bg-elevated))", borderRadius: "8px", textAlign: "center", fontSize: "12px", color: "hsl(var(--text-muted))", border: "1px dashed hsl(var(--border))" }}>
+             Neraca Seimbang: Aset = Liabilitas + Ekuitas
+           </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

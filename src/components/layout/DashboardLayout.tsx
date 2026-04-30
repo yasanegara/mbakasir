@@ -5,6 +5,7 @@ import Sidebar from "./Sidebar";
 import Header from "./Header";
 import TenantLockWrapper from "./TenantLockWrapper";
 import PullToRefresh from "@/components/common/PullToRefresh";
+import SetupWizardModal from "@/components/dashboard/SetupWizardModal";
 
 // ============================================================
 // MAIN LAYOUT (App Shell)
@@ -44,6 +45,8 @@ export default function DashboardLayout({
         onClose={() => setIsSidebarOpen(false)}
         onToggleCollapse={handleToggleCollapse}
       />
+
+      <SetupWizardModal />
 
       <div className={`main-content${isSidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <Header

@@ -22,6 +22,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
   const [storeName, setStoreName] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
   const [qrisImageUrl, setQrisImageUrl] = useState("");
   const [footerNote, setFooterNote] = useState("Terima kasih atas kunjungan Anda!");
   const [waReceiptTemplate, setWaReceiptTemplate] = useState(DEFAULT_WA_RECEIPT_TEMPLATE);
@@ -34,6 +35,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
       setStoreName(profile.storeName || initialStoreName || "");
       setAddress(profile.address || "");
       setPhone(profile.phone || "");
+      setLogoUrl(profile.logoUrl || "");
       setQrisImageUrl(profile.qrisImageUrl || "");
       setFooterNote(profile.footerNote || "Terima kasih atas kunjungan Anda!");
       setWaReceiptTemplate(profile.waReceiptTemplate || DEFAULT_WA_RECEIPT_TEMPLATE);
@@ -50,7 +52,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
     }
     setIsSaving(true);
     try {
-      await saveProfile({ storeName: storeName.trim(), address, phone, footerNote });
+      await saveProfile({ storeName: storeName.trim(), address, phone, logoUrl, footerNote });
       toast("✅ Data toko disimpan", "success");
     } catch {
       toast("Gagal menyimpan data toko", "error");
@@ -183,7 +185,63 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
 
       {/* ── TAB: INFO TOKO ─────────────────────────────────────── */}
       {activeTab === "info" && (
-        <div style={{ display: "grid", gap: "18px" }}>
+        <div style={{ display: "grid", gap: "24px" }}>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+            <div 
+              style={{ 
+                width: "100px", 
+                height: "100px", 
+                borderRadius: "16px", 
+                border: "2px dashed hsl(var(--border))",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                background: "hsl(var(--bg-elevated))",
+                cursor: "pointer",
+                position: "relative"
+              }}
+              onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = "image/*";
+                input.onchange = (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => setLogoUrl(ev.target?.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                };
+                input.click();
+              }}
+            >
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "24px" }}>🖼️</div>
+                  <div style={{ fontSize: "10px", fontWeight: 600, color: "hsl(var(--text-muted))" }}>Upload Logo</div>
+                </div>
+              )}
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 700 }}>Logo Toko</h3>
+              <p style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>Gunakan file PNG/JPG kotak (1:1) untuk hasil terbaik. Logo ini tampil di Struk dan Storefront Online.</p>
+              {logoUrl && (
+                <button 
+                  className="btn btn-ghost btn-sm" 
+                  style={{ color: "hsl(var(--error))", marginTop: "8px", paddingLeft: 0 }}
+                  onClick={() => setLogoUrl("")}
+                >
+                  Hapus Logo
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: "18px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
             <div>
               <label className="input-label" htmlFor="storeName">Nama Toko *</label>
@@ -238,6 +296,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
               Teks ini muncul di bagian bawah struk cetak dan struk WA.
             </p>
           </div>
+        </div>
 
           {/* Preview mini */}
           <div
@@ -255,7 +314,10 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
             <div style={{ marginBottom: "6px", fontWeight: 700, fontSize: "13px", color: "hsl(var(--text-primary))" }}>
               👁️ Preview Header Struk
             </div>
-            <div style={{ fontWeight: 700 }}>{storeName || "— Nama Toko —"}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+              {logoUrl && <img src={logoUrl} alt="logo" style={{ width: "32px", height: "32px", borderRadius: "4px" }} />}
+              <div style={{ fontWeight: 700 }}>{storeName || "— Nama Toko —"}</div>
+            </div>
             {address && <div>📍 {address}</div>}
             {phone && <div>📞 {phone}</div>}
             <div style={{ borderTop: "1px dashed hsl(var(--border))", marginTop: "8px", paddingTop: "8px" }}>
@@ -575,6 +637,9 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
                       await db.sales.clear();
                       await db.saleItems.clear();
                       await db.shifts.clear();
+                      await db.expenses.clear();
+                      await db.salesReturns.clear();
+                      await db.salesReturnItems.clear();
                       
                       toast("✅ Data transaksi berhasil direset", "success");
                     } catch {
@@ -620,6 +685,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
                       await db.rawMaterials.clear();
                       await db.billOfMaterials.clear();
                       await db.productAssignments.clear();
+                      await db.assets.clear();
                       
                       toast("✅ Data produk berhasil direset", "success");
                     } catch {
@@ -668,6 +734,20 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
                       await db.rawMaterials.clear();
                       await db.billOfMaterials.clear();
                       await db.productAssignments.clear();
+                      await db.expenses.clear();
+                      await db.assets.clear();
+                      await db.salesReturns.clear();
+                      await db.salesReturnItems.clear();
+
+                      // Reset Modal Awal di Store Profile
+                      const profile = await db.storeProfile.get(tenantId);
+                      if (profile) {
+                        await db.storeProfile.update(tenantId, { 
+                          initialCapital: 0, 
+                          initialSetupCompleted: false,
+                          updatedAt: Date.now() 
+                        });
+                      }
                       
                       toast("✅ Semua data berhasil direset", "success");
                     } catch {

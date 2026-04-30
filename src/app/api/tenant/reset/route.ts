@@ -12,32 +12,40 @@ export async function POST(req: NextRequest) {
 
   try {
     if (type === "transactions") {
-      // Hapus data transaksi
+      // Hapus data transaksi dan biaya
       await prisma.$transaction([
         prisma.saleItem.deleteMany({ where: { sale: { tenantId: session.tenantId } } }),
         prisma.sale.deleteMany({ where: { tenantId: session.tenantId } }),
+        prisma.salesReturnItem.deleteMany({ where: { salesReturn: { tenantId: session.tenantId } } }),
+        prisma.salesReturn.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.shift.deleteMany({ where: { tenantId: session.tenantId } }),
+        prisma.expense.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.onlineOrderItem.deleteMany({ where: { order: { tenantId: session.tenantId } } }),
         prisma.onlineOrder.deleteMany({ where: { tenantId: session.tenantId } }),
       ]);
-      return Response.json({ message: "Data transaksi berhasil direset" });
+      return Response.json({ message: "Data transaksi & biaya berhasil direset" });
     } else if (type === "products") {
-      // Hapus data produk dan assign produk
+      // Hapus data produk dan aset
       await prisma.$transaction([
         prisma.billOfMaterial.deleteMany({ where: { product: { tenantId: session.tenantId } } }),
         prisma.productAssignment.deleteMany({ where: { product: { tenantId: session.tenantId } } }),
-        prisma.onlineOrderItem.deleteMany({ where: { order: { tenantId: session.tenantId } } }), // Just in case
-        prisma.saleItem.deleteMany({ where: { product: { tenantId: session.tenantId } } }), // Hapus sale items yg terkait produk
+        prisma.onlineOrderItem.deleteMany({ where: { order: { tenantId: session.tenantId } } }), 
+        prisma.saleItem.deleteMany({ where: { product: { tenantId: session.tenantId } } }), 
         prisma.product.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.rawMaterial.deleteMany({ where: { tenantId: session.tenantId } }),
+        prisma.fixedAsset.deleteMany({ where: { tenantId: session.tenantId } }),
       ]);
-      return Response.json({ message: "Data produk berhasil direset" });
+      return Response.json({ message: "Data produk & aset berhasil direset" });
     } else if (type === "all") {
-      // Hapus keduanya
+      // Hapus SEMUA data operasional
       await prisma.$transaction([
         prisma.saleItem.deleteMany({ where: { sale: { tenantId: session.tenantId } } }),
         prisma.sale.deleteMany({ where: { tenantId: session.tenantId } }),
+        prisma.salesReturnItem.deleteMany({ where: { salesReturn: { tenantId: session.tenantId } } }),
+        prisma.salesReturn.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.shift.deleteMany({ where: { tenantId: session.tenantId } }),
+        prisma.expense.deleteMany({ where: { tenantId: session.tenantId } }),
+        prisma.fixedAsset.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.onlineOrderItem.deleteMany({ where: { order: { tenantId: session.tenantId } } }),
         prisma.onlineOrder.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.billOfMaterial.deleteMany({ where: { product: { tenantId: session.tenantId } } }),
@@ -45,7 +53,7 @@ export async function POST(req: NextRequest) {
         prisma.product.deleteMany({ where: { tenantId: session.tenantId } }),
         prisma.rawMaterial.deleteMany({ where: { tenantId: session.tenantId } }),
       ]);
-      return Response.json({ message: "Data produk dan transaksi berhasil direset" });
+      return Response.json({ message: "Seluruh data operasional berhasil direset" });
     }
 
     return Response.json({ error: "Tipe reset tidak valid" }, { status: 400 });

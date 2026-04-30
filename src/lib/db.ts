@@ -164,6 +164,7 @@ export interface LocalStoreProfile {
   id: string;              // Selalu "default" — satu record per tenant
   tenantId: string;
   storeName: string;
+  logoUrl?: string;         // Logo toko (base64 atau URL)
   address?: string;
   phone?: string;
   qrisImageUrl?: string;   // URL gambar QRIS statis (base64 atau URL)
@@ -172,6 +173,8 @@ export interface LocalStoreProfile {
   waReceiptTemplate?: string; // Template struk via WA
   waOrderTemplate?: string;   // Template order/pesanan via WA
   isCrmEnabled: boolean;
+  initialSetupCompleted?: boolean;
+  initialCapital?: number;
   updatedAt: number;
 }
 
@@ -223,6 +226,32 @@ export interface LocalSalesReturnItem {
   condition: "GOOD" | "DAMAGED";
 }
 
+export interface LocalExpense {
+  id?: string;
+  localId: string;
+  tenantId: string;
+  userId: string;
+  category: string;
+  amount: number;
+  notes?: string;
+  date: number;
+  syncStatus: "PENDING" | "SYNCED" | "CONFLICT";
+  createdAt: number;
+}
+
+export interface LocalFixedAsset {
+  id?: string;
+  localId: string;
+  tenantId: string;
+  name: string;
+  purchaseDate: number;
+  purchasePrice: number;
+  depreciationYears: number; 
+  notes?: string;
+  syncStatus: "PENDING" | "SYNCED" | "CONFLICT";
+  createdAt: number;
+}
+
 // ─── DEXIE DATABASE CLASS ─────────────────────────────────────
 
 export class MbakasirDatabase extends Dexie {
@@ -241,6 +270,8 @@ export class MbakasirDatabase extends Dexie {
   posTerminals!: EntityTable<LocalPosTerminal, "id">;
   salesReturns!: EntityTable<LocalSalesReturn, "localId">;
   salesReturnItems!: EntityTable<LocalSalesReturnItem, "localId">;
+  expenses!: EntityTable<LocalExpense, "localId">;
+  assets!: EntityTable<LocalFixedAsset, "localId">;
 
   constructor() {
     super("MbakasirDB");
@@ -281,6 +312,14 @@ export class MbakasirDatabase extends Dexie {
     this.version(6).stores({
       salesReturns: "localId, id, tenantId, saleLocalId, invoiceNo, syncStatus, createdAt",
       salesReturnItems: "localId, returnLocalId, productId",
+    });
+
+    this.version(7).stores({
+      expenses: "localId, id, tenantId, category, date, syncStatus, createdAt",
+    });
+
+    this.version(8).stores({
+      assets: "localId, id, tenantId, purchaseDate, syncStatus, createdAt",
     });
   }
 }
