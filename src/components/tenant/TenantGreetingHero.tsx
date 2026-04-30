@@ -11,6 +11,7 @@ interface TenantGreetingHeroProps {
   initialRemainingMs: number;
   sisaToken: number;
   tokenTerpakai: number;
+  isDemo?: boolean;
 }
 
 interface PrayerTimes {
@@ -45,6 +46,7 @@ export default function TenantGreetingHero({
   initialRemainingMs,
   sisaToken,
   tokenTerpakai,
+  isDemo = false,
 }: TenantGreetingHeroProps) {
   const [remainingMs, setRemainingMs] = useState(initialRemainingMs);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
@@ -130,17 +132,19 @@ export default function TenantGreetingHero({
 
           {/* Stats & License */}
           <div className="stats-container">
-            <div className="stat-pill">
-              <div className="stat-item">
-                <span className="label">SISA</span>
-                <span className="value">{sisaToken.toLocaleString("id-ID")}<small>T</small></span>
+            {!isDemo && (
+              <div className="stat-pill">
+                <div className="stat-item">
+                  <span className="label">SISA</span>
+                  <span className="value">{sisaToken.toLocaleString("id-ID")}<small>T</small></span>
+                </div>
+                <div className="divider" />
+                <div className="stat-item">
+                  <span className="label">PAKAI</span>
+                  <span className="value">{tokenTerpakai.toLocaleString("id-ID")}<small>T</small></span>
+                </div>
               </div>
-              <div className="divider" />
-              <div className="stat-item">
-                <span className="label">PAKAI</span>
-                <span className="value">{tokenTerpakai.toLocaleString("id-ID")}<small>T</small></span>
-              </div>
-            </div>
+            )}
 
             <div className={`license-pill ${isActive ? 'active' : 'expired'}`}>
               <div className="license-info">

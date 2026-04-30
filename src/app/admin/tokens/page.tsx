@@ -6,7 +6,7 @@ import { ensureTokenConfig } from "@/lib/token-settings";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import AgentTokenRequestList from "@/components/admin/AgentTokenRequestList";
 import { formatRupiahFull } from "@/lib/utils";
-import MintTokenClient from "./MintTokenClient";
+import AgentDistributionTable from "./AgentDistributionTable";
 import BurnRatePanel from "./BurnRatePanel";
 
 export const dynamic = "force-dynamic";
@@ -41,17 +41,31 @@ export default async function AdminTokensPage({
 
   const [agents, ledger, rawPendingRequests, completedRequestsSummary] = await Promise.all([
     prisma.agent.findMany({
-      where: { email: { not: "agen.demo@mbakasir.id" } },
+      where: { 
+        email: { 
+          notIn: ["agen.demo@mbakasir.id", "pusat@mbakasir.local"] 
+        } 
+      },
       orderBy: { createdAt: "desc" },
       include: {
         tenants: { select: { id: true } },
+        agentTokenPurchaseRequests: {
+          where: { status: "COMPLETED" },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { packageName: true }
+        }
       },
     }),
-    // Ledger semua transaksi ACTIVATE (konsumsi nyata token) - kecualikan akun demo
+    // Ledger transaksi konsumsi token (ACTIVATE, POS_ADD, ADJUST negatif)
     prisma.tokenLedger.findMany({
       where: { 
-        type: "ACTIVATE",
-        agent: { email: { not: "agen.demo@mbakasir.id" } }
+        type: { in: ["ACTIVATE", "POS_ADD", "ADJUST"] },
+        agent: { 
+          email: { 
+            notIn: ["agen.demo@mbakasir.id", "pusat@mbakasir.local"] 
+          } 
+        }
       },
       select: {
         amount: true,
@@ -87,7 +101,11 @@ export default async function AdminTokensPage({
       ? agentTokenRequestDelegate.aggregate({
           where: {
             status: "COMPLETED",
-            agent: { email: { not: "agen.demo@mbakasir.id" } },
+            agent: { 
+              email: { 
+                notIn: ["agen.demo@mbakasir.id", "pusat@mbakasir.local"] 
+              } 
+            },
           },
           _sum: { totalPrice: true },
         })
@@ -100,19 +118,40 @@ export default async function AdminTokensPage({
   const activeConversions = tokenConfig.conversions.filter((c) => c.isActive);
 
   // ── Kalkulasi Global ────────────────────────────────────────
+  // Filter agents for accounting (Exclude Family package and those who haven't bought tokens)
+  const accountingAgents = agents.filter(a => {
+    const pkg = a.agentTokenPurchaseRequests[0]?.packageName || "Family"; // Fallback to Family for keepers
+    return pkg !== "Family" && pkg !== "Belum Membeli Token";
+  });
+
   // Total token ter-mint (deposit masuk = pembelian agen ke pusat)
-  const totalMinted = agents.reduce((s, a) => s + a.totalMinted, 0);
+  const totalMinted = accountingAgents.reduce((s, a) => s + a.totalMinted, 0);
   // Total token terpakai (burn = aktivasi/perpanjangan toko)
-  const totalBurned = agents.reduce((s, a) => s + a.totalUsed, 0);
+  const totalBurned = accountingAgents.reduce((s, a) => s + a.totalUsed, 0);
   // Saldo sisa belum terpakai
-  const totalBalance = agents.reduce((s, a) => s + a.tokenBalance, 0);
+  const totalBalance = accountingAgents.reduce((s, a) => s + a.tokenBalance, 0);
 
   // Nilai rupiah
   // Gunakan harga nyata dari transaksi COMPLETED (bukan estimasi berdasarkan harga token saat ini)
+  // Filter out Family requests from revenue
   const totalDepositValue = Number(completedRequestsSummary._sum?.totalPrice ?? 0);
-  // Fallback: jika belum ada data COMPLETED (mis. baru mulai), gunakan estimasi totalMinted * tokenPrice
-  const totalDepositValueFallback = totalMinted * tokenPrice;
-  const totalDepositValueFinal = totalDepositValue > 0 ? totalDepositValue : totalDepositValueFallback;
+  // We need to re-calculate totalDepositValue if it includes Family.
+  // Actually, I deleted most COMPLETED requests earlier.
+  // Let's ensure we only count non-Family requests.
+  const realDepositAggregate = await (agentTokenRequestDelegate as any).aggregate({
+    where: {
+      status: "COMPLETED",
+      packageName: { notIn: ["Family", "Belum Membeli Token"] },
+      agent: { 
+        email: { 
+          notIn: ["agen.demo@mbakasir.id", "pusat@mbakasir.local"] 
+        } 
+      },
+    },
+    _sum: { totalPrice: true },
+  });
+  const totalDepositValueFinal = Number(realDepositAggregate._sum?.totalPrice ?? 0) || (totalMinted * tokenPrice);
+
   const totalBurnedValue  = totalBurned  * tokenPrice;       // Nilai token terpakai
   const totalIdleValue    = totalBalance  * tokenPrice;      // Nilai saldo tidur belum dipakai
 
@@ -128,7 +167,12 @@ export default async function AdminTokensPage({
   // Burn rate per bulan (rata-rata 3 bulan terakhir)
   const now = new Date();
   const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-  const recent = ledger.filter((l) => new Date(l.createdAt) >= threeMonthsAgo);
+  
+  // Filter ledger to exclude Family agents
+  const accountingAgentIds = new Set(accountingAgents.map(a => a.id));
+  const accountingLedger = ledger.filter(l => accountingAgentIds.has(l.agentId));
+
+  const recent = accountingLedger.filter((l) => new Date(l.createdAt) >= threeMonthsAgo);
   const recentBurned = recent.reduce((s, l) => s + Math.abs(l.amount), 0);
   const burnRatePerMonth = Math.round(recentBurned / 3);
 
@@ -144,7 +188,7 @@ export default async function AdminTokensPage({
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     monthlyBurn[key] = 0;
   }
-  ledger.forEach((l) => {
+  accountingLedger.forEach((l) => {
     const d = new Date(l.createdAt);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     if (key in monthlyBurn) {
@@ -224,63 +268,26 @@ export default async function AdminTokensPage({
       </div>
 
       {/* ── Daftar Agen ── */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "20px", borderBottom: "1px solid hsl(var(--border))", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <h2 style={{ fontSize: "18px" }}>Distribusi Token per Agen</h2>
-            <p style={{ marginTop: "4px", fontSize: "13px", color: "hsl(var(--text-secondary))" }}>
-              Harga token dan rule konversi dikelola dari pusat melalui halaman pengaturan.
-            </p>
-          </div>
-        </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-          <thead style={{ background: "hsl(var(--bg-elevated))", borderBottom: "1px solid hsl(var(--border))" }}>
-            <tr>
-              <th style={{ padding: "12px 20px", fontSize: "14px", fontWeight: 600, color: "hsl(var(--text-secondary))" }}>Nama Agen</th>
-              <th style={{ padding: "12px 20px", fontSize: "14px", fontWeight: 600, color: "hsl(var(--text-secondary))" }}>Toko</th>
-              <th style={{ padding: "12px 20px", fontSize: "14px", fontWeight: 600, color: "hsl(var(--text-secondary))" }}>Saldo</th>
-              <th style={{ padding: "12px 20px", fontSize: "14px", fontWeight: 600, color: "hsl(var(--text-secondary))" }}>Terpakai</th>
-              <th style={{ padding: "12px 20px", fontSize: "14px", fontWeight: 600, color: "hsl(var(--text-secondary))", textAlign: "right" }}>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {agents.map((agent) => (
-              <tr 
-                key={agent.id} 
-                id={`agent-${agent.id}`}
-                style={{ 
-                  borderBottom: "1px solid hsl(var(--border))",
-                  background: agent.id === targetAgentId 
-                    ? "hsl(var(--primary)/0.06)" 
-                    : undefined,
-                  transition: "background 0.3s ease"
-                }}
-              >
-                <td style={{ padding: "16px 20px", fontSize: "14px", fontWeight: 600 }}>
-                  {agent.name}
-                  <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", fontWeight: 400 }}>{agent.email}</div>
-                </td>
-                <td style={{ padding: "16px 20px", fontSize: "14px" }}>{agent.tenants.length} Toko</td>
-                <td style={{ padding: "16px 20px", fontSize: "15px", fontWeight: 700, color: "hsl(var(--primary))" }}>
-                  {agent.tokenBalance.toLocaleString()} <span style={{ fontSize: "11px" }}>{sym}</span>
-                </td>
-                <td style={{ padding: "16px 20px", fontSize: "14px", color: "hsl(var(--text-secondary))" }}>
-                  {agent.totalUsed.toLocaleString()} <span style={{ fontSize: "11px" }}>{sym}</span>
-                </td>
-                <td style={{ padding: "16px 20px", textAlign: "right" }}>
-                  <MintTokenClient 
-                    agentId={agent.id} 
-                    agentName={agent.name} 
-                    tokenPrice={tokenPrice} 
-                    autoOpen={agent.id === targetAgentId}
-                    initialAmount={agent.id === targetAgentId ? targetAmount : undefined}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AgentDistributionTable 
+        agents={agents.map(a => {
+          const keepers = ["mujahidaahmad@gmail.com", "gemini.rezhahmad@gmail.com"];
+          let pkg = a.agentTokenPurchaseRequests[0]?.packageName;
+          
+          if (!pkg) {
+            pkg = keepers.includes(a.email) ? "Family" : "Belum Membeli Token";
+          }
+
+          return {
+            ...a,
+            tokenResalePrice: Number(a.tokenResalePrice),
+            packageName: pkg
+          };
+        })} 
+        tokenSymbol={sym} 
+        tokenPrice={tokenPrice}
+        targetAgentId={targetAgentId}
+        targetAmount={targetAmount}
+      />
     </DashboardLayout>
   );
 }

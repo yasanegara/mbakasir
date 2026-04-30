@@ -84,3 +84,63 @@ export async function mintTokensAction(agentId: string, amount: number) {
     return { success: false, error: error.message || "Gagal melakukan minting token" };
   }
 }
+
+export async function deductTokensAction(agentId: string, amount: number) {
+  if (!amount || amount <= 0) {
+    return { success: false, error: "Jumlah token harus lebih dari 0" };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const agent = await tx.agent.findUnique({
+        where: { id: agentId }
+      });
+
+      if (!agent) {
+        throw new Error("Agen tidak ditemukan");
+      }
+
+      if (agent.tokenBalance < amount) {
+        throw new Error(`Saldo tidak mencukupi. Saldo saat ini: ${agent.tokenBalance}`);
+      }
+
+      const balanceBefore = agent.tokenBalance;
+      const balanceAfter = balanceBefore - amount;
+
+      // Buat record ledger
+      await tx.tokenLedger.create({
+        data: {
+          agentId: agent.id,
+          type: TokenLedgerType.ADJUST, // Menggunakan ADJUST untuk pengurangan manual
+          amount: -amount,
+          balanceBefore: balanceBefore,
+          balanceAfter: balanceAfter,
+          description: `Manual deduction of ${amount} Token by SuperAdmin`
+        }
+      });
+
+      // Update saldo agen
+      await tx.agent.update({
+        where: { id: agent.id },
+        data: {
+          tokenBalance: {
+            decrement: amount
+          },
+          // Kita juga kurangi totalMinted agar total agregat tetap sinkron
+          totalMinted: {
+            decrement: amount
+          }
+        }
+      });
+    });
+
+    revalidatePath("/admin/tokens");
+    revalidatePath("/dashboard");
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Deduction Error:", error);
+    return { success: false, error: error.message || "Gagal melakukan pengurangan token" };
+  }
+}
+

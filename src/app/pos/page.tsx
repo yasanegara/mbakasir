@@ -267,6 +267,43 @@ export default function POSPage() {
   const [paidAmount, setPaidAmount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [openingCash, setOpeningCash] = useState(0);
+
+  // Persistence: Load State on Mount
+  useEffect(() => {
+    const savedCart = localStorage.getItem("pos_active_cart");
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (e) {
+        console.error("Failed to parse saved cart", e);
+      }
+    }
+
+    const savedCustomer = localStorage.getItem("pos_customer_info");
+    if (savedCustomer) {
+      try {
+        const { name, wa, discount, method } = JSON.parse(savedCustomer);
+        setCustomerName(name || "");
+        setCustomerWa(wa || "");
+        setDiscountAmount(discount || 0);
+        setPaymentMethod(method || "CASH");
+      } catch (e) {}
+    }
+
+    const savedPinStatus = sessionStorage.getItem("pos_pin_verified");
+    if (savedPinStatus === "true") {
+      setIsPinVerified(true);
+    }
+  }, []);
+
+  // Persistence: Save Cart
+  useEffect(() => {
+    if (cart.length > 0) {
+      localStorage.setItem("pos_active_cart", JSON.stringify(cart));
+    } else {
+      localStorage.removeItem("pos_active_cart");
+    }
+  }, [cart]);
   
   useEffect(() => {
     if (globalCashBalance > 0 && openingCash === 0) {
@@ -326,6 +363,24 @@ export default function POSPage() {
   const [customerWa, setCustomerWa] = useState("");
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
+
+  // Persistence: Save Customer Info & PIN Status
+  useEffect(() => {
+    localStorage.setItem("pos_customer_info", JSON.stringify({
+      name: customerName,
+      wa: customerWa,
+      discount: discountAmount,
+      method: paymentMethod
+    }));
+  }, [customerName, customerWa, discountAmount, paymentMethod]);
+
+  useEffect(() => {
+    if (isPinVerified) {
+      sessionStorage.setItem("pos_pin_verified", "true");
+    } else {
+      sessionStorage.removeItem("pos_pin_verified");
+    }
+  }, [isPinVerified]);
   const [lastReceipt, setLastReceipt] = useState<any>(null);
   const [brand, setBrand] = useState<any>(null);
   const [printRekapShift, setPrintRekapShift] = useState(false);
@@ -585,6 +640,11 @@ export default function POSPage() {
       setCustomerName("");
       setCustomerWa("");
       setShowCustomerForm(false);
+      
+      // Clear Persistence after checkout
+      localStorage.removeItem("pos_active_cart");
+      localStorage.removeItem("pos_customer_info");
+      
       toast("Transaksi Berhasil!", "success");
       setTimeout(() => window.print(), 150);
     } catch (err: any) {
@@ -748,6 +808,10 @@ export default function POSPage() {
                  setCustomerName("");
                  setCustomerWa("");
                  setShowCustomerForm(false);
+                 
+                 localStorage.removeItem("pos_active_cart");
+                 localStorage.removeItem("pos_customer_info");
+                 
                  toast("Transaksi dibatalkan", "info");
                }
              }}

@@ -237,6 +237,8 @@ export default async function DashboardPage() {
   const greeting = "Selamat datang"; // Base greeting to avoid mismatch, will be updated by client if needed or just use suppressHydrationWarning
 
 
+  const isDemo = ["owner@demo.id", "kasir@demo.id", "agen.demo@mbakasir.id"].includes(session.email || "");
+
   return (
     <DashboardLayout title="Dashboard">
       <div style={{ display: "grid", gap: "24px" }}>
@@ -252,6 +254,7 @@ export default async function DashboardPage() {
             initialRemainingMs={initialPremiumRemainingMs}
             sisaToken={storeOwnedTokenBalance}
             tokenTerpakai={tokenUsed}
+            isDemo={isDemo}
           />
         ) : (
           <div style={{
@@ -531,17 +534,19 @@ export default async function DashboardPage() {
               gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: "16px",
             }}>
-              <div className="stat-card" style={{ background: "var(--gradient-primary)" }}>
-                <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>
-                  🪙 Sisa Token Anda
-                </span>
-                <span className="stat-value" style={{ color: "white", WebkitTextFillColor: "white" }}>
-                  {(session as any).isPusat ? "∞ Unmetered" : tokenBalance.toLocaleString("id-ID")}
-                </span>
-                <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>
-                  Siap didistribusikan ke toko
-                </span>
-              </div>
+              {!isDemo && (
+                <div className="stat-card" style={{ background: "var(--gradient-primary)" }}>
+                  <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>
+                    🪙 Sisa Token Anda
+                  </span>
+                  <span className="stat-value" style={{ color: "white", WebkitTextFillColor: "white" }}>
+                    {(session as any).isPusat ? "∞ Unmetered" : tokenBalance.toLocaleString("id-ID")}
+                  </span>
+                  <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>
+                    Siap didistribusikan ke toko
+                  </span>
+                </div>
+              )}
               <div className="stat-card">
                 <span style={{ fontSize: "13px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>
                   🔔 Permintaan Masuk
