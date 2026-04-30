@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { useAuth } from "@/contexts/AppProviders";
 
 type OnlineOrderStatus =
   | "PENDING"
@@ -45,6 +46,8 @@ const REALIZED_ONLINE_ORDER_STATUSES = new Set<OnlineOrderStatus>([
 // ============================================================
 
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
   const [period] = useState("Semua Waktu");
   const [activeTab, setActiveTab] = useState<"summary" | "pl" | "cashflow" | "balance">("summary");
   const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
