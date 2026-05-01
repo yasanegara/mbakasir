@@ -38,6 +38,7 @@ model Agent {
   telegramChatId             String?
   registrationLinkId         String?
   nik                        String?
+  qrisUrl                    String?
   notificationPrefs          Json?                       @default("{\"notifyNewStoreRegistration\": true, \"notifyTokenPurchase\": true}")
   agentTokenPurchaseRequests AgentTokenPurchaseRequest[]
   vouchers                   AgentVoucher[]
@@ -433,6 +434,7 @@ model AgentPackage {
   price       Decimal  @db.Decimal(15, 2)
   isActive    Boolean  @default(true)
   description String?
+  qrisUrl     String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -446,6 +448,8 @@ model AgentTokenPurchaseRequest {
   tokenAmount Int
   totalPrice  Decimal                         @db.Decimal(15, 2)
   status      AgentTokenPurchaseRequestStatus @default(PENDING)
+  paymentRef  String?                         @unique // Referensi dari Tripay
+  paymentMethod String?                       // Misal: QRIS, VA, dll
   createdAt   DateTime                        @default(now())
   updatedAt   DateTime                        @updatedAt
   agent       Agent                           @relation(fields: [agentId], references: [id], onDelete: Cascade)

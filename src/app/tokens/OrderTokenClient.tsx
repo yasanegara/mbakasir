@@ -10,6 +10,7 @@ interface AgentPackage {
   tokenAmount: number;
   price: number;
   description: string | null;
+  qrisUrl: string | null;
 }
 
 interface OrderTokenClientProps {
@@ -36,6 +37,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
   } | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [timeLeft, setTimeLeft] = useState(7200); // 2 jam dalam detik
+  const [paymentData, setPaymentData] = useState<any>(null); // State baru untuk Tripay
   const { toast } = useToast();
 
   const fetchPackages = async () => {
@@ -105,18 +107,6 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
   const handleFinalOrder = async () => {
     if (!selectedOrder) return;
     
-    let whatsappWindow: Window | null = null;
-
-    if (pusatInfo.phone) {
-      whatsappWindow = window.open("", "_blank");
-      if (whatsappWindow) {
-        whatsappWindow.document.title = "Membuka WhatsApp...";
-        whatsappWindow.document.body.innerHTML =
-          "<p style=\"font-family: sans-serif; padding: 16px;\">Menyiapkan WhatsApp...</p>";
-        whatsappWindow.opener = null;
-      }
-    }
-
     if (selectedOrder.isCustom) {
       setIsSubmittingCustom(true);
     } else {
@@ -124,28 +114,16 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
     }
 
     try {
-      let proofUrl = "";
-      if (proofFile) {
-        const formData = new FormData();
-        formData.append("file", proofFile);
-        const uploadRes = await fetch("/api/upload/proof", {
-          method: "POST",
-          body: formData,
-        });
-        const uploadData = await uploadRes.json();
-        if (uploadRes.ok) {
-          // Construct absolute URL
-          const baseUrl = window.location.origin;
-          proofUrl = `${baseUrl}${uploadData.url}`;
-        }
-      }
-
       const requestRes = await fetch("/api/agent/purchase-token-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(selectedOrder.isCustom ? { amount: selectedOrder.amount } : { packageId: selectedOrder.id }),
       });
       const requestData = await requestRes.json();
+
+      if (requestRes.ok && requestData.payment) {
+        setPaymentData(requestData.payment);
+      }
 
       if (!requestRes.ok) {
         throw new Error(
@@ -154,37 +132,10 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
       }
 
       toast(
-        `Permintaan ${selectedOrder.name} masuk ke dashboard superadmin.`,
+        `Permintaan ${selectedOrder.name} berhasil dibuat. Silakan selesaikan pembayaran.`,
         "success"
       );
-
-      const message = `Halo ${pusatInfo.name},\n\nSaya Agen ${agentName} ingin memesan token:\n\nItem: ${selectedOrder.name}\nJumlah: ${selectedOrder.amount} ${tokenSymbol}\nHarga: ${formatRupiahFull(selectedOrder.price)}\n\nSaya sudah transfer ke rekening ${pusatInfo.bank}.${proofUrl ? `\n\nBukti Transfer: ${proofUrl}` : "\n\n(Bukti transfer menyusul)"}\n\nTerima kasih!`;
-      const url = buildWhatsappUrl(pusatInfo.phone, message);
-
-      if (!url) {
-        if (whatsappWindow && !whatsappWindow.closed) {
-          whatsappWindow.close();
-        }
-        toast(
-          "Nomor WhatsApp Pusat belum tersedia. Permintaan tetap tercatat di dashboard superadmin.",
-          "warning"
-        );
-        return;
-      }
-
-      toast(`Pesanan ${selectedOrder.name} disiapkan. Mengalihkan ke WhatsApp Pusat...`, "success");
-
-      if (whatsappWindow && !whatsappWindow.closed) {
-        whatsappWindow.location.replace(url);
-        return;
-      }
-
-      window.open(url, "_blank");
-      setIsOpen(false);
     } catch (error) {
-      if (whatsappWindow && !whatsappWindow.closed) {
-        whatsappWindow.close();
-      }
       toast(
         error instanceof Error ? error.message : "Kesalahan jaringan",
         "error"
@@ -444,8 +395,87 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                 <div style={{ fontSize: "16px", fontWeight: 700, color: "hsl(var(--text-primary))", whiteSpace: "pre-wrap", lineHeight: 1.6, marginBottom: "12px" }}>
                   {pusatInfo.bank || "Hubungi Pusat untuk info rekening."}
                 </div>
+                
+                {/* DISPLAY TRIPAY PAYMENT INFO (QRIS or VA) */}
+                {paymentData && (
+                  <div style={{ marginBottom: "20px", background: "white", padding: "16px", borderRadius: "12px", border: "2px solid hsl(var(--primary))" }}>
+                    
+                    {/* Jika QRIS */}
+                    {paymentData.qr_url && (
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "hsl(var(--primary))", marginBottom: "10px", textTransform: "uppercase" }}>Scan QRIS di Bawah</div>
+                        <img 
+                          src={paymentData.qr_url} 
+                          alt="Tripay QRIS" 
+                          style={{ width: "100%", maxWidth: "260px", height: "auto", margin: "0 auto", display: "block" }} 
+                        />
+                      </div>
+                    )}
+
+                    {/* Jika VA atau Metode Lain (Ada Pay Code) */}
+                    {paymentData.pay_code && (
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "hsl(var(--text-muted))", marginBottom: "4px", textTransform: "uppercase" }}>Nomor {paymentData.payment_name}</div>
+                        <div style={{ fontSize: "24px", fontWeight: 800, color: "hsl(var(--primary))", letterSpacing: "1px", margin: "8px 0" }}>
+                          {paymentData.pay_code}
+                        </div>
+                        <button 
+                          className="btn btn-ghost" 
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentData.pay_code);
+                            toast("Nomor berhasil disalin", "success");
+                          }}
+                          style={{ fontSize: "12px", height: "auto", padding: "4px 8px" }}
+                        >
+                          Salin Nomor
+                        </button>
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: "16px", paddingTop: "12px", borderTop: "1px solid hsl(var(--border))", textAlign: "center" }}>
+                      <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>Total Pembayaran</div>
+                      <div style={{ fontSize: "18px", fontWeight: 800 }}>
+                        {formatRupiahFull(paymentData.amount)}
+                      </div>
+                    </div>
+
+                    {/* Instruksi Pembayaran */}
+                    {paymentData.instructions && (
+                      <div style={{ marginTop: "16px", textAlign: "left" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 700, marginBottom: "8px", textTransform: "uppercase" }}>Cara Pembayaran:</div>
+                        <div style={{ maxHeight: "200px", overflowY: "auto", fontSize: "12px", border: "1px solid hsl(var(--border))", borderRadius: "8px", padding: "8px" }}>
+                          {paymentData.instructions.map((step: any, idx: number) => (
+                            <div key={idx} style={{ marginBottom: "12px" }}>
+                              <div style={{ fontWeight: 700, color: "hsl(var(--primary))", marginBottom: "4px" }}>{step.title}</div>
+                              <ul style={{ paddingLeft: "16px", margin: 0 }}>
+                                {step.steps.map((s: string, sidx: number) => (
+                                  <li key={sidx} style={{ marginBottom: "4px" }} dangerouslySetInnerHTML={{ __html: s }}></li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* FALLBACK TO STATIC QRIS IF NO TRIPAY AND PACKAGE HAS QRIS */}
+                {!paymentData && packages.find(p => p.id === selectedOrder?.id)?.qrisUrl && (
+                  <div style={{ marginBottom: "16px", textAlign: "center", background: "white", padding: "12px", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "hsl(var(--text-muted))", marginBottom: "8px", textTransform: "uppercase" }}>Scan QRIS Pembayaran</div>
+                    <img 
+                      src={packages.find(p => p.id === selectedOrder?.id)!.qrisUrl!} 
+                      alt="QRIS" 
+                      style={{ width: "100%", maxWidth: "200px", height: "auto", margin: "0 auto", display: "block" }} 
+                    />
+                  </div>
+                )}
+                
                 <p style={{ fontSize: "12px", color: "hsl(var(--text-secondary))", lineHeight: 1.5 }}>
-                  Silakan transfer sesuai nominal di atas sebelum waktu habis.
+                  {paymentData 
+                    ? "Saldo akan otomatis masuk setelah pembayaran Anda terdeteksi oleh sistem."
+                    : "Silakan transfer sesuai nominal di atas sebelum waktu habis."}
                 </p>
               </div>
 

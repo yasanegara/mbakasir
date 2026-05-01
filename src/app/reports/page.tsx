@@ -267,7 +267,7 @@ export default function ReportsPage() {
       operating,
       investing,
       financing,
-      saldo: masuk - belanja - retur - operasional - pembelianAset // Tetap hitung saldo murni arus kas untuk tab Cash Flow
+      saldo: operating + investing + financing
     };
   }, [allExpenses, realizedOnlineOrders, returns, sales, shoppingList, allAssets, initialCapital]);
 
@@ -351,6 +351,31 @@ export default function ReportsPage() {
     const wsBS = XLSX.utils.aoa_to_sheet(bsData);
     XLSX.utils.book_append_sheet(wb, wsBS, "Neraca");
 
+    // Sheet Arus Kas
+    const cfData = [
+      ["LAPORAN ARUS KAS (CASH FLOW)"],
+      ["Periode", period],
+      [],
+      ["A. AKTIVITAS OPERASI"],
+      ["Pemasukan Penjualan", cashFlow.masuk],
+      ["Pengeluaran Belanja Stok", -cashFlow.belanja],
+      ["Biaya Operasional", -cashFlow.operasional],
+      ["Retur Penjualan", -cashFlow.retur],
+      ["Total Arus Kas Operasi", cashFlow.operating],
+      [],
+      ["B. AKTIVITAS INVESTASI"],
+      ["Pembelian Aset Tetap", -cashFlow.pembelianAset],
+      ["Total Arus Kas Investasi", cashFlow.investing],
+      [],
+      ["C. AKTIVITAS PENDANAAN"],
+      ["Modal Awal Pemilik", cashFlow.financing],
+      ["Total Arus Kas Pendanaan", cashFlow.financing],
+      [],
+      ["SALDO KAS AKHIR", cashFlow.saldo],
+    ];
+    const wsCF = XLSX.utils.aoa_to_sheet(cfData);
+    XLSX.utils.book_append_sheet(wb, wsCF, "Arus Kas");
+
     XLSX.writeFile(wb, `Laporan_Mbakasir_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
@@ -388,6 +413,28 @@ export default function ReportsPage() {
         ["TOTAL EKUITAS", formatRupiahFull(balanceSheet.totalEkuitas)],
       ],
       theme: "grid",
+    });
+
+    // Arus Kas Table
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 15,
+      head: [["LAPORAN ARUS KAS (CASH FLOW)", "NILAI"]],
+      body: [
+        ["A. AKTIVITAS OPERASI", ""],
+        ["   Pemasukan Penjualan", formatRupiahFull(cashFlow.masuk)],
+        ["   Pengeluaran Belanja Stok", `(${formatRupiahFull(cashFlow.belanja)})`],
+        ["   Biaya Operasional", `(${formatRupiahFull(cashFlow.operasional)})`],
+        ["   Retur Penjualan", `(${formatRupiahFull(cashFlow.retur)})`],
+        ["   Total Arus Kas Operasi", formatRupiahFull(cashFlow.operating)],
+        ["B. AKTIVITAS INVESTASI", ""],
+        ["   Pembelian Aset Tetap", `(${formatRupiahFull(cashFlow.pembelianAset)})`],
+        ["   Total Arus Kas Investasi", formatRupiahFull(cashFlow.investing)],
+        ["C. AKTIVITAS PENDANAAN", ""],
+        ["   Modal Awal Pemilik", formatRupiahFull(cashFlow.financing)],
+        ["   Total Arus Kas Pendanaan", formatRupiahFull(cashFlow.financing)],
+        ["SALDO KAS AKHIR", formatRupiahFull(cashFlow.saldo)],
+      ],
+      theme: "striped",
     });
 
     doc.save(`Laporan_Keuangan_${new Date().getTime()}.pdf`);

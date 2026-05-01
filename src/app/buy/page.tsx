@@ -74,6 +74,7 @@ export default async function BuyPage() {
             agentPhone={agent.whatsappNumber || ""}
             tenantName={tenant.name}
             agentBankDetails={effectiveBankDetails || ""}
+            agentQrisUrl={agent.qrisUrl}
             lastPurchasePrice={lastPurchasePrice}
           />
         </section>

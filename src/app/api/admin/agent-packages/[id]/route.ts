@@ -44,6 +44,7 @@ export async function PATCH(
     if (data.tokenAmount !== undefined) updateData.tokenAmount = Number(data.tokenAmount);
     if (data.price !== undefined) updateData.price = Number(data.price);
     if (data.description !== undefined) updateData.description = data.description;
+    if (data.qrisUrl !== undefined) updateData.qrisUrl = data.qrisUrl;
 
     const updated = await prisma.agentPackage.update({
       where: { id },

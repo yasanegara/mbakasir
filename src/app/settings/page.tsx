@@ -122,7 +122,8 @@ export default async function SettingsPage() {
         whatsappNumber: true, 
         bankDetails: true, 
         telegramChatId: true,
-        notificationPrefs: true
+        notificationPrefs: true,
+        qrisUrl: true,
       },
     });
 
@@ -137,6 +138,7 @@ export default async function SettingsPage() {
             initialWhatsappNumber={agentData.whatsappNumber || ""}
             initialBankDetails={agentData.bankDetails || ""}
             initialTelegramChatId={agentData.telegramChatId || ""}
+            initialQrisUrl={agentData.qrisUrl}
             initialNotificationPrefs={(agentData.notificationPrefs as any) || {
               notifyNewStoreRegistration: true,
               notifyTokenPurchase: true,

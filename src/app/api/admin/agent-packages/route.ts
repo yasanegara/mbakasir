@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
         price: data.price,
         description: data.description || null,
         isActive: data.isActive !== undefined ? data.isActive : true,
+        qrisUrl: data.qrisUrl || null,
       },
     });
 

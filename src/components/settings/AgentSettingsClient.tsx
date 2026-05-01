@@ -10,6 +10,7 @@ interface AgentSettingsProps {
   initialWhatsappNumber: string;
   initialBankDetails: string;
   initialTelegramChatId: string;
+  initialQrisUrl?: string | null;
   initialNotificationPrefs: {
     notifyNewStoreRegistration: boolean;
     notifyTokenPurchase: boolean;
@@ -23,6 +24,7 @@ export default function AgentSettingsClient({
   initialWhatsappNumber,
   initialBankDetails,
   initialTelegramChatId,
+  initialQrisUrl,
   initialNotificationPrefs,
   tokenName,
   tokenSymbol,
@@ -33,6 +35,8 @@ export default function AgentSettingsClient({
   const [telegramChatId, setTelegramChatId] = useState(initialTelegramChatId);
   const [notificationPrefs, setNotificationPrefs] = useState(initialNotificationPrefs);
   const [bankDetails, setBankDetails] = useState(initialBankDetails);
+  const [qrisUrl, setQrisUrl] = useState(initialQrisUrl || "");
+  const [qrisFile, setQrisFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -40,6 +44,24 @@ export default function AgentSettingsClient({
     setIsSubmitting(true);
 
     try {
+      let finalQrisUrl = qrisUrl;
+      if (qrisFile) {
+        const formData = new FormData();
+        formData.append("file", qrisFile);
+        const uploadRes = await fetch("/api/upload/qris", {
+          method: "POST",
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadRes.ok) {
+          finalQrisUrl = uploadData.url;
+        } else {
+          toast(uploadData.error || "Gagal upload QRIS", "error");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const response = await fetch("/api/agent/settings", {
         method: "POST",
         headers: {
@@ -50,6 +72,7 @@ export default function AgentSettingsClient({
           whatsappNumber,
           telegramChatId,
           bankDetails,
+          qrisUrl: finalQrisUrl,
           notificationPrefs
         }),
       });
@@ -61,7 +84,9 @@ export default function AgentSettingsClient({
         return;
       }
 
-      toast("Pengaturan harga dasar token berhasil disimpan", "success");
+      setQrisUrl(finalQrisUrl);
+      setQrisFile(null);
+      toast("Pengaturan berhasil disimpan", "success");
     } catch {
       toast("Terjadi kesalahan jaringan", "error");
     } finally {
@@ -75,7 +100,7 @@ export default function AgentSettingsClient({
         <h2 style={{ fontSize: "20px" }}>Atur Harga Jual Token ({tokenSymbol})</h2>
         <p style={{ marginTop: "6px", fontSize: "14px", color: "hsl(var(--text-secondary))" }}>
           Tentukan harga jual dasar per token <strong>{tokenName}</strong> yang Anda tawarkan ke toko (Tenant). 
-          Data ini akan dilaporkan ke pusat (Headquarters) sebagai referensi harga pasar dan akan digunakan sebagai standar jika terjadi proses pengambilalihan (takeover) agen.
+          Data ini akan dilaporkan ke pusat (Headquarters) sebagai referensi harga pasar.
         </p>
 
         <form
@@ -84,52 +109,46 @@ export default function AgentSettingsClient({
             display: "grid",
             gap: "20px",
             marginTop: "24px",
-            maxWidth: "400px",
-            padding: "20px",
+            maxWidth: "600px",
+            padding: "24px",
             border: "1px solid hsl(var(--border))",
-            borderRadius: "12px",
+            borderRadius: "16px",
             background: "hsl(var(--bg-elevated))"
           }}
         >
-          <div>
-            <CurrencyInput
-              id="resale-price"
-              label={`Harga Jual per 1 ${tokenSymbol}`}
-              value={resalePrice}
-              onChange={(value) => setResalePrice(value)}
-              placeholder="Contoh: 15.000"
-            />
-            <div style={{ marginTop: "8px", fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-              Nilai yang direkomendasikan adalah selisih wajar di atas harga modal.
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <div style={{ gridColumn: "span 2" }}>
+              <CurrencyInput
+                id="resale-price"
+                label={`Harga Jual per 1 ${tokenSymbol}`}
+                value={resalePrice}
+                onChange={(value) => setResalePrice(value)}
+                placeholder="Contoh: 15.000"
+              />
             </div>
-          </div>
-          
-          <div>
-            <label className="input-label" htmlFor="whatsapp">Nomor WhatsApp Agen</label>
-            <input
-              id="whatsapp"
-              className="input-field"
-              type="text"
-              value={whatsappNumber}
-              onChange={(e) => setWhatsappNumber(e.target.value)}
-              placeholder="081234567890"
-            />
-          </div>
+            
+            <div>
+              <label className="input-label" htmlFor="whatsapp">Nomor WhatsApp Agen</label>
+              <input
+                id="whatsapp"
+                className="input-field"
+                type="text"
+                value={whatsappNumber}
+                onChange={(e) => setWhatsappNumber(e.target.value)}
+                placeholder="081234567890"
+              />
+            </div>
 
-          <div>
-            <label className="input-label" htmlFor="telegram">Telegram Chat ID</label>
-            <input
-              id="telegram"
-              className="input-field"
-              type="text"
-              value={telegramChatId}
-              onChange={(e) => setTelegramChatId(e.target.value)}
-              placeholder="Contoh: 12345678"
-            />
-            <div style={{ marginTop: "8px", fontSize: "12px", color: "hsl(var(--text-muted))", lineHeight: "1.5" }}>
-              Digunakan untuk notifikasi pendaftaran toko baru. <br />
-              1. Cari dan klik <strong>START</strong> pada bot <a href="https://t.me/MbaKasirID_bot" target="_blank" rel="noreferrer" style={{ color: "hsl(var(--primary))", fontWeight: 700 }}>@MbaKasirID_bot</a> <br />
-              2. Dapatkan Chat ID Anda di <a href="https://t.me/userinfobot" target="_blank" rel="noreferrer" style={{ color: "hsl(var(--primary))", fontWeight: 600 }}>@userinfobot</a>.
+            <div>
+              <label className="input-label" htmlFor="telegram">Telegram Chat ID</label>
+              <input
+                id="telegram"
+                className="input-field"
+                type="text"
+                value={telegramChatId}
+                onChange={(e) => setTelegramChatId(e.target.value)}
+                placeholder="Contoh: 12345678"
+              />
             </div>
           </div>
 
@@ -146,9 +165,31 @@ export default function AgentSettingsClient({
             />
           </div>
 
-          <div style={{ borderTop: "1px solid hsl(var(--border))", paddingTop: "20px", marginTop: "10px" }}>
+          <div style={{ border: "1px dashed hsl(var(--border))", padding: "16px", borderRadius: "12px", background: "hsl(var(--bg-card))" }}>
+            <label className="input-label">QRIS Pembayaran Agen</label>
+            <div style={{ display: "flex", gap: "16px", alignItems: "center", marginTop: "8px" }}>
+              {qrisUrl && (
+                <div style={{ position: "relative" }}>
+                   <img src={qrisUrl} alt="QRIS" style={{ width: "80px", height: "80px", objectFit: "contain", borderRadius: "8px", border: "1px solid hsl(var(--border))", background: "white" }} />
+                </div>
+              )}
+              <div style={{ flex: 1 }}>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => setQrisFile(e.target.files?.[0] || null)}
+                  className="input-field"
+                  style={{ padding: "8px", fontSize: "13px" }}
+                />
+                <p style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "4px" }}>
+                  Upload QRIS Anda agar toko dapat membayar lebih mudah.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: "1px solid hsl(var(--border))", paddingTop: "20px" }}>
              <h3 style={{ fontSize: "14px", fontWeight: 700, marginBottom: "12px" }}>Preferensi Notifikasi Telegram</h3>
-             
              <div style={{ display: "grid", gap: "12px" }}>
                <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px" }}>
                  <input 
@@ -159,7 +200,6 @@ export default function AgentSettingsClient({
                  />
                  Notifikasi Pendaftaran Toko Baru
                </label>
-
                <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px" }}>
                  <input 
                    type="checkbox" 
@@ -178,7 +218,7 @@ export default function AgentSettingsClient({
             disabled={isSubmitting || resalePrice <= 0}
             style={{ width: "100%", justifyContent: "center" }}
           >
-            {isSubmitting ? "Menyimpan..." : "Simpan Harga Jual"}
+            {isSubmitting ? "Menyimpan..." : "Simpan Pengaturan"}
           </button>
         </form>
       </section>

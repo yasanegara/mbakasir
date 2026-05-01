@@ -11,6 +11,7 @@ interface AgentPackage {
   price: number;
   isActive: boolean;
   description: string | null;
+  qrisUrl: string | null;
 }
 
 export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: string }) {
@@ -26,7 +27,11 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
     tokenAmount: 1,
     price: 0,
     description: "",
+    qrisUrl: "",
   });
+
+  const [qrisFile, setQrisFile] = useState<File | null>(null);
+  const [editQrisFile, setEditQrisFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetchPackages();
@@ -44,30 +49,49 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
     }
   };
 
+  const uploadQris = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload/qris", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Gagal upload QRIS");
+    return data.url;
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      let qrisUrl = "";
+      if (qrisFile) {
+        qrisUrl = await uploadQris(qrisFile);
+      }
+
       const res = await fetch("/api/admin/agent-packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
           price: Number(formData.price),
-          tokenAmount: Number(formData.tokenAmount)
+          tokenAmount: Number(formData.tokenAmount),
+          qrisUrl: qrisUrl || null,
         }),
       });
 
       if (res.ok) {
         toast("Paket berhasil ditambahkan", "success");
-        setFormData({ name: "", tokenAmount: 1, price: 0, description: "" });
+        setFormData({ name: "", tokenAmount: 1, price: 0, description: "", qrisUrl: "" });
+        setQrisFile(null);
         fetchPackages();
       } else {
         const err = await res.json();
         toast(err.error || "Gagal menambah paket", "error");
       }
-    } catch {
-      toast("Kesalahan jaringan", "error");
+    } catch (err: any) {
+      toast(err.message || "Kesalahan jaringan", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -107,15 +131,23 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
   const startEdit = (pkg: AgentPackage) => {
     setEditingId(pkg.id);
     setEditFormData(pkg);
+    setEditQrisFile(null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditFormData({});
+    setEditQrisFile(null);
   };
 
   const handleUpdate = async (id: string) => {
+    setIsSubmitting(true);
     try {
+      let qrisUrl = editFormData.qrisUrl;
+      if (editQrisFile) {
+        qrisUrl = await uploadQris(editQrisFile);
+      }
+
       const res = await fetch(`/api/admin/agent-packages/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -124,6 +156,7 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
           tokenAmount: Number(editFormData.tokenAmount),
           price: Number(editFormData.price),
           description: editFormData.description,
+          qrisUrl: qrisUrl,
         })
       });
       if (res.ok) {
@@ -134,8 +167,10 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
       } else {
         toast("Gagal mengupdate paket", "error");
       }
-    } catch {
-      toast("Kesalahan sistem", "error");
+    } catch (err: any) {
+      toast(err.message || "Kesalahan sistem", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -161,9 +196,15 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
             <input type="number" min={0} className="input-field" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})} required />
           </div>
         </div>
-        <div>
-          <label className="input-label">Deskripsi Tambahan (Opsional)</label>
-          <input type="text" className="input-field" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Sangat cocok untuk agen besar." />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <div>
+            <label className="input-label">Deskripsi Tambahan (Opsional)</label>
+            <input type="text" className="input-field" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Sangat cocok untuk agen besar." />
+          </div>
+          <div>
+            <label className="input-label">Upload QRIS Pembayaran (Opsional)</label>
+            <input type="file" accept="image/*" onChange={e => setQrisFile(e.target.files?.[0] || null)} className="input-field" style={{ padding: "8px" }} />
+          </div>
         </div>
         
         <button type="submit" className="btn btn-primary" disabled={isSubmitting || !formData.name}>
@@ -183,7 +224,8 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead style={{ background: "hsl(var(--bg-elevated))", textAlign: "left" }}>
                 <tr>
-                  <th style={{ padding: "12px", fontSize: "14px" }}>Nama Paket & Deskripsi</th>
+                  <th style={{ padding: "12px", fontSize: "14px" }}>Paket & Deskripsi</th>
+                  <th style={{ padding: "12px", fontSize: "14px" }}>QRIS</th>
                   <th style={{ padding: "12px", fontSize: "14px" }}>Token</th>
                   <th style={{ padding: "12px", fontSize: "14px" }}>Harga (Rp)</th>
                   <th style={{ padding: "12px", fontSize: "14px" }}>Tampil</th>
@@ -200,6 +242,10 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
                           <input type="text" className="input-field" value={editFormData.description || ""} onChange={e => setEditFormData({...editFormData, description: e.target.value})} placeholder="Deskripsi" />
                         </td>
                         <td style={{ padding: "12px" }}>
+                           <input type="file" accept="image/*" onChange={e => setEditQrisFile(e.target.files?.[0] || null)} style={{ fontSize: "11px" }} />
+                           {p.qrisUrl && <div style={{ fontSize: "10px", marginTop: "4px", color: "hsl(var(--primary))" }}>Ada QRIS</div>}
+                        </td>
+                        <td style={{ padding: "12px" }}>
                           <input type="number" min={1} className="input-field" value={editFormData.tokenAmount || 0} onChange={e => setEditFormData({...editFormData, tokenAmount: Number(e.target.value)})} style={{ width: "80px" }} />
                         </td>
                         <td style={{ padding: "12px" }}>
@@ -209,7 +255,9 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
                           <input type="checkbox" checked={p.isActive} disabled />
                         </td>
                         <td style={{ padding: "12px", textAlign: "right" }}>
-                          <button onClick={() => handleUpdate(p.id)} className="btn btn-ghost" style={{ color: "hsl(var(--primary))", padding: "4px 8px" }}>Simpan</button>
+                          <button onClick={() => handleUpdate(p.id)} className="btn btn-ghost" style={{ color: "hsl(var(--primary))", padding: "4px 8px" }} disabled={isSubmitting}>
+                            {isSubmitting ? "..." : "Simpan"}
+                          </button>
                           <button onClick={cancelEdit} className="btn btn-ghost" style={{ padding: "4px 8px" }}>Batal</button>
                         </td>
                       </tr>
@@ -221,6 +269,15 @@ export default function AgentPackageManager({ tokenSymbol }: { tokenSymbol: stri
                       <td style={{ padding: "12px" }}>
                         <div style={{ fontWeight: "bold" }}>{p.name}</div>
                         <div style={{ fontSize: "12px", color: "hsl(var(--text-secondary))" }}>{p.description}</div>
+                      </td>
+                      <td style={{ padding: "12px" }}>
+                        {p.qrisUrl ? (
+                          <a href={p.qrisUrl} target="_blank" rel="noreferrer">
+                            <img src={p.qrisUrl} alt="QRIS" style={{ width: "40px", height: "40px", objectFit: "contain", borderRadius: "4px", border: "1px solid hsl(var(--border))" }} />
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: "11px", color: "hsl(var(--text-muted))" }}>-</span>
+                        )}
                       </td>
                       <td style={{ padding: "12px", fontWeight: "bold", color: "hsl(var(--primary))" }}>{p.tokenAmount} {tokenSymbol}</td>
                       <td style={{ padding: "12px", fontWeight: "bold" }}>{formatRupiahFull(p.price)}</td>

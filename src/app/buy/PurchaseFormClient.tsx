@@ -12,6 +12,7 @@ interface PurchaseFormProps {
   agentPhone: string;
   tenantName: string;
   agentBankDetails: string;
+  agentQrisUrl?: string | null;
   lastPurchasePrice?: number | null;
 }
 
@@ -22,6 +23,7 @@ export default function PurchaseFormClient({
   agentPhone,
   tenantName,
   agentBankDetails,
+  agentQrisUrl,
   lastPurchasePrice,
 }: PurchaseFormProps) {
   const { toast } = useToast();
@@ -225,6 +227,18 @@ export default function PurchaseFormClient({
               {agentBankDetails && <CopyButton textToCopy={agentBankDetails} />}
             </div>
           </div>
+          
+          {agentQrisUrl && (
+            <div style={{ marginBottom: "16px", textAlign: "center", background: "white", padding: "16px", borderRadius: "12px", border: "1px solid hsl(var(--border))" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "hsl(var(--text-muted))", marginBottom: "10px", textTransform: "uppercase" }}>Scan QRIS Agen</div>
+              <img 
+                src={agentQrisUrl} 
+                alt="QRIS" 
+                style={{ width: "100%", maxWidth: "240px", height: "auto", margin: "0 auto", display: "block" }} 
+              />
+            </div>
+          )}
+
           <p style={{ fontSize: "12px", color: "hsl(var(--text-secondary))", lineHeight: 1.5 }}>
             Silakan transfer sesuai nominal di atas sebelum waktu habis agar segera diproses oleh Agen.
           </p>
