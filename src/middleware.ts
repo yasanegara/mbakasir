@@ -59,9 +59,19 @@ export function middleware(req: NextRequest) {
 
   if (isEduSubdomain || isEduPath) {
     const newPath = isEduPath ? url.pathname.replace("/edu", "") || "/" : url.pathname;
-    const response = NextResponse.rewrite(new URL(`${newPath}${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url));
-    response.headers.set("x-brand-context", "edu");
-    return response;
+    
+    // Suntikkan header ke dalam request agar dibaca oleh API
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-brand-context", "edu");
+
+    return NextResponse.rewrite(
+      new URL(`${newPath}${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url),
+      {
+        request: {
+          headers: requestHeaders,
+        },
+      }
+    );
   }
 
   return NextResponse.next();
