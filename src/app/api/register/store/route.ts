@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     const headersList = req.headers;
     const brandId = headersList.get("x-brand-context") || "default";
-    const isEdu = brandId === "edu";
+    const isEdu = brandId === "edu" || parsed.data.token === "edu";
 
     const ownerPasswordHash = await hashPassword(parsed.data.ownerPassword);
 
