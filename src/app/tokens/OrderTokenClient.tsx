@@ -506,27 +506,38 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                       <span style={{ fontSize: "20px" }}>✅</span>
                       <div style={{ textAlign: "left" }}>
                         <div style={{ fontSize: "14px", fontWeight: 700, color: "hsl(var(--success))" }}>Bukti Terpilih</div>
-                        <div style={{ fontSize: "12px", color: "hsl(var(--text-secondary))" }}>{proofFile.name}</div>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: "24px", marginBottom: "8px" }}>📸</div>
-                      <div style={{ fontSize: "14px", fontWeight: 600 }}>Klik untuk Upload Bukti</div>
-                      <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", marginTop: "4px" }}>Format JPG, PNG (Maks 5MB)</div>
-                    </>
-                  )}
-                </div>
+                  <div style={{ fontSize: "32px", marginBottom: "8px" }}>📸</div>
+                  <div style={{ fontWeight: 700, fontSize: "14px" }}>
+                    {proofFile ? proofFile.name : "Klik untuk Upload Bukti"}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "hsl(var(--text-secondary))", marginTop: "4px" }}>
+                    Format JPG, PNG (Maks 5MB)
+                  </div>
+                </label>
               </div>
+            )}
 
-              <button 
-                className="btn btn-primary"
-                onClick={handleFinalOrder}
-                disabled={!proofFile || submittingPackageId !== null || isSubmittingCustom}
-                style={{ width: "100%", height: "52px", fontSize: "16px", fontWeight: 800, marginTop: "8px" }}
-              >
-                {submittingPackageId || isSubmittingCustom ? "Memproses..." : "Kirim WA & Selesaikan"}
-              </button>
+            <button 
+              className="btn btn-primary"
+              onClick={handleFinalOrder}
+              disabled={
+                (!paymentData && !proofFile && !selectedOrder?.isCustom) || // Jika manual wajib upload bukti
+                (selectedOrder?.isCustom ? isSubmittingCustom : submittingPackageId === selectedOrder?.id) ||
+                (paymentData !== null) // Jika sudah ada data payment, tombol didisable (sudah dipesan)
+              }
+              style={{ width: "100%", height: "48px", fontSize: "16px", fontWeight: 700 }}
+            >
+              {selectedOrder?.isCustom 
+                ? (isSubmittingCustom ? "Memproses..." : (paymentData ? "Pesanan Dibuat" : "Pesan Sekarang"))
+                : (submittingPackageId === selectedOrder?.id ? "Memproses..." : (paymentData ? "Pesanan Dibuat" : "Pesan Sekarang"))
+              }
+            </button>
+
+            {paymentData && (
+              <p style={{ fontSize: "11px", color: "hsl(var(--success))", textAlign: "center", fontWeight: 600 }}>
+                ✓ Pesanan berhasil dibuat. Silakan bayar sesuai instruksi di atas.
+              </p>
+            )}
             </div>
           </div>
         )}
