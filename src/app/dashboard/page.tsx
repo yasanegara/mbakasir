@@ -248,6 +248,7 @@ export default async function DashboardPage() {
           <TenantGreetingHero
             userName={session.name}
             tenantName={tenantData.name}
+            tenantId={session.tenantId!}
             agentName={tenantData.agent?.name ?? "Tidak ada agen"}
 
             premiumUntilIso={tenantData.premiumUntil?.toISOString() ?? null}

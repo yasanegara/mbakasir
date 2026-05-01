@@ -10,6 +10,7 @@ import { formatRupiahFull } from "@/lib/utils";
 interface TenantGreetingHeroProps {
   userName: string;
   tenantName: string;
+  tenantId: string;
   agentName: string;
   premiumUntilIso: string | null;
   initialRemainingMs: number;
@@ -45,6 +46,7 @@ function formatClock(remainingMs: number) {
 export default function TenantGreetingHero({
   userName,
   tenantName,
+  tenantId,
   agentName,
   premiumUntilIso,
   initialRemainingMs,
@@ -58,7 +60,7 @@ export default function TenantGreetingHero({
   // HITUNG SALDO KAS (Existing Cash)
   const cashBalance = useLiveQuery(async () => {
     const db = getDb();
-    const profile = await db.storeProfile.get("default");
+    const profile = (await db.storeProfile.get(tenantId)) || (await db.storeProfile.get("default"));
     
     // Logika Akuntansi: Saldo awal kas adalah Modal dikurangi nilai stok/aset awal
     const initialCapital = profile?.initialCapital || 0;
