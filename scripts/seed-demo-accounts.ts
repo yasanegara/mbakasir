@@ -29,17 +29,27 @@ async function main() {
   console.log("✅ Akun Agen Demo siap.");
 
   // 2. Buat atau Update Tenant (Toko) yang dikelola Agen tersebut
+  const thirtyDaysFromNow = new Date();
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
   const tenant = await prisma.tenant.upsert({
     where: { id: "demo-tenant-edu" },
     update: {
       name: "Toko Demo Edukasi",
       agentId: agent.id,
+      status: "ACTIVE",
+      premiumUntil: thirtyDaysFromNow,
+      tokenBalance: 4,
+      tokenUsed: 1,
     },
     create: {
       id: "demo-tenant-edu",
       name: "Toko Demo Edukasi",
       agentId: agent.id,
       status: "ACTIVE",
+      premiumUntil: thirtyDaysFromNow,
+      tokenBalance: 4,
+      tokenUsed: 1,
     },
   });
   console.log("✅ Toko Demo Edukasi siap.");
