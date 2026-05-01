@@ -76,20 +76,25 @@ export async function POST(req: NextRequest) {
       let agentNotificationPrefs: any = null;
 
       if (isEdu) {
-        // Jalur Edu: Hubungkan otomatis ke Agen Demo
-        const demoAgent = await tx.agent.findUnique({
-          where: { email: "agen.demo@mbakasir.id" },
-          select: { id: true, name: true, telegramChatId: true, notificationPrefs: true }
+        // Jalur Edu: Gunakan Link 'edu' resmi dari database
+        const registrationLink = await tx.storeRegistrationLink.findUnique({
+          where: { token: "edu" },
+          include: {
+            agent: {
+              select: { id: true, name: true, isActive: true, telegramChatId: true, notificationPrefs: true },
+            },
+          },
         });
-        
-        if (!demoAgent) {
-          throw new Error("Layanan edukasi sedang tidak tersedia (Agen Demo tidak ditemukan).");
+
+        if (!registrationLink) {
+          throw new Error("Layanan edukasi (Link Edu) belum disiapkan di database.");
         }
-        
-        agentId = demoAgent.id;
-        agentName = demoAgent.name;
-        agentTelegramChatId = demoAgent.telegramChatId;
-        agentNotificationPrefs = demoAgent.notificationPrefs;
+
+        agentId = registrationLink.agentId;
+        registrationLinkId = registrationLink.id;
+        agentName = registrationLink.agent.name;
+        agentTelegramChatId = registrationLink.agent.telegramChatId;
+        agentNotificationPrefs = registrationLink.agent.notificationPrefs;
       } else {
         // Jalur Normal: Harus ada token valid
         const registrationLink = await tx.storeRegistrationLink.findUnique({
