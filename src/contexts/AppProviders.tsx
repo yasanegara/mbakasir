@@ -209,10 +209,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       
-      // EDU MODE: Auto Reset on Logout (Detect via path or subdomain)
+      // EDU MODE: Auto Reset on Logout
+      // Deteksi via URL (subdomain/path) ATAU jika user ini adalah bagian dari Edu
       const isEdu = typeof window !== "undefined" && (
         window.location.pathname.startsWith("/edu") || 
-        window.location.hostname.startsWith("edu.")
+        window.location.hostname.startsWith("edu.") ||
+        (user?.role === "TENANT" || user?.role === "CASHIER") // Tambahan pengaman
       );
 
       if (isEdu) {
