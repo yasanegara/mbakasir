@@ -71,8 +71,12 @@ export default function TenantGreetingHero({
     // Total Pengeluaran Tunai
     const allExpenses = await db.expenses.toArray();
     const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+    // Total Retur Penjualan (Asumsi kas keluar untuk refund)
+    const allReturns = await db.salesReturns.toArray();
+    const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
     
-    return initial + totalCashSales - totalExpenses;
+    return initial + totalCashSales - totalExpenses - totalReturns;
   }, []);
 
   const [remainingMs, setRemainingMs] = useState(initialRemainingMs);
