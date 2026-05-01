@@ -18,7 +18,6 @@ export default function SetupWizardModal() {
   const [modalType, setModalType] = useState<"NEW" | "MIGRATE" | null>(null);
   const [capital, setCapital] = useState(0);
   const [currentCash, setCurrentCash] = useState(0);
-  const [isSeeding, setIsSeeding] = useState(false);
   
   const tenantId = user?.tenantId;
   const storeProfile = useLiveQuery(() => 
@@ -75,75 +74,6 @@ export default function SetupWizardModal() {
     }
   };
 
-  const handleEduSeed = async () => {
-    if (!tenantId) return;
-    setIsSeeding(true);
-    try {
-      const db = getDb();
-      
-      // 1. Buat Kategori & Produk
-      const categoryId = "cat-edu-coffee";
-      await db.categories.put({
-        id: categoryId,
-        tenantId,
-        name: "Minuman Kopi",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-
-      const products = [
-        { id: "p1", name: "Americano Ice", costPrice: 8000, sellingPrice: 18000, stock: 20 },
-        { id: "p2", name: "Caffe Latte", costPrice: 12000, sellingPrice: 25000, stock: 15 },
-        { id: "p3", name: "Caramel Macchiato", costPrice: 15000, sellingPrice: 32000, stock: 10 },
-      ];
-
-      let totalStockCost = 0;
-      for (const p of products) {
-        const prod = {
-          id: p.id,
-          tenantId,
-          categoryId,
-          name: p.name,
-          costPrice: p.costPrice,
-          sellingPrice: p.sellingPrice,
-          stock: p.stock,
-          unit: "Cup",
-          isActive: true,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-        await db.products.put(prod);
-        totalStockCost += (p.costPrice * p.stock);
-      }
-
-      // 2. Catat Biaya Stok Awal agar memotong Kas
-      const expenseId = "exp-edu-init";
-      const expense = {
-        id: expenseId,
-        tenantId,
-        category: "Stok Barang",
-        amount: totalStockCost,
-        note: "Pembelian Stok Awal (Simulasi Pelatihan)",
-        date: Date.now(),
-        paymentMethod: "CASH",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      await db.expenses.put(expense);
-      await enqueueSyncOp("expenses", expenseId, "CREATE", expense);
-
-      // 3. Selesaikan Wizard dengan Modal 10 Juta
-      const initialCapital = 10000000;
-      await handleFinish(initialCapital);
-      
-      toast("Data pelatihan berhasil disiapkan!", "success");
-    } catch (err) {
-      console.error(err);
-      toast("Gagal menyiapkan data pelatihan.", "error");
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   return (
     <div className="modal-overlay active" style={{ zIndex: 10000 }}>
@@ -157,16 +87,6 @@ export default function SetupWizardModal() {
               Agar laporan keuangan (Neraca & Laba Rugi) Anda akurat, kami perlu mengetahui posisi awal modal Anda.
             </p>
             <div style={{ display: "grid", gap: "12px" }}>
-              {isEdu && (
-                <button 
-                  className="btn btn-success btn-block" 
-                  style={{ height: "56px", border: "2px solid hsl(var(--success))" }} 
-                  onClick={handleEduSeed}
-                  disabled={isSeeding}
-                >
-                  {isSeeding ? "⏳ Menyiapkan Data..." : "✨ Mulai dengan Data Pelatihan (Dummy)"}
-                </button>
-              )}
               <button className="btn btn-primary btn-block" style={{ height: "56px" }} onClick={() => setStep(2)}>
                 ✨ Toko Baru (Mulai Hari Ini)
               </button>
