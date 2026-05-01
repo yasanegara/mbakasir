@@ -52,9 +52,13 @@ export function middleware(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams.toString();
   const path = `${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
 
-  // DETEKSI EDU PATH
-  if (url.pathname.startsWith("/edu")) {
-    const newPath = url.pathname.replace("/edu", "") || "/";
+
+  // DETEKSI EDU (Subdomain atau Path)
+  const isEduSubdomain = hostname.startsWith("edu.");
+  const isEduPath = url.pathname.startsWith("/edu");
+
+  if (isEduSubdomain || isEduPath) {
+    const newPath = isEduPath ? url.pathname.replace("/edu", "") || "/" : url.pathname;
     const response = NextResponse.rewrite(new URL(`${newPath}${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url));
     response.headers.set("x-brand-context", "edu");
     return response;
