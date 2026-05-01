@@ -52,8 +52,8 @@ export default function TenantGreetingHero({
   tokenTerpakai,
   isDemo = false,
 }: TenantGreetingHeroProps) {
-  const { brand } = useBrand();
-  const isEdu = brand === "edu";
+  const brand = useBrand();
+  const isEdu = brand.appName === "Edu Intelligence";
   
   // HITUNG SALDO KAS (Existing Cash)
   const cashBalance = useLiveQuery(async () => {
