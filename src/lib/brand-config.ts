@@ -48,13 +48,25 @@ function normalizeTagline(tagline: string | null): string | null {
   return tagline;
 }
 
-export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
+export async function getBrandConfig(hostname?: string): Promise<BrandConfigSnapshot> {
+  const brandId = hostname?.includes("edu.") ? "edu" : "default";
+
   try {
     const config = (await prisma.brandConfig.findUnique({
-      where: { id: "default" },
+      where: { id: brandId },
     })) as any;
 
-    if (!config) return DEFAULT_BRAND;
+    if (!config) {
+      if (brandId === "edu") {
+        return {
+          ...DEFAULT_BRAND,
+          appName: "Nedu Intelligence",
+          tagline: "Edukasi Bisnis Digital",
+          logoUrl: "/brand/nedu-logo.svg",
+        };
+      }
+      return DEFAULT_BRAND;
+    }
 
     return {
       appName: config.appName || DEFAULT_BRAND.appName,
@@ -79,10 +91,11 @@ export async function getBrandConfig(): Promise<BrandConfigSnapshot> {
 }
 
 export async function upsertBrandConfig(
-  data: Partial<BrandConfigSnapshot>
+  data: Partial<BrandConfigSnapshot>,
+  brandId: string = "default"
 ): Promise<BrandConfigSnapshot> {
     const config = (await prisma.brandConfig.upsert({
-      where: { id: "default" },
+      where: { id: brandId },
       update: {
         appName: data.appName,
         tagline: normalizeTagline(data.tagline ?? null),
@@ -100,7 +113,7 @@ export async function upsertBrandConfig(
         showFooterPoweredBy: data.showFooterPoweredBy,
       } as any,
       create: {
-        id: "default",
+        id: brandId,
         appName: data.appName ?? DEFAULT_BRAND.appName,
         tagline: normalizeTagline(data.tagline ?? null) ?? DEFAULT_BRAND.tagline,
         metaDescription:

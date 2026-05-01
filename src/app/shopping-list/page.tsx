@@ -294,7 +294,13 @@ export default function ShoppingListPage() {
     [tenantId]
   ) ?? [];
 
-  const sales = useLiveQuery(() => tenantId ? getDb().sales.where("tenantId").equals(tenantId).and(s => s.status === "COMPLETED").toArray() : [], [tenantId]) || [];
+  const sales = useLiveQuery(() => tenantId ? getDb().sales.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const saleItems = useLiveQuery(async () => {
+    if (!tenantId) return [];
+    const db = getDb();
+    const saleIds = await db.sales.where("tenantId").equals(tenantId).primaryKeys();
+    return db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
+  }, [tenantId]) || [];
   const expenses = useLiveQuery(() => tenantId ? getDb().expenses.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const allAssets = useLiveQuery(() => tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const returns = useLiveQuery(() => tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
@@ -306,17 +312,27 @@ export default function ShoppingListPage() {
     return pTenant?.initialCapital || pDefault?.initialCapital || 0;
   }, [tenantId]) || 0;
 
+  const doneShoppingItems = shoppingItems.filter(i => i.status === "done");
+  const totalShoppingPurchases = doneShoppingItems.reduce((sum, item) => sum + (item.qtyToBuy * (item.costPrice || item.costPerUnit || 0)), 0);
+
   const currentCash = useMemo(() => {
     const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const totalReturns = returns.reduce((sum, r) => sum + r.totalAmount, 0);
     const totalAssetValue = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
+    
     const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
     const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
     const totalPersediaan = persediaanProduk + persediaanBahan;
 
-    return initialCapitalValue + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan;
-  }, [initialCapitalValue, sales, expenses, returns, allAssets, products, rawMaterials]);
+    // Hitung COGS dari semua penjualan
+    const saleLocalIds = new Set(sales.map(s => s.localId));
+    const totalCOGS = saleItems
+      .filter(item => saleLocalIds.has(item.saleLocalId))
+      .reduce((sum, item) => sum + (item.quantity * item.costPrice), 0);
+
+    return initialCapitalValue + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan - totalCOGS;
+  }, [initialCapitalValue, sales, expenses, returns, allAssets, products, rawMaterials, saleItems]);
 
   const storeProfile = useLiveQuery(() => 
     tenantId ? getDb().storeProfile.get(tenantId).then(p => p || getDb().storeProfile.get("default")) : getDb().storeProfile.get("default")
@@ -548,6 +564,13 @@ export default function ShoppingListPage() {
     toast("✅ Dummy belanja berhasil ditambahkan", "success");
   };
 
+  const handleClearAll = async () => {
+    if (!confirm("⚠️ Hapus SEMUA item di daftar belanja? Tindakan ini tidak bisa dibatalkan.")) return;
+    const db = getDb();
+    await db.shoppingList.clear();
+    toast("🗑️ Daftar belanja dikosongkan", "info");
+  };
+
   const completionRate = shoppingItems.length > 0
     ? Math.round((doneItems.length / shoppingItems.length) * 100)
     : 0;
@@ -585,6 +608,11 @@ export default function ShoppingListPage() {
                 <div style={{ fontSize: "32px", fontWeight: 800, lineHeight: 1 }}>{completionRate}%</div>
                 <div style={{ fontSize: "11px", opacity: 0.8 }}>Selesai</div>
               </div>
+            )}
+            {shoppingItems.length > 0 && (
+              <button className="btn btn-sm btn-ghost no-print" style={{ color: "white", borderColor: "rgba(255,255,255,0.4)" }} onClick={handleClearAll}>
+                🗑️ Kosongkan
+              </button>
             )}
             <button className="btn btn-sm no-print" style={{ background: "white", color: "hsl(var(--primary))", fontWeight: 700 }} onClick={() => setShowAdd(true)}>
               ➕ Tambah Baru

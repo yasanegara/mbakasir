@@ -53,7 +53,12 @@ export default function ReportsPage() {
   const [onlineOrders, setOnlineOrders] = useState<OnlineOrder[]>([]);
   
   const sales = useLiveQuery(() => tenantId ? getDb().sales.where("tenantId").equals(tenantId).and(s => s.status === "COMPLETED").toArray() : [], [tenantId]) || [];
-  const saleItems = useLiveQuery(() => tenantId ? getDb().saleItems.toArray() : [], [tenantId]) || [];
+  const saleItems = useLiveQuery(async () => {
+    if (!tenantId) return [];
+    const db = getDb();
+    const saleIds = await db.sales.where("tenantId").equals(tenantId).primaryKeys();
+    return db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
+  }, [tenantId]) || [];
   const posTerminals = useLiveQuery(() => tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const products = useLiveQuery(() => tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const shoppingList = useLiveQuery(() => tenantId ? getDb().shoppingList.where("tenantId").equals(tenantId).and(s => s.status === "done").toArray() : [], [tenantId]) || [];
@@ -275,24 +280,24 @@ export default function ReportsPage() {
   // NERACA (BALANCE SHEET)
   // ==========================
   const balanceSheet = useMemo(() => {
-    // 1. EKUITAS (MODAL & LABA)
-    // Modal Awal adalah angka yang diinput user sebagai total investasi awal
-    const modalAwal = initialCapital;
-    const labaBerjalan = profitLoss.bottomLine;
-    const totalEkuitas = modalAwal + labaBerjalan;
-
-    // 2. ASET (KEKAYAAN)
+    // 1. ASET (KEKAYAAN)
     // Nilai Persediaan & Aset Tetap saat ini
     const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
     const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
     const totalPersediaan = persediaanProduk + persediaanBahan;
     const asetTetap = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
     
-    // Kas dihitung sebagai penyeimbang (Balancer) agar Aset = Ekuitas
-    // Kas = Total Ekuitas - Aset Non-Kas
-    const kasSekarang = totalEkuitas - totalPersediaan - asetTetap;
-    
+    // Kas diambil dari perhitungan Arus Kas agar konsisten
+    const kasSekarang = cashFlow.saldo;
     const totalAset = kasSekarang + totalPersediaan + asetTetap;
+
+    // 2. EKUITAS (MODAL & LABA)
+    const labaBerjalan = profitLoss.bottomLine;
+    const modalAwal = initialCapital;
+    
+    // Penyesuaian (Adjustment) jika ada selisih antara Aset dan Ekuitas
+    const penyesuaian = totalAset - (modalAwal + labaBerjalan);
+    const totalEkuitas = modalAwal + labaBerjalan + penyesuaian;
 
     // Check if HPP is missing
     const productHppMissing = products.some(p => p.stock > 0 && (!p.costPrice || p.costPrice === 0));
@@ -308,6 +313,7 @@ export default function ReportsPage() {
       modalAwal, 
       labaBerjalan, 
       totalEkuitas,
+      penyesuaian,
       productHppMissing,
       materialHppMissing
     };
@@ -682,7 +688,13 @@ export default function ReportsPage() {
                   <span style={{ color: balanceSheet.labaBerjalan >= 0 ? "hsl(var(--success))" : "hsl(var(--error))", fontWeight: 700 }}>
                     {formatRupiahFull(balanceSheet.labaBerjalan)}
                   </span>
-                </div>
+                 {balanceSheet.penyesuaian !== 0 && (
+                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", color: "hsl(var(--text-secondary))", fontStyle: "italic" }}>
+                     <span>Penyesuaian/Lainnya *</span>
+                     <span>{formatRupiahFull(balanceSheet.penyesuaian)}</span>
+                   </div>
+                 )}
+                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "18px", marginTop: "10px", borderTop: "1px solid hsl(var(--border))", paddingTop: "10px" }}>
                   <span>TOTAL EKUITAS</span><span>{formatRupiahFull(balanceSheet.totalEkuitas)}</span>
                 </div>

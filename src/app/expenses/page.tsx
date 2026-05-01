@@ -40,6 +40,12 @@ export default function ExpensesPage() {
   const products = useLiveQuery(() => tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const allAssets = useLiveQuery(() => tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const returns = useLiveQuery(() => tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const saleItems = useLiveQuery(async () => {
+    if (!tenantId) return [];
+    const db = getDb();
+    const saleIds = await db.sales.where("tenantId").equals(tenantId).primaryKeys();
+    return db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
+  }, [tenantId]) || [];
   
   const initialCapital = useLiveQuery(async () => {
     const pDefault = await getDb().storeProfile.get("default");
@@ -53,12 +59,19 @@ export default function ExpensesPage() {
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const totalReturns = returns.reduce((sum, r) => sum + r.totalAmount, 0);
     const totalAssetValue = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
+    
     const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
     const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
     const totalPersediaan = persediaanProduk + persediaanBahan;
 
-    return initialCapital + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan;
-  }, [initialCapital, sales, expenses, returns, allAssets, products, rawMaterials]);
+    // Hitung COGS dari semua penjualan
+    const saleLocalIds = new Set(sales.map(s => s.localId));
+    const totalCOGS = saleItems
+      .filter(item => saleLocalIds.has(item.saleLocalId))
+      .reduce((sum, item) => sum + (item.quantity * item.costPrice), 0);
+
+    return initialCapital + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan - totalCOGS;
+  }, [initialCapital, sales, expenses, returns, allAssets, products, rawMaterials, saleItems]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -106,7 +106,7 @@ export default function SetupWizardModal() {
             />
             <div style={{ marginTop: "24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <button className="btn btn-ghost" onClick={() => setStep(1)}>Kembali</button>
-              <button className="btn btn-primary" onClick={() => handleFinish(capital)}>Selesai</button>
+              <button className="btn btn-primary" onClick={() => handleFinish(capital + inventoryValue + assetsValue)}>Selesai</button>
             </div>
           </div>
         )}
@@ -146,7 +146,7 @@ export default function SetupWizardModal() {
 
             <div style={{ marginTop: "24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <button className="btn btn-ghost" onClick={() => setStep(1)}>Kembali</button>
-              <button className="btn btn-primary" onClick={() => handleFinish(currentCash)}>Konfirmasi Modal</button>
+              <button className="btn btn-primary" onClick={() => handleFinish(currentCash + inventoryValue + assetsValue)}>Konfirmasi Modal</button>
             </div>
           </div>
         )}

@@ -190,6 +190,13 @@ export default function POSPage() {
     [tenantId]
   ) ?? [];
 
+  const allSaleItems = useLiveQuery(async () => {
+    if (!tenantId) return [];
+    const db = getDb();
+    const saleIds = await db.sales.where("tenantId").equals(tenantId).primaryKeys();
+    return db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
+  }, [tenantId]) || [];
+
   const globalInitialCapital = useMemo(() => {
     return storeProfile?.initialCapital || 0;
   }, [storeProfile]);
@@ -199,19 +206,24 @@ export default function POSPage() {
     const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
     const totalReturns = returns.reduce((sum, r) => sum + r.totalAmount, 0);
     const totalAssetValue = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
+    
     const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * (p.costPrice || 0)), 0);
     const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * (m.costPerUnit || 0)), 0);
     const totalPersediaan = persediaanProduk + persediaanBahan;
 
-    return globalInitialCapital + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan;
-  }, [globalInitialCapital, sales, allExpenses, returns, allAssets, products, rawMaterials]);
+    // Hitung COGS dari semua penjualan
+    const saleLocalIds = new Set(sales.map(s => s.localId));
+    const totalCOGS = allSaleItems
+      .filter(item => saleLocalIds.has(item.saleLocalId))
+      .reduce((sum, item) => sum + (item.quantity * item.costPrice), 0);
+
+    return globalInitialCapital + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan - totalCOGS;
+  }, [globalInitialCapital, sales, allExpenses, returns, allAssets, products, rawMaterials, allSaleItems]);
 
   const isHppMissing = useMemo(() => {
     return products.some(p => p.stock > 0 && (!p.costPrice || p.costPrice === 0)) || 
            rawMaterials.some(m => m.stock > 0 && (!m.costPerUnit || m.costPerUnit === 0));
   }, [products, rawMaterials]);
-
-  const allSaleItems = useLiveQuery(() => getDb().saleItems.toArray()) || [];
 
   const winningProducts = useMemo(() => {
     if (!products.length || allSaleItems.length === 0) return [];

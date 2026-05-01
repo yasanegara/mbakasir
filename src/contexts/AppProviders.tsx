@@ -206,9 +206,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    setUser(null);
-    window.location.href = "/";
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      
+      // EDU MODE: Auto Reset on Logout
+      if (typeof window !== "undefined" && window.location.hostname.includes("edu.")) {
+        const { getDb } = await import("@/lib/db");
+        try {
+          const db = getDb();
+          // Hapus seluruh database lokal untuk keamanan & kebersihan training
+          await db.delete(); 
+          localStorage.clear();
+        } catch (dbErr) {
+          console.error("Gagal membersihkan data EDU:", dbErr);
+        }
+      }
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      setUser(null);
+      window.location.href = "/";
+    }
   }, []);
 
   useEffect(() => {

@@ -650,6 +650,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
                       await db.expenses.clear();
                       await db.salesReturns.clear();
                       await db.salesReturnItems.clear();
+                      await db.shoppingList.clear();
                       
                       toast("✅ Data transaksi berhasil direset", "success");
                     } catch {
@@ -696,6 +697,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
                       await db.billOfMaterials.clear();
                       await db.productAssignments.clear();
                       await db.assets.clear();
+                      await db.shoppingList.clear();
                       
                       toast("✅ Data produk berhasil direset", "success");
                     } catch {
@@ -748,6 +750,7 @@ export default function StoreProfileClient({ tenantId, initialStoreName }: Store
                       await db.assets.clear();
                       await db.salesReturns.clear();
                       await db.salesReturnItems.clear();
+                      await db.shoppingList.clear();
 
                       // Reset Modal Awal di Store Profile
                       const profile = await db.storeProfile.get(tenantId);

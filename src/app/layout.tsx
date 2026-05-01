@@ -6,12 +6,16 @@ import { getBrandConfig } from "@/lib/brand-config";
 import { BrandProvider } from "@/contexts/BrandContext";
 import GlobalWidgets from "@/components/global/GlobalWidgets";
 
+import { headers } from "next/headers";
+
 function isAppleIconCandidate(url: string | null): boolean {
   return Boolean(url && /\.(png|jpe?g)$/i.test(url));
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const brand = await getBrandConfig();
+  const headersList = await headers();
+  const host = headersList.get("host") || "";
+  const brand = await getBrandConfig(host);
   const iconUrl = brand.faviconUrl ?? "/favicon.ico";
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -51,7 +55,9 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const brand = await getBrandConfig();
+  const headersList = await headers();
+  const host = headersList.get("host") || "";
+  const brand = await getBrandConfig(host);
 
   return (
     <html lang="id" suppressHydrationWarning>
