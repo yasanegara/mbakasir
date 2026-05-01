@@ -93,14 +93,22 @@ export default function StoreRegistrationForm({
             marginTop: "18px",
             padding: "16px 18px",
             borderRadius: "16px",
-            background: "hsl(var(--primary) / 0.08)",
-            border: "1px solid hsl(var(--primary) / 0.18)",
+            background: token === "edu" ? "hsl(var(--success) / 0.08)" : "hsl(var(--primary) / 0.08)",
+            border: token === "edu" ? "1px solid hsl(var(--success) / 0.18)" : "1px solid hsl(var(--primary) / 0.18)",
             color: "hsl(var(--text-secondary))",
             fontSize: "14px",
           }}
         >
-          Toko baru dibuat dalam status belum aktif, tetapi POS utama bawaan
-          sudah disiapkan. Aktivasi lisensi tetap dilanjutkan lewat agen.
+          {token === "edu" ? (
+            <>
+              <b>🚀 Toko Langsung AKTIF & BERMODAL!</b> Akun Anda sudah dipasangkan lisensi Premium (30 Hari) dan modal 4 Token untuk keperluan simulasi pelatihan.
+            </>
+          ) : (
+            <>
+              Toko baru dibuat dalam status belum aktif, tetapi POS utama bawaan
+              sudah disiapkan. Aktivasi lisensi tetap dilanjutkan lewat agen.
+            </>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "22px" }}>

@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Bonus Edu: Langsung aktif & bermodal
+      const isDemoAgent = agentId === "demo-agent-edu";
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
@@ -135,10 +135,10 @@ export async function POST(req: NextRequest) {
           address: parsed.data.address?.trim() || null,
           phone: parsed.data.phone?.trim() || null,
           nik: parsed.data.nik?.trim() || null,
-          status: isEdu ? "ACTIVE" : "LOCKED",
-          premiumUntil: isEdu ? thirtyDaysFromNow : null,
-          tokenBalance: isEdu ? 4 : 0,
-          tokenUsed: isEdu ? 1 : 0,
+          status: (isEdu || isDemoAgent) ? "ACTIVE" : "LOCKED",
+          premiumUntil: (isEdu || isDemoAgent) ? thirtyDaysFromNow : null,
+          tokenBalance: (isEdu || isDemoAgent) ? 4 : 0,
+          tokenUsed: (isEdu || isDemoAgent) ? 1 : 0,
         },
       });
 
