@@ -58,9 +58,9 @@ export async function getBrandConfig(brandId: string = "default"): Promise<Brand
       if (brandId === "edu") {
         return {
           ...DEFAULT_BRAND,
-          appName: "Nedu Intelligence",
+          appName: "Edu Intelligence",
           tagline: "Edukasi Bisnis Digital",
-          logoUrl: "/brand/nedu-logo.svg",
+          logoUrl: "/brand/edu-logo.svg",
         };
       }
       return DEFAULT_BRAND;
