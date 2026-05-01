@@ -167,7 +167,13 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
   return (
     <div
       className="modal-overlay active"
-      style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+      style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center", 
+        padding: "16px",
+        zIndex: 9999 
+      }}
       onClick={(event) => {
         event.stopPropagation();
         setIsOpen(false);
@@ -175,7 +181,15 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
     >
       <div
         className="card animate-fade-in"
-        style={{ maxWidth: "500px", width: "100%", maxHeight: "90vh", overflowY: "auto", position: "relative" }}
+        style={{ 
+          maxWidth: "420px", 
+          width: "100%", 
+          maxHeight: "85vh", 
+          overflowY: "auto", 
+          position: "relative",
+          borderRadius: "28px",
+          padding: "24px" 
+        }}
         onClick={(event) => event.stopPropagation()}
       >
         <button 

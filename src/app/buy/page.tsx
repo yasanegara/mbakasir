@@ -56,7 +56,7 @@ export default async function BuyPage() {
 
   return (
     <DashboardLayout title="Pembelian Add-on & Lisensi">
-      <div style={{ maxWidth: "600px", display: "grid", gap: "20px", margin: "0 auto" }}>
+      <div style={{ maxWidth: "500px", display: "grid", gap: "20px", margin: "0 auto" }}>
         
         <section className="card" style={{ textAlign: "center" }}>
           <div style={{ marginBottom: "16px", color: "hsl(var(--primary))" }}>
