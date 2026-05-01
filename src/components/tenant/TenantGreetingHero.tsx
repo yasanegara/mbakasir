@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useBrand } from "@/contexts/BrandContext";
+import { useLiveQuery } from "dexie-react-hooks";
+import { getDb } from "@/lib/db";
+import { formatRupiahFull } from "@/lib/utils";
 
 interface TenantGreetingHeroProps {
   userName: string;
@@ -49,8 +52,29 @@ export default function TenantGreetingHero({
   tokenTerpakai,
   isDemo = false,
 }: TenantGreetingHeroProps) {
-  const brand = useBrand();
-  const isEdu = brand.appName === "Edu Intelligence";
+  const { brand } = useBrand();
+  const isEdu = brand === "edu";
+  
+  // HITUNG SALDO KAS (Existing Cash)
+  const cashBalance = useLiveQuery(async () => {
+    const db = getDb();
+    const profile = await db.storeProfile.get("default");
+    const initial = profile?.initialCapital || 0;
+    
+    // Total Penjualan Tunai
+    const cashSales = await db.sales
+      .where("paymentMethod").equals("CASH")
+      .and(s => s.status === "COMPLETED")
+      .toArray();
+    const totalCashSales = cashSales.reduce((sum, s) => sum + s.totalAmount, 0);
+    
+    // Total Pengeluaran Tunai
+    const allExpenses = await db.expenses.toArray();
+    const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
+    
+    return initial + totalCashSales - totalExpenses;
+  }, []);
+
   const [remainingMs, setRemainingMs] = useState(initialRemainingMs);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
 
@@ -141,7 +165,25 @@ export default function TenantGreetingHero({
         <div className="noise-overlay" />
         
         <div className="layout">
-          {/* Brand */}
+          {/* SALDO KAS (EXISTING CASH) */}
+          <div style={{
+            background: "rgba(255,255,255,0.12)",
+            padding: "12px 18px",
+            borderRadius: "16px",
+            border: "1px solid rgba(255,255,255,0.15)",
+            backdropFilter: "blur(8px)",
+          }}>
+            <p style={{ fontSize: "11px", fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              💵 Saldo Kas
+            </p>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+              <span style={{ fontSize: "18px", fontWeight: 800, color: "white" }}>
+                {cashBalance !== undefined ? formatRupiahFull(cashBalance) : "Rp ..."}
+              </span>
+            </div>
+          </div>
+
+          {/* LISENSI */}
           <div className="brand">
             <div className="welcome">
               <span className="wave">👋</span>
