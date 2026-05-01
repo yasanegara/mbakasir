@@ -144,6 +144,38 @@ export default function LoginPage() {
           </div>
         </form>
 
+        {brand.appName === "Edu Intelligence" && (
+          <div style={{ marginTop: "24px" }}>
+            <div style={{ position: "relative", textAlign: "center", marginBottom: "16px" }}>
+              <hr style={{ border: "none", borderTop: "1px solid hsl(var(--border))" }} />
+              <span style={{ position: "absolute", top: "-10px", left: "50%", transform: "translateX(-50%)", background: "hsl(var(--bg-card))", padding: "0 10px", fontSize: "12px", color: "hsl(var(--text-muted))" }}>
+                Atau coba demo
+              </span>
+            </div>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <button 
+                type="button" 
+                className="btn btn-ghost btn-block" 
+                onClick={() => handleDemoLogin("owner")}
+                disabled={isLoading}
+                style={{ justifyContent: "center", borderStyle: "dashed" }}
+              >
+                🔑 Gunakan Demo Owner
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-ghost btn-block" 
+                onClick={() => handleDemoLogin("kasir")}
+                disabled={isLoading}
+                style={{ justifyContent: "center", borderStyle: "dashed" }}
+              >
+                🛒 Gunakan Demo Kasir
+              </button>
+            </div>
+          </div>
+        )}
+
 
       </div>
     </div>
