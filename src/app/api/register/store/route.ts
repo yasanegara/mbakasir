@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const headersList = await req.headers;
+    const headersList = req.headers;
     const brandId = headersList.get("x-brand-context") || "default";
     const isEdu = brandId === "edu";
 
