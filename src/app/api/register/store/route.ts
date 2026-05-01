@@ -62,44 +62,83 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const headersList = await req.headers;
+    const brandId = headersList.get("x-brand-context") || "default";
+    const isEdu = brandId === "edu";
+
     const ownerPasswordHash = await hashPassword(parsed.data.ownerPassword);
 
     const result = await prisma.$transaction(async (tx) => {
-      const registrationLink = await tx.storeRegistrationLink.findUnique({
-        where: {
-          token: parsed.data.token,
-        },
-        include: {
-          agent: {
-            select: {
-              id: true,
-              name: true,
-              isActive: true,
-              telegramChatId: true,
-              notificationPrefs: true,
+      let agentId: string;
+      let registrationLinkId: string | null = null;
+      let agentName: string = "MbaKasir Pusat";
+      let agentTelegramChatId: string | null = null;
+      let agentNotificationPrefs: any = null;
+
+      if (isEdu) {
+        // Jalur Edu: Hubungkan otomatis ke Agen Demo
+        const demoAgent = await tx.agent.findUnique({
+          where: { email: "agen.demo@mbakasir.id" },
+          select: { id: true, name: true, telegramChatId: true, notificationPrefs: true }
+        });
+        
+        if (!demoAgent) {
+          throw new Error("Layanan edukasi sedang tidak tersedia (Agen Demo tidak ditemukan).");
+        }
+        
+        agentId = demoAgent.id;
+        agentName = demoAgent.name;
+        agentTelegramChatId = demoAgent.telegramChatId;
+        agentNotificationPrefs = demoAgent.notificationPrefs;
+      } else {
+        // Jalur Normal: Harus ada token valid
+        const registrationLink = await tx.storeRegistrationLink.findUnique({
+          where: { token: parsed.data.token },
+          include: {
+            agent: {
+              select: { id: true, name: true, isActive: true, telegramChatId: true, notificationPrefs: true },
             },
           },
-        },
-      });
+        });
 
-      if (!registrationLink || !registrationLink.isActive) {
-        throw new Error("Link pendaftaran toko tidak valid atau sudah dinonaktifkan.");
+        if (!registrationLink || !registrationLink.isActive) {
+          throw new Error("Link pendaftaran toko tidak valid atau sudah dinonaktifkan.");
+        }
+
+        if (!registrationLink.agent.isActive) {
+          throw new Error("Akun agen penanggung jawab sedang nonaktif.");
+        }
+
+        agentId = registrationLink.agentId;
+        registrationLinkId = registrationLink.id;
+        agentName = registrationLink.agent.name;
+        agentTelegramChatId = registrationLink.agent.telegramChatId;
+        agentNotificationPrefs = registrationLink.agent.notificationPrefs;
+
+        // Update link usage count
+        await tx.storeRegistrationLink.update({
+          where: { id: registrationLink.id },
+          data: { useCount: { increment: 1 }, lastUsedAt: new Date() },
+        });
       }
 
-      if (!registrationLink.agent.isActive) {
-        throw new Error("Akun agen penanggung jawab sedang nonaktif.");
-      }
+      // Bonus Edu: Langsung aktif & bermodal
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
       const tenant = await tx.tenant.create({
         data: {
-          agentId: registrationLink.agentId,
-          registrationLinkId: registrationLink.id,
+          agentId,
+          registrationLinkId,
           name: parsed.data.storeName.trim(),
           businessType: parsed.data.businessType?.trim() || null,
           address: parsed.data.address?.trim() || null,
           phone: parsed.data.phone?.trim() || null,
           nik: parsed.data.nik?.trim() || null,
-          status: "LOCKED",
+          status: isEdu ? "ACTIVE" : "LOCKED",
+          premiumUntil: isEdu ? thirtyDaysFromNow : null,
+          tokenBalance: isEdu ? 4 : 0,
+          tokenUsed: isEdu ? 1 : 0,
         },
       });
 
@@ -113,35 +152,19 @@ export async function POST(req: NextRequest) {
           role: "TENANT",
           isActive: true,
         },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-        },
+        select: { id: true, email: true, name: true },
       });
 
       // Pastikan ada POS Utama default menggunakan utility agar konsisten
       await ensureDefaultPosTerminal(tx, tenant.id);
 
-      await tx.storeRegistrationLink.update({
-        where: {
-          id: registrationLink.id,
-        },
-        data: {
-          useCount: {
-            increment: 1,
-          },
-          lastUsedAt: new Date(),
-        },
-      });
-
       return {
         tenantName: tenant.name,
         ownerEmail: owner.email,
         ownerName: owner.name,
-        agentName: registrationLink.agent.name,
-        agentTelegramChatId: registrationLink.agent.telegramChatId,
-        agentNotificationPrefs: registrationLink.agent.notificationPrefs,
+        agentName,
+        agentTelegramChatId,
+        agentNotificationPrefs,
       };
     });
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   STORE_AFFILIATE_COOKIE,
   buildStoreRegistrationPath,
@@ -20,6 +20,14 @@ function pickSingleValue(value: string | string[] | undefined): string | null {
 
 export default async function RegisterStoreHubPage({ searchParams }: Props) {
   const resolvedSearchParams = await searchParams;
+  const headersList = await headers();
+  const isEdu = headersList.get("x-brand-context") === "edu";
+
+  // Jalur Edu: Redirect otomatis ke token 'edu'
+  if (isEdu) {
+    redirect("/register/store/edu");
+  }
+
   const tokenFromQuery =
     pickSingleValue(resolvedSearchParams.store) ??
     pickSingleValue(resolvedSearchParams.agent) ??

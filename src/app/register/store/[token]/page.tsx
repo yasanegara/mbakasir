@@ -16,25 +16,41 @@ export default async function RegisterStorePage({
   const { token } = await params;
   const normalizedToken = normalizeStoreRegistrationToken(token);
 
-  const registrationLink = isStoreRegistrationToken(normalizedToken)
-    ? await prisma.storeRegistrationLink.findUnique({
-        where: {
-          token: normalizedToken,
-        },
-        include: {
-          agent: {
-            select: {
-              name: true,
-              isActive: true,
+  let registrationLink = null;
+  let isValidLink = false;
+
+  if (normalizedToken === "edu") {
+    // Jalur Edu: Gunakan Agen Demo virtual
+    registrationLink = {
+      isActive: true,
+      agent: {
+        name: "Demo Agen Edukasi",
+        isActive: true,
+      },
+    };
+    isValidLink = true;
+  } else {
+    // Jalur Normal: Cek database
+    registrationLink = isStoreRegistrationToken(normalizedToken)
+      ? await prisma.storeRegistrationLink.findUnique({
+          where: {
+            token: normalizedToken,
+          },
+          include: {
+            agent: {
+              select: {
+                name: true,
+                isActive: true,
+              },
             },
           },
-        },
-      })
-    : null;
+        })
+      : null;
 
-  const isValidLink = Boolean(
-    registrationLink?.isActive && registrationLink.agent.isActive
-  );
+    isValidLink = Boolean(
+      registrationLink?.isActive && registrationLink.agent.isActive
+    );
+  }
 
   return (
     <main
