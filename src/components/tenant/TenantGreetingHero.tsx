@@ -57,34 +57,48 @@ export default function TenantGreetingHero({
   const brand = useBrand();
   const isEdu = brand.appName === "Edu Intelligence";
   
-  // HITUNG SALDO KAS (Existing Cash)
+  // HITUNG SALDO KAS (Existing Cash) - Rumus Dinamis & Akurat
   const cashBalance = useLiveQuery(async () => {
     const db = getDb();
     const profile = (await db.storeProfile.get(tenantId)) || (await db.storeProfile.get("default"));
-    
-    // Logika Akuntansi: Saldo awal kas adalah Modal dikurangi nilai stok/aset awal
     const initialCapital = profile?.initialCapital || 0;
-    const initialInventory = profile?.initialInventoryValue || 0;
-    const initialAssets = profile?.initialAssetsValue || 0;
-    const initialCash = initialCapital - initialInventory - initialAssets;
     
-    // Total Penjualan Tunai
+    // 1. Nilai Stok Saat Ini (Dinamis: Jika produk ditambah, kas turun)
+    const products = await db.products.toArray();
+    const materials = await db.rawMaterials.toArray();
+    const currentInventory = products.reduce((sum, p) => sum + (p.stock * (p.costPrice || 0)), 0) + 
+                             materials.reduce((sum, m) => sum + (m.stock * (m.costPerUnit || 0)), 0);
+    
+    // 2. Nilai Aset Saat Ini
+    const assets = await db.assets.toArray();
+    const currentAssets = assets.reduce((sum, a) => sum + (a.purchasePrice || 0), 0);
+
+    // 3. Laba Kotor Penjualan Tunai
+    // Kita hitung Laba Kotor (Revenue - HPP) agar saat barang terjual, kas bertambah sesuai harga jual
     const cashSales = await db.sales
       .where("paymentMethod").equals("CASH")
       .and(s => s.status === "COMPLETED")
       .toArray();
-    const totalCashSales = cashSales.reduce((sum, s) => sum + s.totalAmount, 0);
     
-    // Total Pengeluaran Tunai
+    const saleIds = cashSales.map(s => s.localId);
+    const saleItems = await db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
+    
+    const grossProfit = saleItems.reduce((sum, item) => {
+      const hpp = (item.costPrice || 0) * item.quantity;
+      return sum + (item.subtotal - hpp);
+    }, 0);
+
+    // 4. Total Pengeluaran Tunai
     const allExpenses = await db.expenses.toArray();
     const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-    // Total Retur Penjualan (Asumsi kas keluar untuk refund)
+    // 5. Total Retur Penjualan
     const allReturns = await db.salesReturns.toArray();
     const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
     
-    return initialCash + totalCashSales - totalExpenses - totalReturns;
-  }, []);
+    // RUMUS AKHIR: Modal - (Stok + Aset) + Laba Kotor - Pengeluaran - Retur
+    return initialCapital - currentInventory - currentAssets + grossProfit - totalExpenses - totalReturns;
+  }, [tenantId]);
 
   const [remainingMs, setRemainingMs] = useState(initialRemainingMs);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
