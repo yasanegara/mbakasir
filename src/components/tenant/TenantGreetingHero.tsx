@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useBrand } from "@/contexts/BrandContext";
 
 interface TenantGreetingHeroProps {
   userName: string;
@@ -48,6 +49,8 @@ export default function TenantGreetingHero({
   tokenTerpakai,
   isDemo = false,
 }: TenantGreetingHeroProps) {
+  const brand = useBrand();
+  const isEdu = brand.appName === "Edu Intelligence";
   const [remainingMs, setRemainingMs] = useState(initialRemainingMs);
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
 
@@ -89,6 +92,27 @@ export default function TenantGreetingHero({
 
   return (
     <div className="hero-root">
+      {/* ── EDU WELCOME BANNER ── */}
+      {isEdu && (
+        <div style={{
+          padding: "16px 20px",
+          background: "hsl(var(--success)/0.1)",
+          border: "2px dashed hsl(var(--success))",
+          borderRadius: "16px",
+          marginBottom: "8px",
+          color: "hsl(var(--success))",
+          display: "flex",
+          gap: "12px",
+          alignItems: "center"
+        }}>
+          <span style={{ fontSize: "24px" }}>🎓</span>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: "15px" }}>Selamat Datang di MbaKasir.ID Training Center</div>
+            <div style={{ fontSize: "13px", fontWeight: 600, opacity: 0.8 }}>Data transaksi & belanja Anda akan terhapus otomatis (bersih kembali) ketika Anda Logout.</div>
+          </div>
+        </div>
+      )}
+
       {/* ── ADZAN BAR ── */}
       {prayerTimes && (
         <div className="adzan-bar">
