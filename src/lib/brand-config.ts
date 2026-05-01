@@ -48,9 +48,7 @@ function normalizeTagline(tagline: string | null): string | null {
   return tagline;
 }
 
-export async function getBrandConfig(hostname?: string): Promise<BrandConfigSnapshot> {
-  const brandId = hostname?.includes("edu.") ? "edu" : "default";
-
+export async function getBrandConfig(brandId: string = "default"): Promise<BrandConfigSnapshot> {
   try {
     const config = (await prisma.brandConfig.findUnique({
       where: { id: brandId },

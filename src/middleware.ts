@@ -52,14 +52,12 @@ export function middleware(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams.toString();
   const path = `${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
 
-  // If the request is for a custom domain (not the root domain)
-  // we rewrite to the special /_domain/[domain] route
-  if (
-    hostname !== LOCAL_ROOT_DOMAIN &&
-    hostname !== rootDomain &&
-    !hostname.endsWith(`.${rootDomain}`) // if you want to support subdomains later
-  ) {
-    return NextResponse.rewrite(new URL(`/_domain/${hostname}${path}`, req.url));
+  // DETEKSI EDU PATH
+  if (url.pathname.startsWith("/edu")) {
+    const newPath = url.pathname.replace("/edu", "") || "/";
+    const response = NextResponse.rewrite(new URL(`${newPath}${searchParams.length > 0 ? `?${searchParams}` : ""}`, req.url));
+    response.headers.set("x-brand-context", "edu");
+    return response;
   }
 
   return NextResponse.next();

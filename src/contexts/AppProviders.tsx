@@ -210,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetch("/api/auth/logout", { method: "POST" });
       
       // EDU MODE: Auto Reset on Logout
-      if (typeof window !== "undefined" && window.location.hostname.includes("edu.")) {
+      if (typeof window !== "undefined" && window.location.pathname.startsWith("/edu")) {
         const { getDb } = await import("@/lib/db");
         try {
           const db = getDb();

@@ -14,8 +14,8 @@ function isAppleIconCandidate(url: string | null): boolean {
 
 export async function generateMetadata(): Promise<Metadata> {
   const headersList = await headers();
-  const host = headersList.get("host") || "";
-  const brand = await getBrandConfig(host);
+  const brandId = headersList.get("x-brand-context") || "default";
+  const brand = await getBrandConfig(brandId);
   const iconUrl = brand.faviconUrl ?? "/favicon.ico";
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -56,8 +56,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const headersList = await headers();
-  const host = headersList.get("host") || "";
-  const brand = await getBrandConfig(host);
+  const brandId = headersList.get("x-brand-context") || "default";
+  const brand = await getBrandConfig(brandId);
 
   return (
     <html lang="id" suppressHydrationWarning>
