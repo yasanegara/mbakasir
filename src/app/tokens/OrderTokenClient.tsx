@@ -528,6 +528,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                 </p>
               )}
             </div>
+            </div>
           </div>
         )}
 
