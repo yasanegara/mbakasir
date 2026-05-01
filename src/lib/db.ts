@@ -175,6 +175,9 @@ export interface LocalStoreProfile {
   isCrmEnabled: boolean;
   initialSetupCompleted?: boolean;
   initialCapital?: number;
+  setupType?: "NEW" | "MIGRATE";
+  initialInventoryValue?: number;
+  initialAssetsValue?: number;
   updatedAt: number;
 }
 

@@ -55,7 +55,7 @@ export default function SetupWizardModal() {
 
   if (!storeProfile || storeProfile.initialSetupCompleted) return null;
 
-  const handleFinish = async (finalCapital: number) => {
+  const handleFinish = async (finalCapital: number, type: "NEW" | "MIGRATE") => {
     try {
       if (!tenantId) return;
       const db = getDb();
@@ -63,6 +63,9 @@ export default function SetupWizardModal() {
         ...storeProfile,
         id: tenantId,
         initialCapital: finalCapital,
+        setupType: type,
+        initialInventoryValue: inventoryValue,
+        initialAssetsValue: assetsValue,
         initialSetupCompleted: true,
         updatedAt: Date.now(),
       };
@@ -111,7 +114,7 @@ export default function SetupWizardModal() {
             />
             <div style={{ marginTop: "24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <button className="btn btn-ghost" onClick={() => setStep(1)}>Kembali</button>
-              <button className="btn btn-primary" onClick={() => handleFinish(capital + inventoryValue + assetsValue)}>Selesai</button>
+              <button className="btn btn-primary" onClick={() => handleFinish(capital, "NEW")}>Selesai</button>
             </div>
           </div>
         )}
@@ -151,7 +154,7 @@ export default function SetupWizardModal() {
 
             <div style={{ marginTop: "24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <button className="btn btn-ghost" onClick={() => setStep(1)}>Kembali</button>
-              <button className="btn btn-primary" onClick={() => handleFinish(currentCash + inventoryValue + assetsValue)}>Konfirmasi Modal</button>
+              <button className="btn btn-primary" onClick={() => handleFinish(currentCash + inventoryValue + assetsValue, "MIGRATE")}>Konfirmasi Modal</button>
             </div>
           </div>
         )}

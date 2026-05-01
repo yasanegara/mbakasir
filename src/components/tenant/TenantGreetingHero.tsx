@@ -59,7 +59,12 @@ export default function TenantGreetingHero({
   const cashBalance = useLiveQuery(async () => {
     const db = getDb();
     const profile = await db.storeProfile.get("default");
-    const initial = profile?.initialCapital || 0;
+    
+    // Logika Akuntansi: Saldo awal kas adalah Modal dikurangi nilai stok/aset awal
+    const initialCapital = profile?.initialCapital || 0;
+    const initialInventory = profile?.initialInventoryValue || 0;
+    const initialAssets = profile?.initialAssetsValue || 0;
+    const initialCash = initialCapital - initialInventory - initialAssets;
     
     // Total Penjualan Tunai
     const cashSales = await db.sales
@@ -76,7 +81,7 @@ export default function TenantGreetingHero({
     const allReturns = await db.salesReturns.toArray();
     const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
     
-    return initial + totalCashSales - totalExpenses - totalReturns;
+    return initialCash + totalCashSales - totalExpenses - totalReturns;
   }, []);
 
   const [remainingMs, setRemainingMs] = useState(initialRemainingMs);
