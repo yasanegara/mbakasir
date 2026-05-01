@@ -479,33 +479,21 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                 </p>
               </div>
 
-              <div>
-                <label className="input-label" style={{ display: "block", marginBottom: "8px" }}>Upload Bukti Transfer</label>
-                <div 
-                  style={{ 
-                    border: "2px dashed hsl(var(--border))", 
-                    borderRadius: "12px", 
-                    padding: "20px", 
-                    textAlign: "center",
-                    cursor: "pointer",
-                    position: "relative",
-                    background: proofFile ? "hsl(var(--success) / 0.05)" : "transparent",
-                    borderColor: proofFile ? "hsl(var(--success))" : "hsl(var(--border))"
-                  }}
-                  onClick={() => document.getElementById("proof-upload")?.click()}
+            {/* BAGIAN UPLOAD BUKTI (Hanya muncul jika TIDAK pakai Tripay) */}
+            {!paymentData && (
+              <div style={{ padding: "16px", background: "hsl(var(--bg-elevated))", border: "1px dashed hsl(var(--border))", borderRadius: "12px", textAlign: "center" }}>
+                <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", textTransform: "uppercase", fontWeight: 700, marginBottom: "12px", textAlign: "left" }}>Upload Bukti Transfer</div>
+                <input
+                  type="file"
+                  id="proof-upload"
+                  accept="image/*"
+                  onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                  style={{ display: "none" }}
+                />
+                <label 
+                  htmlFor="proof-upload"
+                  style={{ cursor: "pointer", display: "block" }}
                 >
-                  <input 
-                    type="file" 
-                    id="proof-upload" 
-                    hidden 
-                    accept="image/*"
-                    onChange={(e) => setProofFile(e.target.files?.[0] || null)}
-                  />
-                  {proofFile ? (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                      <span style={{ fontSize: "20px" }}>✅</span>
-                      <div style={{ textAlign: "left" }}>
-                        <div style={{ fontSize: "14px", fontWeight: 700, color: "hsl(var(--success))" }}>Bukti Terpilih</div>
                   <div style={{ fontSize: "32px", marginBottom: "8px" }}>📸</div>
                   <div style={{ fontWeight: 700, fontSize: "14px" }}>
                     {proofFile ? proofFile.name : "Klik untuk Upload Bukti"}
@@ -517,27 +505,28 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
               </div>
             )}
 
-            <button 
-              className="btn btn-primary"
-              onClick={handleFinalOrder}
-              disabled={
-                (!paymentData && !proofFile && !selectedOrder?.isCustom) || // Jika manual wajib upload bukti
-                (selectedOrder?.isCustom ? isSubmittingCustom : submittingPackageId === selectedOrder?.id) ||
-                (paymentData !== null) // Jika sudah ada data payment, tombol didisable (sudah dipesan)
-              }
-              style={{ width: "100%", height: "48px", fontSize: "16px", fontWeight: 700 }}
-            >
-              {selectedOrder?.isCustom 
-                ? (isSubmittingCustom ? "Memproses..." : (paymentData ? "Pesanan Dibuat" : "Pesan Sekarang"))
-                : (submittingPackageId === selectedOrder?.id ? "Memproses..." : (paymentData ? "Pesanan Dibuat" : "Pesan Sekarang"))
-              }
-            </button>
+            <div style={{ marginTop: "16px" }}>
+              <button 
+                className="btn btn-primary"
+                onClick={handleFinalOrder}
+                disabled={
+                  (!paymentData && !proofFile && !selectedOrder?.isCustom) || 
+                  (selectedOrder?.isCustom ? isSubmittingCustom : submittingPackageId === selectedOrder?.id) ||
+                  (paymentData !== null)
+                }
+                style={{ width: "100%", height: "48px", fontSize: "16px", fontWeight: 700 }}
+              >
+                {selectedOrder?.isCustom 
+                  ? (isSubmittingCustom ? "Memproses..." : (paymentData ? "Pesanan Dibuat" : "Pesan Sekarang"))
+                  : (submittingPackageId === selectedOrder?.id ? "Memproses..." : (paymentData ? "Pesanan Dibuat" : "Pesan Sekarang"))
+                }
+              </button>
 
-            {paymentData && (
-              <p style={{ fontSize: "11px", color: "hsl(var(--success))", textAlign: "center", fontWeight: 600 }}>
-                ✓ Pesanan berhasil dibuat. Silakan bayar sesuai instruksi di atas.
-              </p>
-            )}
+              {paymentData && (
+                <p style={{ fontSize: "11px", color: "hsl(var(--success))", textAlign: "center", fontWeight: 600, marginTop: "8px" }}>
+                  ✓ Pesanan berhasil dibuat. Silakan bayar sesuai instruksi di atas.
+                </p>
+              )}
             </div>
           </div>
         )}
