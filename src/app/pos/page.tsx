@@ -678,19 +678,21 @@ export default function POSPage() {
          <div style={{ width: "40px", height: "5px", background: "rgba(0,0,0,0.15)", borderRadius: "10px" }} />
       </div>
       <div style={{ 
-        padding: "20px", 
+        padding: "clamp(16px, 4vw, 20px)", 
         background: "linear-gradient(to bottom, hsl(var(--bg-elevated)), hsl(var(--bg-surface)))", 
         borderBottom: "1px solid hsl(var(--border))", 
         display: "flex", 
         justifyContent: "space-between", 
-        alignItems: "center" 
+        alignItems: "center",
+        flexShrink: 0
       }}>
         <h2 style={{ fontSize: "16px", fontWeight: 800, textTransform: "uppercase", letterSpacing: "-0.01em" }}>
           🛒 Keranjang Belanja
         </h2>
         <button className="btn btn-ghost btn-icon btn-sm mobile-close-btn" onClick={() => setIsCartOpen(false)}>✕</button>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "clamp(16px, 4vw, 20px)", display: "flex", flexDirection: "column", gap: "16px", flex: "1 1 auto" }}>
         {cart.length === 0 ? (
           <div style={{ textAlign: "center", color: "hsl(var(--text-muted))", marginTop: "40px" }}>Keranjang masih kosong</div>
         ) : (
@@ -728,8 +730,8 @@ export default function POSPage() {
             </div>
           ))
         )}
-      </div>
-      <div style={{ padding: "20px", background: "hsl(var(--bg-elevated))", borderTop: "1px solid hsl(var(--border))" }}>
+        </div>
+        <div style={{ padding: "clamp(16px, 4vw, 20px)", background: "hsl(var(--bg-elevated))", borderTop: "1px solid hsl(var(--border))", flexShrink: 0 }}>
          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "14px" }}>
            <span>Subtotal:</span><span>{formatRupiahFull(subtotal)}</span>
          </div>
@@ -746,7 +748,7 @@ export default function POSPage() {
             <button className="btn btn-ghost btn-sm" style={{ width: "100%", marginBottom: "8px" }} onClick={() => setShowCustomerForm(!showCustomerForm)}>
               {showCustomerForm ? "▲ Sembunyikan Info" : (storeProfile?.isCrmEnabled ? "💬 Info Pelanggan & Diskon" : "🏷️ Diskon Manual")}
             </button>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
               {currentTerminal && (
                 <div style={{ 
                   background: "hsl(var(--primary) / 0.1)", 
@@ -814,7 +816,7 @@ export default function POSPage() {
               )}
             </div>
          )}
-         <button className="btn btn-primary btn-xl btn-block" disabled={cart.length === 0 || !isPaidSufficient} onClick={handleCheckout}>Bayar Sekarang</button>
+         <button className="btn btn-primary btn-xl btn-block" disabled={cart.length === 0 || !isPaidSufficient} onClick={handleCheckout} style={{ height: "auto", minHeight: "56px", padding: "12px", whiteSpace: "normal", wordWrap: "break-word" }}>Bayar Sekarang</button>
          {cart.length > 0 && (
            <button 
              className="btn btn-ghost btn-block" 
@@ -839,6 +841,7 @@ export default function POSPage() {
              ✕ Batalkan Transaksi
            </button>
          )}
+        </div>
       </div>
     </div>
   );
@@ -1127,7 +1130,7 @@ export default function POSPage() {
                </div>
             </div>
 
-            <div style={{ padding: "24px", display: "grid", gap: "24px" }}>
+            <div style={{ padding: "clamp(16px, 5vw, 24px)", display: "grid", gap: "24px" }}>
                <div className="card" style={{ background: "hsl(var(--bg-elevated))", border: "1.5px solid hsl(var(--primary) / 0.2)", position: "relative" }}>
                  <div style={{ fontSize: "14px", fontWeight: 700, marginBottom: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "8px", display: "flex", alignItems: "center", gap: "8px" }}>
                    💵 Ringkasan Kas Laci
@@ -1191,9 +1194,9 @@ export default function POSPage() {
                </div>
 
                <div style={{ display: "grid", gap: "12px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <button className="btn btn-outline" onClick={sendRekapWa} style={{ height: "48px" }}>📲 WhatsApp</button>
-                    <button className="btn btn-outline" onClick={handlePrintRekap} style={{ height: "48px" }}>🖨️ Cetak Struk</button>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
+                    <button className="btn btn-outline" onClick={sendRekapWa} style={{ flex: "1 1 120px", minHeight: "48px", height: "auto" }}>📲 WhatsApp</button>
+                    <button className="btn btn-outline" onClick={handlePrintRekap} style={{ flex: "1 1 120px", minHeight: "48px", height: "auto" }}>🖨️ Cetak Struk</button>
                   </div>
                   <button className="btn btn-primary btn-lg" onClick={confirmCloseShift} style={{ height: "56px", fontSize: "18px", fontWeight: 900 }}>Tutup & Akhiri Shift</button>
                   <button className="btn btn-ghost" onClick={() => setShowShiftSummary(false)}>Batal</button>

@@ -187,8 +187,8 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
           maxHeight: "85vh", 
           overflowY: "auto", 
           position: "relative",
-          borderRadius: "28px",
-          padding: "24px" 
+          borderRadius: "20px",
+          padding: "clamp(16px, 5vw, 24px)" 
         }}
         onClick={(event) => event.stopPropagation()}
       >
@@ -215,7 +215,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
               <div style={{ display: "grid", gap: "20px" }}>
                 {/* Custom Amount Field */}
                 <div style={{ 
-                  padding: "24px", 
+                  padding: "clamp(16px, 5vw, 24px)", 
                   background: "linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(var(--primary) / 0.03) 100%)", 
                   border: "1px solid hsl(var(--primary) / 0.15)", 
                   borderRadius: "20px",
@@ -229,8 +229,8 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                     Harga: <strong style={{ color: "hsl(var(--text-primary))" }}>{formatRupiahFull(tokenPrice)}</strong> / {tokenSymbol}
                   </p>
                   
-                  <div style={{ display: "flex", gap: "12px", alignItems: "stretch" }}>
-                    <div style={{ flex: 1, position: "relative" }}>
+                  <div style={{ display: "flex", gap: "12px", alignItems: "stretch", flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 200px", position: "relative" }}>
                       <input
                         type="number"
                         placeholder="0"
@@ -288,7 +288,9 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                         borderRadius: "12px",
                         fontWeight: 700,
                         boxShadow: "0 4px 12px hsl(var(--primary) / 0.3)",
-                        transition: "all 0.2s"
+                        transition: "all 0.2s",
+                        flex: "1 1 auto",
+                        justifyContent: "center"
                       }}
                     >
                       Pesan Sekarang
@@ -305,7 +307,9 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                       display: "flex", 
                       justifyContent: "space-between",
                       alignItems: "center",
-                      animation: "fadeUp 0.3s ease-out"
+                      animation: "fadeUp 0.3s ease-out",
+                      flexWrap: "wrap",
+                      gap: "8px"
                     }}>
                       <style dangerouslySetInnerHTML={{ __html: `
                         @keyframes fadeUp {
@@ -344,11 +348,12 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "center",
-                          gap: "16px"
+                          gap: "12px",
+                          flexWrap: "wrap"
                         }}
                       >
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div style={{ flex: "1 1 200px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                             <div style={{ fontWeight: 700, fontSize: "16px" }}>{pkg.name}</div>
                             <span className="badge badge-primary" style={{ fontSize: "11px" }}>
                               {pkg.tokenAmount.toLocaleString("id-ID")} {tokenSymbol}
@@ -364,7 +369,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                         <button 
                           className="btn btn-primary"
                           onClick={() => handleSelectPackage(pkg)}
-                          style={{ whiteSpace: "nowrap" }}
+                          style={{ whiteSpace: "nowrap", flex: "1 1 auto", justifyContent: "center" }}
                         >
                           Pesan
                         </button>
@@ -390,9 +395,9 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
             <div style={{ display: "grid", gap: "20px" }}>
               <div style={{ padding: "16px", background: "hsl(var(--primary) / 0.05)", borderRadius: "12px", border: "1px solid hsl(var(--primary) / 0.1)" }}>
                 <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", textTransform: "uppercase", fontWeight: 700, marginBottom: "8px" }}>Rincian Pesanan</div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                  <span style={{ fontSize: "15px", fontWeight: 600 }}>{selectedOrder?.name}</span>
-                  <span style={{ fontWeight: 700 }}>{formatRupiahFull(selectedOrder?.price || 0)}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px", gap: "12px", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "15px", fontWeight: 600, wordBreak: "break-word", flex: "1 1 auto" }}>{selectedOrder?.name}</span>
+                  <span style={{ fontWeight: 700, flex: "0 0 auto" }}>{formatRupiahFull(selectedOrder?.price || 0)}</span>
                 </div>
                 <div style={{ fontSize: "13px", color: "hsl(var(--text-secondary))" }}>
                   {selectedOrder?.amount} {tokenSymbol}
@@ -400,7 +405,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
               </div>
 
               <div style={{ padding: "16px", background: "hsl(var(--bg-elevated))", border: "1px solid hsl(var(--border))", borderRadius: "12px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", gap: "8px", flexWrap: "wrap" }}>
                   <div style={{ fontSize: "12px", color: "hsl(var(--text-muted))", textTransform: "uppercase", fontWeight: 700 }}>Info Rekening Pusat</div>
                   <div style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--error))", background: "hsl(var(--error) / 0.1)", padding: "4px 8px", borderRadius: "6px" }}>
                     ⏱️ {formatTime(timeLeft)}
@@ -430,7 +435,7 @@ export default function OrderTokenClient({ agentName, tokenSymbol }: OrderTokenC
                     {paymentData.pay_code && (
                       <div style={{ textAlign: "center" }}>
                         <div style={{ fontSize: "11px", fontWeight: 700, color: "hsl(var(--text-muted))", marginBottom: "4px", textTransform: "uppercase" }}>Nomor {paymentData.payment_name}</div>
-                        <div style={{ fontSize: "24px", fontWeight: 800, color: "hsl(var(--primary))", letterSpacing: "1px", margin: "8px 0" }}>
+                        <div style={{ fontSize: "24px", fontWeight: 800, color: "hsl(var(--primary))", letterSpacing: "1px", margin: "8px 0", wordBreak: "break-all" }}>
                           {paymentData.pay_code}
                         </div>
                         <button 
