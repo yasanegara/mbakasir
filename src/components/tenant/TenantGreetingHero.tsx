@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useBrand } from "@/contexts/BrandContext";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getDb } from "@/lib/db";
+import { calculateCashFlowSnapshot } from "@/lib/accounting";
 import { formatRupiahFull } from "@/lib/utils";
 
 interface TenantGreetingHeroProps {
@@ -61,43 +62,28 @@ export default function TenantGreetingHero({
   const cashBalance = useLiveQuery(async () => {
     const db = getDb();
     const profile = (await db.storeProfile.get(tenantId)) || (await db.storeProfile.get("default"));
-    const initialCapital = profile?.initialCapital || 0;
-    
-    // 1. Nilai Stok Saat Ini (Dinamis: Jika produk ditambah, kas turun)
-    const products = await db.products.toArray();
-    const materials = await db.rawMaterials.toArray();
-    const currentInventory = products.reduce((sum, p) => sum + (p.stock * (p.costPrice || 0)), 0) + 
-                             materials.reduce((sum, m) => sum + (m.stock * (m.costPerUnit || 0)), 0);
-    
-    // 2. Nilai Aset Saat Ini
-    const assets = await db.assets.toArray();
-    const currentAssets = assets.reduce((sum, a) => sum + (a.purchasePrice || 0), 0);
-
-    // 3. Laba Kotor Penjualan Tunai
-    // Kita hitung Laba Kotor (Revenue - HPP) agar saat barang terjual, kas bertambah sesuai harga jual
-    const cashSales = await db.sales
-      .where("paymentMethod").equals("CASH")
-      .and(s => s.status === "COMPLETED")
+    const sales = await db.sales
+      .where("tenantId")
+      .equals(tenantId)
+      .and((sale) => sale.status === "COMPLETED")
       .toArray();
-    
-    const saleIds = cashSales.map(s => s.localId);
-    const saleItems = await db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
-    
-    const grossProfit = saleItems.reduce((sum, item) => {
-      const hpp = (item.costPrice || 0) * item.quantity;
-      return sum + (item.subtotal - hpp);
-    }, 0);
+    const expenses = await db.expenses.where("tenantId").equals(tenantId).toArray();
+    const returns = await db.salesReturns.where("tenantId").equals(tenantId).toArray();
+    const assets = await db.assets.where("tenantId").equals(tenantId).toArray();
+    const shoppingPurchases = await db.shoppingList
+      .where("tenantId")
+      .equals(tenantId)
+      .and((item) => item.status === "done")
+      .toArray();
 
-    // 4. Total Pengeluaran Tunai
-    const allExpenses = await db.expenses.toArray();
-    const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
-
-    // 5. Total Retur Penjualan
-    const allReturns = await db.salesReturns.toArray();
-    const totalReturns = allReturns.reduce((sum, r) => sum + r.totalAmount, 0);
-    
-    // RUMUS AKHIR: Modal - (Stok + Aset) + Laba Kotor - Pengeluaran - Retur
-    return initialCapital - currentInventory - currentAssets + grossProfit - totalExpenses - totalReturns;
+    return calculateCashFlowSnapshot({
+      storeProfile: profile,
+      sales,
+      expenses,
+      returns,
+      assets,
+      stockPurchases: shoppingPurchases,
+    }).endingCash;
   }, [tenantId]);
 
   const [remainingMs, setRemainingMs] = useState(initialRemainingMs);
@@ -190,7 +176,7 @@ export default function TenantGreetingHero({
         <div className="noise-overlay" />
         
         <div className="layout">
-          {/* SALDO KAS (EXISTING CASH) */}
+          {/* KAS LACI TERCATAT */}
           <div style={{
             background: "rgba(255,255,255,0.12)",
             padding: "12px 18px",
@@ -199,7 +185,7 @@ export default function TenantGreetingHero({
             backdropFilter: "blur(8px)",
           }}>
             <p style={{ fontSize: "11px", fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              💵 Saldo Kas
+              💵 Kas Laci Tercatat
             </p>
             <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
               <span style={{ fontSize: "18px", fontWeight: 800, color: "white" }}>

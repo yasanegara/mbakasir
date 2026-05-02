@@ -2,18 +2,46 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { getDb } from "@/lib/db";
-import { formatRupiahFull } from "@/lib/utils";
+import { useAuth } from "@/contexts/AppProviders";
+import {
+  buildAssignedStockByProduct,
+  getProductTotalStock,
+} from "@/lib/inventory";
 import { useMemo } from "react";
 
 export default function StockAlertTab({ onSwitchTab }: { onSwitchTab: (tab: "products" | "materials") => void }) {
-  const products = useLiveQuery(() => getDb().products.toArray()) || [];
-  const rawMaterials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
+  const { user } = useAuth();
+  const tenantId = user?.tenantId;
+
+  const products = useLiveQuery(
+    () => (tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : []),
+    [tenantId]
+  ) || [];
+  const rawMaterials = useLiveQuery(
+    () => (tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : []),
+    [tenantId]
+  ) || [];
+  const productAssignments = useLiveQuery(async () => {
+    if (!tenantId) return [];
+    const productIds = products.map((product) => product.localId);
+    if (productIds.length === 0) return [];
+    return getDb().productAssignments.where("productId").anyOf(productIds).toArray();
+  }, [tenantId, products.length]) || [];
+
+  const assignedStockByProduct = useMemo(
+    () => buildAssignedStockByProduct(productAssignments),
+    [productAssignments]
+  );
 
   const lowStockProducts = useMemo(() =>
     products
-      .filter((p) => p.isActive && p.stock <= 5)
-      .sort((a, b) => a.stock - b.stock),
-  [products]);
+      .filter((product) => product.isActive && getProductTotalStock(product, assignedStockByProduct) <= 5)
+      .sort(
+        (left, right) =>
+          getProductTotalStock(left, assignedStockByProduct) -
+          getProductTotalStock(right, assignedStockByProduct)
+      ),
+  [assignedStockByProduct, products]);
 
   const lowStockMaterials = useMemo(() =>
     rawMaterials
@@ -73,7 +101,9 @@ export default function StockAlertTab({ onSwitchTab }: { onSwitchTab: (tab: "pro
                 {lowStockProducts.map((p) => (
                   <tr key={p.localId} style={{ borderBottom: "1px solid hsl(var(--border))" }}>
                     <td style={tdStyle}>{p.name}</td>
-                    <td style={{ ...tdStyle, color: "hsl(var(--error))", fontWeight: 800 }}>{p.stock} {p.unit}</td>
+                    <td style={{ ...tdStyle, color: "hsl(var(--error))", fontWeight: 800 }}>
+                      {getProductTotalStock(p, assignedStockByProduct)} {p.unit}
+                    </td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>
                       <button className="btn btn-primary btn-sm" onClick={() => onSwitchTab("products")}>Restok</button>
                     </td>

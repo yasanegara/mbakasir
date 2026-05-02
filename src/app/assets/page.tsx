@@ -24,6 +24,7 @@ export default function AssetsPage() {
     () => (tenantId ? getDb().assets.where("tenantId").equals(tenantId).reverse().sortBy("purchaseDate") : []),
     [tenantId]
   ) ?? [];
+  const visibleAssets = assets.filter((asset) => !asset.archivedAt);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,13 +53,12 @@ export default function AssetsPage() {
     setShowModal(false);
   };
 
-  const totalAssetValue = assets.reduce((sum, as) => sum + as.purchasePrice, 0);
+  const totalAssetValue = visibleAssets.reduce((sum, as) => sum + as.purchasePrice, 0);
 
-  const handleDelete = async (localId: string) => {
-    if (!confirm("Hapus aset ini?")) return;
-    await getDb().assets.delete(localId);
-    await enqueueSyncOp("assets", localId, "DELETE", { localId });
-    toast("Aset dihapus", "info");
+  const handleDelete = async (localId: string, archivedAt: number) => {
+    if (!confirm("Sembunyikan aset ini dari daftar aktif? Histori investasi akan tetap disimpan.")) return;
+    await getDb().assets.update(localId, { archivedAt });
+    toast("Aset diarsipkan dari daftar aktif", "info");
   };
 
   return (
@@ -88,7 +88,7 @@ export default function AssetsPage() {
           </div>
           <div className="card" style={{ padding: "20px", borderLeft: "4px solid hsl(var(--success))" }}>
             <div style={{ fontSize: "13px", fontWeight: 600, color: "hsl(var(--text-secondary))", marginBottom: "8px" }}>Jumlah Item Aset</div>
-            <div style={{ fontSize: "24px", fontWeight: 900, color: "hsl(var(--success))" }}>{assets.length} Item</div>
+            <div style={{ fontSize: "24px", fontWeight: 900, color: "hsl(var(--success))" }}>{visibleAssets.length} Item</div>
           </div>
         </section>
 
@@ -109,7 +109,7 @@ export default function AssetsPage() {
                 </tr>
               </thead>
               <tbody>
-                {assets.length === 0 ? (
+                {visibleAssets.length === 0 ? (
                   <tr>
                     <td colSpan={5} style={{ padding: "60px", textAlign: "center" }}>
                       <div style={{ fontSize: "40px", marginBottom: "16px" }}>🏢</div>
@@ -117,7 +117,7 @@ export default function AssetsPage() {
                     </td>
                   </tr>
                 ) : (
-                  assets.map((as) => (
+                  visibleAssets.map((as) => (
                     <tr key={as.localId} style={{ borderBottom: "1px solid hsl(var(--border))", transition: "background 0.2s" }} className="hover-row">
                       <td style={tdStyle}>
                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -143,9 +143,9 @@ export default function AssetsPage() {
                         <button 
                           className="btn btn-ghost btn-sm" 
                           style={{ color: "hsl(var(--error))", opacity: 0.6 }} 
-                          onClick={() => handleDelete(as.localId)}
+                          onClick={(event) => handleDelete(as.localId, event.timeStamp)}
                         >
-                          Hapus
+                          Arsipkan
                         </button>
                       </td>
                     </tr>

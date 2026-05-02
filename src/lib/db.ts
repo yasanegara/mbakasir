@@ -202,6 +202,7 @@ export interface LocalShoppingItem {
   existingLocalId?: string;
   isNew: boolean;       // true = belum ada di sistem, false = restock item lama
   completedAt?: number; // Kapan ditandai selesai
+  archivedAt?: number;  // Riwayat yang disembunyikan dari daftar aktif, tapi tetap dihitung akuntansi
   createdAt: number;
   updatedAt: number;
 }
@@ -251,6 +252,7 @@ export interface LocalFixedAsset {
   purchasePrice: number;
   depreciationYears: number; 
   notes?: string;
+  archivedAt?: number;
   syncStatus: "PENDING" | "SYNCED" | "CONFLICT";
   createdAt: number;
 }

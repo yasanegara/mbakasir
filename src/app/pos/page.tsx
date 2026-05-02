@@ -19,6 +19,7 @@ import SalesReturnModal from "@/components/common/SalesReturnModal";
 import { useInitialSync } from "@/hooks/useInitialSync";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
+import { calculateCashFlowSnapshot } from "@/lib/accounting";
 import {
   formatRupiah,
   formatRupiahFull,
@@ -196,29 +197,24 @@ export default function POSPage() {
     const saleIds = await db.sales.where("tenantId").equals(tenantId).primaryKeys();
     return db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
   }, [tenantId]) || [];
-
-  const globalInitialCapital = useMemo(() => {
-    return storeProfile?.initialCapital || 0;
-  }, [storeProfile]);
+  const shoppingPurchases = useLiveQuery(
+    () =>
+      tenantId
+        ? getDb().shoppingList.where("tenantId").equals(tenantId).and((item) => item.status === "done").toArray()
+        : [],
+    [tenantId]
+  ) ?? [];
 
   const globalCashBalance = useMemo(() => {
-    const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const totalExpenses = allExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const totalReturns = returns.reduce((sum, r) => sum + r.totalAmount, 0);
-    const totalAssetValue = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
-    
-    const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * (p.costPrice || 0)), 0);
-    const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * (m.costPerUnit || 0)), 0);
-    const totalPersediaan = persediaanProduk + persediaanBahan;
-
-    // Hitung COGS dari semua penjualan
-    const saleLocalIds = new Set(sales.map(s => s.localId));
-    const totalCOGS = allSaleItems
-      .filter(item => saleLocalIds.has(item.saleLocalId))
-      .reduce((sum, item) => sum + (item.quantity * item.costPrice), 0);
-
-    return globalInitialCapital + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan - totalCOGS;
-  }, [globalInitialCapital, sales, allExpenses, returns, allAssets, products, rawMaterials, allSaleItems]);
+    return calculateCashFlowSnapshot({
+      storeProfile,
+      sales: sales.filter((sale) => sale.status === "COMPLETED"),
+      expenses: allExpenses,
+      returns,
+      assets: allAssets,
+      stockPurchases: shoppingPurchases,
+    }).endingCash;
+  }, [allAssets, allExpenses, returns, sales, shoppingPurchases, storeProfile]);
 
   const isHppMissing = useMemo(() => {
     return products.some(p => p.stock > 0 && (!p.costPrice || p.costPrice === 0)) || 
@@ -591,7 +587,7 @@ export default function POSPage() {
            await enqueueSyncOp("shifts", activeShift.localId, "UPDATE", updatedShift);
         }
         for (const item of cart) {
-          // Reduce Terminal-Specific Stock if assigned
+          // Reduce stock: terminal-specific first, then fallback to central warehouse
           if (currentTerminalId) {
             const assignment = await db.productAssignments.where({ productId: item.product.localId, terminalId: currentTerminalId }).first();
             if (assignment) {
@@ -599,27 +595,39 @@ export default function POSPage() {
               await db.productAssignments.update(assignment.id, { stock: Math.max(0, newTerminalStock) });
               await enqueueSyncOp("productAssignments", assignment.id, "UPDATE", { ...assignment, stock: Math.max(0, newTerminalStock) });
             } else {
-              // Fallback to global stock if no specific assignment
+              // Fallback to global/central stock if no terminal-specific assignment
               const prod = await db.products.get(item.product.localId);
               if (prod) {
-                 const newStock = prod.stock - item.qty;
-                 await db.products.update(prod.localId, { stock: Math.max(0, newStock) });
-                 await enqueueSyncOp("products", prod.localId, "UPDATE", { ...prod, stock: Math.max(0, newStock) });
+                const newStock = prod.stock - item.qty;
+                await db.products.update(prod.localId, { stock: Math.max(0, newStock) });
+                await enqueueSyncOp("products", prod.localId, "UPDATE", { ...prod, stock: Math.max(0, newStock) });
               }
+            }
+          } else {
+            // No active terminal → always reduce central/warehouse stock
+            const prod = await db.products.get(item.product.localId);
+            if (prod) {
+              const newStock = prod.stock - item.qty;
+              await db.products.update(prod.localId, { stock: Math.max(0, newStock) });
+              await enqueueSyncOp("products", prod.localId, "UPDATE", { ...prod, stock: Math.max(0, newStock) });
             }
           }
 
+          // For BoM products: also deduct raw materials proportionally.
+          // This is a SEPARATE deduction from the product stock above —
+          // raw materials are consumed regardless of whether stock is tracked
+          // at the terminal or warehouse level.
           if (item.product.hasBoM) {
-             const boms = await db.billOfMaterials.where("productId").equals(item.product.localId).toArray();
-             for (const bom of boms) {
-                const material = await db.rawMaterials.get(bom.rawMaterialId);
-                if (material) {
-                   const deduction = item.qty * bom.quantity;
-                   const newMatStock = material.stock - deduction;
-                   await db.rawMaterials.update(material.localId, { stock: Math.max(0, newMatStock) });
-                   await enqueueSyncOp("rawMaterials", material.localId, "UPDATE", { ...material, stock: Math.max(0, newMatStock) });
-                }
-             }
+            const boms = await db.billOfMaterials.where("productId").equals(item.product.localId).toArray();
+            for (const bom of boms) {
+              const material = await db.rawMaterials.get(bom.rawMaterialId);
+              if (material) {
+                const deduction = item.qty * bom.quantity;
+                const newMatStock = material.stock - deduction;
+                await db.rawMaterials.update(material.localId, { stock: Math.max(0, newMatStock) });
+                await enqueueSyncOp("rawMaterials", material.localId, "UPDATE", { ...material, stock: Math.max(0, newMatStock) });
+              }
+            }
           }
         }
         await enqueueSyncOp("sales", saleLocalId, "CREATE", { ...sale, items: saleItems });

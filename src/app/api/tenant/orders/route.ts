@@ -5,7 +5,8 @@ import type { NextRequest } from "next/server";
 // GET: daftar semua pesanan online
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session || session.role !== "TENANT" || !session.tenantId) {
+  const allowedRoles = ["TENANT", "CASHIER"] as const;
+  if (!session || !allowedRoles.includes(session.role as typeof allowedRoles[number]) || !session.tenantId) {
     return Response.json({ error: "Akses ditolak" }, { status: 403 });
   }
 

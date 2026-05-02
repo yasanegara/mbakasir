@@ -133,7 +133,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/customers", label: "Data Pelanggan", icon: Icon.users, roles: ["TENANT"] },
   { href: "/reports", label: "Laporan", icon: Icon.report, roles: ["TENANT"] },
   { href: "/employees", label: "Karyawan", icon: Icon.employees, roles: ["TENANT"] },
-  { href: "/shopping-list", label: "Daftar Belanja", icon: Icon.shoppingList, roles: ["TENANT"] },
+  { href: "/shopping-list", label: "Daftar Belanja", icon: Icon.shoppingList, roles: [] }, // Sembunyikan dari sidebar
   { href: "/marketplace", label: "Add On", icon: Icon.inventory, roles: ["TENANT"] },
   { href: "/stores", label: "Kelola Toko", icon: Icon.stores, roles: ["AGENT"] },
   { href: "/tokens", label: "Saldo Token", icon: Icon.token, roles: ["AGENT"] },

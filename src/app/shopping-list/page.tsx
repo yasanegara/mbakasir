@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getDb, LocalShoppingItem, enqueueSyncOp } from "@/lib/db";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { calculateCashFlowSnapshot } from "@/lib/accounting";
 import { formatRupiahFull, generateUUID } from "@/lib/utils";
 import { useAuth, useToast } from "@/contexts/AppProviders";
 
@@ -289,68 +290,52 @@ export default function ShoppingListPage() {
   // Data dari IndexedDB
   const products = useLiveQuery(() => getDb().products.toArray()) || [];
   const rawMaterials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
-  const shoppingItems = useLiveQuery<LocalShoppingItem[]>(
+  const shoppingItemsAll = useLiveQuery<LocalShoppingItem[]>(
     () => (tenantId ? getDb().shoppingList.where("tenantId").equals(tenantId).toArray() : []),
     [tenantId]
   ) ?? [];
 
   const sales = useLiveQuery(() => tenantId ? getDb().sales.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
-  const saleItems = useLiveQuery(async () => {
-    if (!tenantId) return [];
-    const db = getDb();
-    const saleIds = await db.sales.where("tenantId").equals(tenantId).primaryKeys();
-    return db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
-  }, [tenantId]) || [];
   const expenses = useLiveQuery(() => tenantId ? getDb().expenses.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const allAssets = useLiveQuery(() => tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const returns = useLiveQuery(() => tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
-  
-  const initialCapitalValue = useLiveQuery(async () => {
-    const pDefault = await getDb().storeProfile.get("default");
-    if (!tenantId) return pDefault?.initialCapital || 0;
-    const pTenant = await getDb().storeProfile.get(tenantId);
-    return pTenant?.initialCapital || pDefault?.initialCapital || 0;
-  }, [tenantId]) || 0;
-
-  const doneShoppingItems = shoppingItems.filter(i => i.status === "done");
-  const totalShoppingPurchases = doneShoppingItems.reduce((sum, item) => sum + (item.qtyToBuy * (item.costPrice || item.costPerUnit || 0)), 0);
-
-  const currentCash = useMemo(() => {
-    const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-    const totalReturns = returns.reduce((sum, r) => sum + r.totalAmount, 0);
-    const totalAssetValue = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
-    
-    const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
-    const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
-    const totalPersediaan = persediaanProduk + persediaanBahan;
-
-    // Hitung COGS dari semua penjualan
-    const saleLocalIds = new Set(sales.map(s => s.localId));
-    const totalCOGS = saleItems
-      .filter(item => saleLocalIds.has(item.saleLocalId))
-      .reduce((sum, item) => sum + (item.quantity * item.costPrice), 0);
-
-    return initialCapitalValue + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan - totalCOGS;
-  }, [initialCapitalValue, sales, expenses, returns, allAssets, products, rawMaterials, saleItems]);
-
   const storeProfile = useLiveQuery(() => 
     tenantId ? getDb().storeProfile.get(tenantId).then(p => p || getDb().storeProfile.get("default")) : getDb().storeProfile.get("default")
   , [tenantId]);
+
+  const visibleShoppingItems = useMemo(
+    () => shoppingItemsAll.filter((item) => !item.archivedAt),
+    [shoppingItemsAll]
+  );
+  const doneShoppingItems = useMemo(
+    () => shoppingItemsAll.filter((item) => item.status === "done"),
+    [shoppingItemsAll]
+  );
+
+  const currentCash = useMemo(() => {
+    return calculateCashFlowSnapshot({
+      storeProfile,
+      sales: sales.filter((sale) => sale.status === "COMPLETED"),
+      expenses,
+      returns,
+      assets: allAssets,
+      stockPurchases: doneShoppingItems,
+    }).endingCash;
+  }, [allAssets, doneShoppingItems, expenses, returns, sales, storeProfile]);
 
   const [showAdd, setShowAdd] = useState(false);
   const [activeTab, setActiveTab] = useState<"belanja" | "selesai">("belanja");
 
   // ── Auto-populate dari threshold stok ──────────────────────
   const autoSuggestedProducts = useMemo(() => {
-    const existingExistingIds = new Set(shoppingItems.map(i => i.existingLocalId).filter(Boolean));
+    const existingExistingIds = new Set(visibleShoppingItems.map(i => i.existingLocalId).filter(Boolean));
     return products.filter(p => p.isActive && p.stock <= 5 && !existingExistingIds.has(p.localId));
-  }, [products, shoppingItems]);
+  }, [products, visibleShoppingItems]);
 
   const autoSuggestedMaterials = useMemo(() => {
-    const existingExistingIds = new Set(shoppingItems.map(i => i.existingLocalId).filter(Boolean));
+    const existingExistingIds = new Set(visibleShoppingItems.map(i => i.existingLocalId).filter(Boolean));
     return rawMaterials.filter(m => m.stock <= m.minStock && !existingExistingIds.has(m.localId));
-  }, [rawMaterials, shoppingItems]);
+  }, [rawMaterials, visibleShoppingItems]);
 
   // ── Masukkan item auto-suggest ke daftar belanja ──────────
   const handleAddSuggestion = useCallback(async (
@@ -499,15 +484,25 @@ export default function ShoppingListPage() {
         toast("↩️ Dibatalkan", "info");
       }
     }
-  }, [toast]);
+  }, [currentCash, toast]);
 
   const handleDelete = useCallback(async (id: string) => {
-    await getDb().shoppingList.delete(id);
+    const db = getDb();
+    const item = await db.shoppingList.get(id);
+    if (!item) return;
+
+    if (item.status === "done") {
+      await db.shoppingList.update(id, { archivedAt: Date.now(), updatedAt: Date.now() });
+      toast("🗂️ Riwayat belanja diarsipkan. Pencatatan kas tetap tersimpan.", "info");
+      return;
+    }
+
+    await db.shoppingList.delete(id);
     toast("🗑️ Item dihapus", "info");
   }, [toast]);
 
-  const pendingItems = shoppingItems.filter(i => i.status === "pending");
-  const doneItems = shoppingItems.filter(i => i.status === "done");
+  const pendingItems = visibleShoppingItems.filter(i => i.status === "pending");
+  const doneItems = visibleShoppingItems.filter(i => i.status === "done");
 
   const handleSeedDummy = async () => {
     const db = getDb();
@@ -567,12 +562,22 @@ export default function ShoppingListPage() {
   const handleClearAll = async () => {
     if (!confirm("⚠️ Hapus SEMUA item di daftar belanja? Tindakan ini tidak bisa dibatalkan.")) return;
     const db = getDb();
-    await db.shoppingList.clear();
-    toast("🗑️ Daftar belanja dikosongkan", "info");
+    const now = Date.now();
+    const completedItems = doneItems.map((item) => ({ ...item, archivedAt: now, updatedAt: now }));
+    const pendingIds = pendingItems.map((item) => item.id);
+
+    if (completedItems.length > 0) {
+      await db.shoppingList.bulkPut(completedItems);
+    }
+    if (pendingIds.length > 0) {
+      await db.shoppingList.bulkDelete(pendingIds);
+    }
+
+    toast("🗑️ Daftar aktif dibersihkan. Riwayat belanja selesai tetap tercatat.", "info");
   };
 
-  const completionRate = shoppingItems.length > 0
-    ? Math.round((doneItems.length / shoppingItems.length) * 100)
+  const completionRate = visibleShoppingItems.length > 0
+    ? Math.round((doneItems.length / visibleShoppingItems.length) * 100)
     : 0;
 
   return (
@@ -598,18 +603,18 @@ export default function ShoppingListPage() {
             </p>
           </div>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            {shoppingItems.length === 0 && (
+            {visibleShoppingItems.length === 0 && (
               <button className="btn btn-sm btn-ghost no-print" style={{ color: "white", borderColor: "rgba(255,255,255,0.4)" }} onClick={handleSeedDummy}>
                 🧪 Isi Dummy
               </button>
             )}
-            {shoppingItems.length > 0 && (
+            {visibleShoppingItems.length > 0 && (
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "32px", fontWeight: 800, lineHeight: 1 }}>{completionRate}%</div>
                 <div style={{ fontSize: "11px", opacity: 0.8 }}>Selesai</div>
               </div>
             )}
-            {shoppingItems.length > 0 && (
+            {visibleShoppingItems.length > 0 && (
               <button className="btn btn-sm btn-ghost no-print" style={{ color: "white", borderColor: "rgba(255,255,255,0.4)" }} onClick={handleClearAll}>
                 🗑️ Kosongkan
               </button>
@@ -652,11 +657,11 @@ export default function ShoppingListPage() {
         )}
 
         {/* Progress Bar */}
-        {shoppingItems.length > 0 && (
+        {visibleShoppingItems.length > 0 && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px", fontSize: "13px", fontWeight: 600 }}>
               <span>Progress Belanja</span>
-              <span>{doneItems.length} / {shoppingItems.length}</span>
+              <span>{doneItems.length} / {visibleShoppingItems.length}</span>
             </div>
             <div style={{ height: "10px", borderRadius: "99px", background: "hsl(var(--bg-elevated))", overflow: "hidden" }}>
               <div style={{
@@ -672,10 +677,10 @@ export default function ShoppingListPage() {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "0" }}>
-          {[
+          {([
             { key: "belanja", label: `🛒 Perlu Dibeli (${pendingItems.length})` },
             { key: "selesai", label: `✅ Sudah Selesai (${doneItems.length})` },
-          ].map(tab => (
+          ] as const).map(tab => (
             <button
               key={tab.key}
               className="btn btn-ghost btn-sm"
@@ -686,7 +691,7 @@ export default function ShoppingListPage() {
                 fontWeight: activeTab === tab.key ? 700 : 400,
                 paddingBottom: "10px",
               }}
-              onClick={() => setActiveTab(tab.key as any)}
+              onClick={() => setActiveTab(tab.key)}
             >
               {tab.label}
             </button>
@@ -724,11 +729,17 @@ export default function ShoppingListPage() {
                 <div style={{ padding: "12px 0", display: "flex", justifyContent: "flex-end" }}>
                   <button className="btn btn-ghost btn-sm" style={{ color: "hsl(var(--error))", fontSize: "12px" }}
                     onClick={async () => {
-                      const ids = doneItems.map(i => i.id);
-                      await getDb().shoppingList.bulkDelete(ids);
-                      toast("🗑️ Riwayat belanja dihapus", "info");
+                      const now = Date.now();
+                      await getDb().shoppingList.bulkPut(
+                        doneItems.map((item) => ({
+                          ...item,
+                          archivedAt: now,
+                          updatedAt: now,
+                        }))
+                      );
+                      toast("🗂️ Riwayat belanja diarsipkan. Pencatatan kas tetap tersimpan.", "info");
                     }}>
-                    🗑️ Hapus Semua yang Selesai
+                    🗂️ Arsipkan Semua yang Selesai
                   </button>
                 </div>
               </div>

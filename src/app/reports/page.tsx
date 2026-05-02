@@ -3,6 +3,11 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { getDb } from "@/lib/db";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import {
+  calculateBalanceSheetSnapshot,
+  calculateCashFlowSnapshot,
+  calculateProfitLossSnapshot,
+} from "@/lib/accounting";
 import { formatRupiahFull } from "@/lib/utils";
 import { useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
@@ -61,6 +66,13 @@ export default function ReportsPage() {
   }, [tenantId]) || [];
   const posTerminals = useLiveQuery(() => tenantId ? getDb().posTerminals.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const products = useLiveQuery(() => tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const productAssignments = useLiveQuery(async () => {
+    if (!tenantId) return [];
+    const tenantProducts = await getDb().products.where("tenantId").equals(tenantId).toArray();
+    const productIds = tenantProducts.map((product) => product.localId);
+    if (productIds.length === 0) return [];
+    return getDb().productAssignments.where("productId").anyOf(productIds).toArray();
+  }, [tenantId]) || [];
   const shoppingList = useLiveQuery(() => tenantId ? getDb().shoppingList.where("tenantId").equals(tenantId).and(s => s.status === "done").toArray() : [], [tenantId]) || [];
   const returns = useLiveQuery(() => tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const shifts = useLiveQuery(() => tenantId ? getDb().shifts.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
@@ -71,17 +83,17 @@ export default function ReportsPage() {
     const pTenant = await getDb().storeProfile.get(tenantId);
     return pTenant || pDefault;
   }, [tenantId]);
-  
-  const initialCapitalValue = useLiveQuery(async () => {
-    const pDefault = await getDb().storeProfile.get("default");
-    if (!tenantId) return pDefault?.initialCapital || 0;
-    const pTenant = await getDb().storeProfile.get(tenantId);
-    return pTenant?.initialCapital || pDefault?.initialCapital || 0;
-  }, [tenantId]) || 0;
   const rawMaterials = useLiveQuery(() => tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const allAssets = useLiveQuery(() => tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
-  const returnItems = useLiveQuery(() => tenantId ? getDb().salesReturnItems.toArray() : [], [tenantId]) || [];
-  const initialCapital = initialCapitalValue;
+  const returnItems = useLiveQuery(async () => {
+    if (!tenantId || returns.length === 0) return [];
+    const returnIds = returns.map((entry) => entry.localId);
+    return getDb().salesReturnItems.where("returnLocalId").anyOf(returnIds).toArray();
+  }, [tenantId, returns]) || [];
+  const activeAssets = useMemo(
+    () => allAssets.filter((asset) => !asset.archivedAt),
+    [allAssets]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +101,8 @@ export default function ReportsPage() {
     async function loadOnlineOrders() {
       try {
         const res = await fetch("/api/tenant/orders?status=ALL");
+        // 403 = role tidak punya akses ke storefront (misal SUPERADMIN) — skip senyap
+        if (res.status === 403) return;
         const data = await res.json();
         if (!res.ok) {
           throw new Error(data.error || "Gagal memuat pesanan online");
@@ -116,64 +130,37 @@ export default function ReportsPage() {
     () => onlineOrders.filter((order) => REALIZED_ONLINE_ORDER_STATUSES.has(order.status)),
     [onlineOrders]
   );
-
-  const productCostMap = useMemo(() => {
-    const costMap = new Map<string, number>();
-
-    for (const product of products) {
-      costMap.set(product.id, product.costPrice);
-      costMap.set(product.localId, product.costPrice);
-    }
-
-    return costMap;
-  }, [products]);
+  const realizedOnlineRevenue = useMemo(
+    () =>
+      realizedOnlineOrders.reduce(
+        (sum, order) => sum + Number(order.totalAmount),
+        0
+      ),
+    [realizedOnlineOrders]
+  );
 
   // ==========================
   // KALKULASI LABA / RUGI
   // ==========================
   const profitLoss = useMemo(() => {
-    let revenue = 0;
-    let cogs = 0; // Cost of Goods Sold (HPP)
-
-    for (const sale of sales) {
-      revenue += sale.totalAmount;
-      // Cari items
-      const itemsInSale = saleItems.filter(i => i.saleLocalId === sale.localId);
-      for (const item of itemsInSale) {
-         cogs += (item.costPrice * item.quantity);
-      }
-    }
-
-    for (const order of realizedOnlineOrders) {
-      revenue += Number(order.totalAmount);
-
-      for (const item of order.items) {
-        const matchedCost = item.productId ? productCostMap.get(item.productId) ?? 0 : 0;
-        cogs += matchedCost * Number(item.quantity);
-      }
-    }
-
-    const netProfit = revenue - cogs;
-    const returnTotal = returns.reduce((sum, r) => sum + r.totalAmount, 0);
-    
-    // Kurangi COGS dari item yang dikembalikan (jika kondisi baik/masuk stok lagi)
-    let returnedCogs = 0;
-    for (const rItem of returnItems) {
-      if (rItem.condition === "GOOD") {
-        const cost = productCostMap.get(rItem.productId) || 0;
-        returnedCogs += (cost * rItem.quantity);
-      }
-    }
-
-    const finalRevenue = revenue - returnTotal;
-    const finalCogs = cogs - returnedCogs;
-    const finalNetProfit = finalRevenue - finalCogs;
-
-    const expenseTotal = allExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const bottomLine = finalNetProfit - expenseTotal;
-    
-    return { revenue: finalRevenue, cogs: finalCogs, netProfit: finalNetProfit, expenseTotal, bottomLine };
-  }, [allExpenses, productCostMap, realizedOnlineOrders, saleItems, sales, returns, returnItems]);
+    return calculateProfitLossSnapshot({
+      sales,
+      saleItems,
+      expenses: allExpenses,
+      returns,
+      returnItems,
+      onlineRevenue: realizedOnlineRevenue,
+      onlineOrderCount: realizedOnlineOrders.length,
+    });
+  }, [
+    allExpenses,
+    realizedOnlineOrders.length,
+    realizedOnlineRevenue,
+    returnItems,
+    returns,
+    saleItems,
+    sales,
+  ]);
 
   // ==========================
   // ANALISIS PARETO 80/20
@@ -216,14 +203,29 @@ export default function ReportsPage() {
 
     // Sort Descending berdasarkan revenue
     const sortedProducts = Object.values(productSalesMap).sort((a, b) => b.revenue - a.revenue);
-    
-    // Kumulatif persen
-    let cumulative = 0;
-    return sortedProducts.map(p => {
-       cumulative += p.revenue;
-       const pct = totalRevenue === 0 ? 0 : (cumulative / totalRevenue) * 100;
-       return { ...p, cumulativePct: pct };
-    });
+
+    return sortedProducts.reduce<{
+      cumulativeRevenue: number;
+      items: Array<typeof sortedProducts[number] & { cumulativePct: number }>;
+    }>(
+      (state, product) => {
+        const cumulativeRevenue = state.cumulativeRevenue + product.revenue;
+        const cumulativePct =
+          totalRevenue === 0 ? 0 : (cumulativeRevenue / totalRevenue) * 100;
+
+        return {
+          cumulativeRevenue,
+          items: [
+            ...state.items,
+            {
+              ...product,
+              cumulativePct,
+            },
+          ],
+        };
+      },
+      { cumulativeRevenue: 0, items: [] }
+    ).items;
   }, [realizedOnlineOrders, saleItems, sales]);
 
   const posPerformance = useMemo(() => {
@@ -256,68 +258,119 @@ export default function ReportsPage() {
   // ARUS KAS (CASH FLOW)
   // ==========================
   const cashFlow = useMemo(() => {
-    const masuk = sales.reduce((sum, s) => sum + s.totalAmount, 0) + realizedOnlineOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
-    const belanja = shoppingList.reduce((sum, item) => sum + (item.qtyToBuy * (item.costPrice || item.costPerUnit || 0)), 0);
-    const retur = returns.reduce((sum, r) => sum + r.totalAmount, 0);
-    const operasional = allExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const pembelianAset = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
-    
-    // Klasifikasi Arus Kas
-    const operating = masuk - belanja - retur - operasional;
-    const investing = -pembelianAset;
-    const financing = initialCapital; // Kita asumsikan modal awal adalah pendanaan masuk di awal
-    
-    return { 
-      masuk, belanja, retur, operasional, pembelianAset,
-      operating,
-      investing,
-      financing,
-      saldo: operating + investing + financing
-    };
-  }, [allExpenses, realizedOnlineOrders, returns, sales, shoppingList, allAssets, initialCapital]);
+    return calculateCashFlowSnapshot({
+      storeProfile,
+      sales,
+      expenses: allExpenses,
+      returns,
+      assets: allAssets,
+      stockPurchases: shoppingList,
+      onlineRevenue: realizedOnlineRevenue,
+      onlineOrderCount: realizedOnlineOrders.length,
+    });
+  }, [
+    allAssets,
+    allExpenses,
+    realizedOnlineOrders.length,
+    realizedOnlineRevenue,
+    returns,
+    sales,
+    shoppingList,
+    storeProfile,
+  ]);
 
   // ==========================
   // NERACA (BALANCE SHEET)
   // ==========================
-  const balanceSheet = useMemo(() => {
-    // 1. ASET (KEKAYAAN)
-    // Nilai Persediaan & Aset Tetap saat ini
-    const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
-    const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
-    const totalPersediaan = persediaanProduk + persediaanBahan;
-    const asetTetap = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
-    
-    // Kas diambil dari perhitungan Arus Kas agar konsisten
-    const kasSekarang = cashFlow.saldo;
-    const totalAset = kasSekarang + totalPersediaan + asetTetap;
-
-    // 2. EKUITAS (MODAL & LABA)
-    const labaBerjalan = profitLoss.bottomLine;
-    const modalAwal = initialCapital;
-    
-    // Penyesuaian (Adjustment) jika ada selisih antara Aset dan Ekuitas
-    const penyesuaian = totalAset - (modalAwal + labaBerjalan);
-    const totalEkuitas = modalAwal + labaBerjalan + penyesuaian;
+  const balanceSnapshot = useMemo(() => {
+    const assignedQtyByProduct = productAssignments.reduce<Map<string, number>>((acc, assignment) => {
+      acc.set(
+        assignment.productId,
+        (acc.get(assignment.productId) ?? 0) + assignment.stock
+      );
+      return acc;
+    }, new Map());
 
     // Check if HPP is missing
-    const productHppMissing = products.some(p => p.stock > 0 && (!p.costPrice || p.costPrice === 0));
+    const productHppMissing = products.some((product) => {
+      const totalQty =
+        product.stock + (assignedQtyByProduct.get(product.localId) ?? 0);
+      return totalQty > 0 && (!product.costPrice || product.costPrice === 0);
+    });
     const materialHppMissing = rawMaterials.some(m => m.stock > 0 && (!m.costPerUnit || m.costPerUnit === 0));
+    const snapshot = calculateBalanceSheetSnapshot({
+      storeProfile,
+      sales,
+      saleItems,
+      expenses: allExpenses,
+      returns,
+      returnItems,
+      assets: allAssets,
+      stockPurchases: shoppingList,
+      products,
+      productAssignments,
+      rawMaterials,
+      currentAssets: activeAssets,
+      onlineRevenue: realizedOnlineRevenue,
+      onlineOrderCount: realizedOnlineOrders.length,
+    });
 
     return { 
-      kasDiLaci: kasSekarang, 
-      persediaan: totalPersediaan, 
-      persediaanProduk,
-      persediaanBahan,
-      asetTetap, 
-      totalAset, 
-      modalAwal, 
-      labaBerjalan, 
-      totalEkuitas,
-      penyesuaian,
+      kasDiLaci: snapshot.endingCash,
+      kasDigital: snapshot.endingDigitalCash,
+      piutangUsaha: snapshot.endingReceivables,
+      asetLancar: snapshot.totalCurrentAssets,
+      liabilitasTercatat: snapshot.recordedLiabilities,
+      persediaan: snapshot.totalInventory,
+      persediaanProduk: snapshot.productInventory,
+      persediaanProdukGudang: snapshot.warehouseProductInventory,
+      persediaanProdukTerminal: snapshot.terminalProductInventory,
+      persediaanBahan: snapshot.materialInventory,
+      asetTetap: snapshot.totalFixedAssets,
+      totalAset: snapshot.totalAssets,
+      modalAwal: snapshot.openingEquity,
+      modalTunaiAwal: snapshot.openingCash,
+      modalNonTunaiAwal: snapshot.openingNonCashCapital,
+      labaBerjalan: snapshot.profitBottomLine,
+      referensiEkuitas: snapshot.referenceEquity,
+      totalEkuitas: snapshot.totalEquity,
+      selisihRekonsiliasi: snapshot.equityGap,
+      persediaanRollforward: snapshot.expectedInventory,
+      selisihPersediaan: snapshot.inventoryGap,
+      setupType: snapshot.setupType,
       productHppMissing,
-      materialHppMissing
+      materialHppMissing,
+      onlineRevenueTambahan: snapshot.supplementalOnlineRevenue,
+      onlineOrderTambahanCount: snapshot.supplementalOnlineOrderCount,
+      diagnostics: snapshot.diagnostics,
     };
-  }, [initialCapital, products, rawMaterials, allAssets, profitLoss.bottomLine]);
+  }, [
+    allAssets,
+    activeAssets,
+    allExpenses,
+    productAssignments,
+    products,
+    rawMaterials,
+    realizedOnlineOrders.length,
+    realizedOnlineRevenue,
+    returnItems,
+    returns,
+    saleItems,
+    sales,
+    shoppingList,
+    storeProfile,
+  ]);
+
+  const balanceSheet = balanceSnapshot;
+
+  const reconciliationGapLabel = "Selisih Rekonsiliasi Data";
+  const reconciliationGapHint =
+    "Ini bukan akun penyeimbang. Angka ini hanya menunjukkan bahwa aset tercatat belum sepenuhnya bisa dijelaskan oleh modal awal dan laba berjalan yang berhasil dibuktikan dari transaksi.";
+
+  const inventoryGapHint =
+    "Jika selisih persediaan tidak nol, biasanya ada opname manual, koreksi stok, model BoM hybrid, atau transaksi lama yang belum lengkap.";
+
+  const reportDiagnostics = balanceSheet.diagnostics;
 
   // ==========================
   // EXPORT FUNCTIONS
@@ -331,11 +384,24 @@ export default function ReportsPage() {
       ["Periode", period],
       [],
       ["Keterangan", "Nilai"],
-      ["Pendapatan (Revenue)", profitLoss.revenue],
-      ["HPP (COGS)", profitLoss.cogs],
+      ["Pendapatan POS Tercatat", profitLoss.grossSales],
+      ["Retur Penjualan", -profitLoss.salesReturns],
+      ["Pendapatan Bersih POS", profitLoss.revenue],
+      ["HPP POS Tercatat", profitLoss.cogs],
       ["Laba Kotor", profitLoss.netProfit],
       ["Biaya Operasional", profitLoss.expenseTotal],
       ["Laba Bersih", profitLoss.bottomLine],
+      ...(profitLoss.supplementalOnlineRevenue > 0
+        ? [
+            [],
+            [
+              "Catatan",
+              `${profitLoss.supplementalOnlineOrderCount} pesanan online senilai ${formatRupiahFull(
+                profitLoss.supplementalOnlineRevenue
+              )} belum masuk laba rugi inti`,
+            ],
+          ]
+        : []),
     ];
     const wsPL = XLSX.utils.aoa_to_sheet(plData);
     XLSX.utils.book_append_sheet(wb, wsPL, "Laba Rugi");
@@ -345,13 +411,23 @@ export default function ReportsPage() {
       ["LAPORAN NERACA (BALANCE SHEET)"],
       [],
       ["ASET"],
-      ["Kas di Tangan", balanceSheet.kasDiLaci],
+      ["Kas Laci Tercatat", balanceSheet.kasDiLaci],
+      ["Saldo Digital / Bank Tercatat", balanceSheet.kasDigital],
+      ["Piutang Usaha", balanceSheet.piutangUsaha],
       ["Persediaan Barang", balanceSheet.persediaan],
+      ["Aset Tetap Bruto", balanceSheet.asetTetap],
       ["TOTAL ASET", balanceSheet.totalAset],
       [],
+      ["LIABILITAS"],
+      ["Liabilitas Tercatat", balanceSheet.liabilitasTercatat],
+      [],
       ["EKUITAS"],
-      ["Modal Pemilik", balanceSheet.modalAwal],
-      ["Laba Berjalan", balanceSheet.labaBerjalan],
+      ["Ekuitas Residu dari Aset Tercatat", balanceSheet.totalEkuitas],
+      ["Modal Awal Tercatat", balanceSheet.modalAwal],
+      ["Laba Berjalan Tercatat", balanceSheet.labaBerjalan],
+      ...(balanceSheet.selisihRekonsiliasi !== 0
+        ? [[reconciliationGapLabel, balanceSheet.selisihRekonsiliasi]]
+        : []),
       ["TOTAL EKUITAS", balanceSheet.totalEkuitas],
     ];
     const wsBS = XLSX.utils.aoa_to_sheet(bsData);
@@ -363,21 +439,29 @@ export default function ReportsPage() {
       ["Periode", period],
       [],
       ["A. AKTIVITAS OPERASI"],
-      ["Pemasukan Penjualan", cashFlow.masuk],
-      ["Pengeluaran Belanja Stok", -cashFlow.belanja],
-      ["Biaya Operasional", -cashFlow.operasional],
-      ["Retur Penjualan", -cashFlow.retur],
+      ["Pemasukan Penjualan Tunai", cashFlow.cashSalesInflow],
+      ["Pengeluaran Belanja Stok", -cashFlow.stockPurchases],
+      ["Biaya Operasional", -cashFlow.operatingExpenses],
+      ["Retur Penjualan", -cashFlow.salesReturns],
       ["Total Arus Kas Operasi", cashFlow.operating],
       [],
       ["B. AKTIVITAS INVESTASI"],
-      ["Pembelian Aset Tetap", -cashFlow.pembelianAset],
+      ["Pembelian Aset Tetap", -cashFlow.assetPurchases],
       ["Total Arus Kas Investasi", cashFlow.investing],
       [],
       ["C. AKTIVITAS PENDANAAN"],
-      ["Modal Awal Pemilik", cashFlow.financing],
+      ["Modal Tunai Awal Pemilik", cashFlow.financing],
+      ...(cashFlow.openingNonCashCapital > 0
+        ? [["Modal Non-Tunai Awal (Info)", cashFlow.openingNonCashCapital]]
+        : []),
       ["Total Arus Kas Pendanaan", cashFlow.financing],
       [],
-      ["SALDO KAS AKHIR", cashFlow.saldo],
+      ["D. SALDO NON-TUNAI TERCATAT"],
+      ["QRIS / Transfer", cashFlow.endingDigitalCash],
+      ["Piutang Kredit", cashFlow.endingReceivables],
+      [],
+      ["KAS LACI AKHIR", cashFlow.endingCash],
+      ["LIKUIDITAS TERCATAT", cashFlow.endingLiquidity],
     ];
     const wsCF = XLSX.utils.aoa_to_sheet(cfData);
     XLSX.utils.book_append_sheet(wb, wsCF, "Arus Kas");
@@ -387,6 +471,11 @@ export default function ReportsPage() {
 
   const exportToPDF = () => {
     const doc = new jsPDF();
+    const pdfDoc = doc as jsPDF & {
+      lastAutoTable?: {
+        finalY?: number;
+      };
+    };
     doc.text("LAPORAN KEUANGAN MBAKASIR", 14, 15);
     doc.setFontSize(10);
     doc.text(`Periode: ${period} | Dicetak: ${new Date().toLocaleString()}`, 14, 22);
@@ -396,26 +485,42 @@ export default function ReportsPage() {
       startY: 30,
       head: [["LAPORAN LABA RUGI", "NILAI"]],
       body: [
-        ["Pendapatan Kotor", formatRupiahFull(profitLoss.revenue)],
+        ["Pendapatan POS Tercatat", formatRupiahFull(profitLoss.grossSales)],
+        ["Retur Penjualan", `(${formatRupiahFull(profitLoss.salesReturns)})`],
+        ["Pendapatan Bersih POS", formatRupiahFull(profitLoss.revenue)],
         ["Harga Pokok Penjualan (HPP)", formatRupiahFull(profitLoss.cogs)],
         ["Laba Kotor", formatRupiahFull(profitLoss.netProfit)],
         ["Biaya Operasional", formatRupiahFull(profitLoss.expenseTotal)],
         ["Laba Bersih (Final)", formatRupiahFull(profitLoss.bottomLine)],
+        ...(profitLoss.supplementalOnlineRevenue > 0
+          ? [[
+              "Catatan",
+              `${profitLoss.supplementalOnlineOrderCount} pesanan online belum masuk laba rugi inti`,
+            ]]
+          : []),
       ],
       theme: "striped",
     });
 
     // Neraca Table
     autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 15,
+      startY: (pdfDoc.lastAutoTable?.finalY ?? 30) + 15,
       head: [["NERACA (BALANCE SHEET)", "NILAI"]],
       body: [
-        ["ASET: Kas & Setara Kas", formatRupiahFull(balanceSheet.kasDiLaci)],
+        ["ASET: Kas Laci Tercatat", formatRupiahFull(balanceSheet.kasDiLaci)],
+        ["ASET: Saldo Digital / Bank Tercatat", formatRupiahFull(balanceSheet.kasDigital)],
+        ["ASET: Piutang Usaha", formatRupiahFull(balanceSheet.piutangUsaha)],
         ["ASET: Persediaan Barang", formatRupiahFull(balanceSheet.persediaan)],
+        ["ASET: Aset Tetap Bruto", formatRupiahFull(balanceSheet.asetTetap)],
         ["TOTAL ASET", formatRupiahFull(balanceSheet.totalAset)],
         ["---", "---"],
-        ["EKUITAS: Modal", formatRupiahFull(balanceSheet.modalAwal)],
-        ["EKUITAS: Laba Ditahan", formatRupiahFull(balanceSheet.labaBerjalan)],
+        ["LIABILITAS: Tercatat", formatRupiahFull(balanceSheet.liabilitasTercatat)],
+        ["EKUITAS: Residu Aset Tercatat", formatRupiahFull(balanceSheet.totalEkuitas)],
+        ["REF: Modal Awal", formatRupiahFull(balanceSheet.modalAwal)],
+        ["REF: Laba Berjalan", formatRupiahFull(balanceSheet.labaBerjalan)],
+        ...(balanceSheet.selisihRekonsiliasi !== 0
+          ? [[`REF: ${reconciliationGapLabel}`, formatRupiahFull(balanceSheet.selisihRekonsiliasi)]]
+          : []),
         ["TOTAL EKUITAS", formatRupiahFull(balanceSheet.totalEkuitas)],
       ],
       theme: "grid",
@@ -423,22 +528,29 @@ export default function ReportsPage() {
 
     // Arus Kas Table
     autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 15,
+      startY: (pdfDoc.lastAutoTable?.finalY ?? 30) + 15,
       head: [["LAPORAN ARUS KAS (CASH FLOW)", "NILAI"]],
       body: [
         ["A. AKTIVITAS OPERASI", ""],
-        ["   Pemasukan Penjualan", formatRupiahFull(cashFlow.masuk)],
-        ["   Pengeluaran Belanja Stok", `(${formatRupiahFull(cashFlow.belanja)})`],
-        ["   Biaya Operasional", `(${formatRupiahFull(cashFlow.operasional)})`],
-        ["   Retur Penjualan", `(${formatRupiahFull(cashFlow.retur)})`],
+        ["   Pemasukan Penjualan Tunai", formatRupiahFull(cashFlow.cashSalesInflow)],
+        ["   Pengeluaran Belanja Stok", `(${formatRupiahFull(cashFlow.stockPurchases)})`],
+        ["   Biaya Operasional", `(${formatRupiahFull(cashFlow.operatingExpenses)})`],
+        ["   Retur Penjualan", `(${formatRupiahFull(cashFlow.salesReturns)})`],
         ["   Total Arus Kas Operasi", formatRupiahFull(cashFlow.operating)],
         ["B. AKTIVITAS INVESTASI", ""],
-        ["   Pembelian Aset Tetap", `(${formatRupiahFull(cashFlow.pembelianAset)})`],
+        ["   Pembelian Aset Tetap", `(${formatRupiahFull(cashFlow.assetPurchases)})`],
         ["   Total Arus Kas Investasi", formatRupiahFull(cashFlow.investing)],
         ["C. AKTIVITAS PENDANAAN", ""],
-        ["   Modal Awal Pemilik", formatRupiahFull(cashFlow.financing)],
+        ["   Modal Tunai Awal Pemilik", formatRupiahFull(cashFlow.financing)],
+        ...(cashFlow.openingNonCashCapital > 0
+          ? [["   Modal Non-Tunai Awal (Info)", formatRupiahFull(cashFlow.openingNonCashCapital)]]
+          : []),
         ["   Total Arus Kas Pendanaan", formatRupiahFull(cashFlow.financing)],
-        ["SALDO KAS AKHIR", formatRupiahFull(cashFlow.saldo)],
+        ["D. SALDO NON-TUNAI TERCATAT", ""],
+        ["   QRIS / Transfer", formatRupiahFull(cashFlow.endingDigitalCash)],
+        ["   Piutang Kredit", formatRupiahFull(cashFlow.endingReceivables)],
+        ["KAS LACI AKHIR", formatRupiahFull(cashFlow.endingCash)],
+        ["LIKUIDITAS TERCATAT", formatRupiahFull(cashFlow.endingLiquidity)],
       ],
       theme: "striped",
     });
@@ -450,16 +562,16 @@ export default function ReportsPage() {
     <DashboardLayout title={`Laporan Keuangan`}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "16px" }}>
         <div style={{ display: "flex", gap: "8px", background: "hsl(var(--bg-elevated))", padding: "4px", borderRadius: "12px", border: "1px solid hsl(var(--border))" }}>
-          {[
+          {([
             { id: "summary", label: "Ringkasan", icon: "📊" },
             { id: "pl", label: "Laba Rugi", icon: "💰" },
             { id: "cashflow", label: "Arus Kas", icon: "💸" },
             { id: "balance", label: "Neraca", icon: "⚖️" },
-          ].map(tab => (
+          ] as const).map(tab => (
             <button 
               key={tab.id}
               className={`btn btn-sm ${activeTab === tab.id ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               style={{ borderRadius: "8px" }}
             >
               {tab.icon} {tab.label}
@@ -467,11 +579,66 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
+      <div style={{ display: "flex", gap: "10px" }}>
           <button className="btn btn-outline btn-sm" onClick={exportToExcel}>📗 Excel</button>
           <button className="btn btn-primary btn-sm" onClick={exportToPDF}>📕 PDF</button>
         </div>
       </div>
+
+      {reportDiagnostics.length > 0 && (
+        <div
+          className="card"
+          style={{
+            marginBottom: "24px",
+            padding: "18px 20px",
+            border: "1px solid hsl(var(--warning) / 0.25)",
+            background: "hsl(var(--warning) / 0.06)",
+            display: "grid",
+            gap: "10px",
+          }}
+        >
+          <div>
+            <h3 style={{ fontSize: "15px", fontWeight: 800, marginBottom: "4px" }}>
+              Pemeriksaan Integritas Akuntansi
+            </h3>
+            <p style={{ fontSize: "12px", color: "hsl(var(--text-secondary))" }}>
+              Laporan sekarang hanya memakai data yang benar-benar tercatat. Jika ada celah data,
+              sistem menampilkannya di sini alih-alih membuat angka penyeimbang.
+            </p>
+          </div>
+          {reportDiagnostics.map((diagnostic) => (
+            <div
+              key={diagnostic.code}
+              style={{
+                padding: "10px 12px",
+                borderRadius: "10px",
+                border: "1px solid hsl(var(--border))",
+                background: "hsl(var(--bg-card))",
+                fontSize: "12px",
+                lineHeight: 1.5,
+              }}
+            >
+              <strong
+                style={{
+                  color:
+                    diagnostic.severity === "error"
+                      ? "hsl(var(--error))"
+                      : diagnostic.severity === "warning"
+                        ? "hsl(var(--warning))"
+                        : "hsl(var(--primary))",
+                }}
+              >
+                {diagnostic.severity === "error"
+                  ? "Error Data"
+                  : diagnostic.severity === "warning"
+                    ? "Perlu Dicek"
+                    : "Info"}
+              </strong>{" "}
+              {diagnostic.message}
+            </div>
+          ))}
+        </div>
+      )}
 
       {activeTab === "summary" && (
         <>
@@ -479,27 +646,32 @@ export default function ReportsPage() {
         
         {/* REVENUE CARD */}
         <div className="stat-card" style={{ borderLeft: "4px solid hsl(var(--primary))" }}>
-           <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Total Pendapatan (Omzet)</span>
+           <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Pendapatan POS Tercatat</span>
            <span className="stat-value" style={{ color: "hsl(var(--primary))", background: "none", WebkitTextFillColor: "hsl(var(--primary))" }}>
               {formatRupiahFull(profitLoss.revenue)}
            </span>
            <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "8px" }}>
-             Dari {sales.length + realizedOnlineOrders.length} transaksi selesai
+             Dari {sales.length} transaksi POS selesai
            </span>
+           {profitLoss.supplementalOnlineRevenue > 0 && (
+             <span style={{ fontSize: "11px", color: "hsl(var(--warning))", marginTop: "6px" }}>
+               + {formatRupiahFull(profitLoss.supplementalOnlineRevenue)} penjualan online dipisahkan dulu
+             </span>
+           )}
         </div>
 
         {/* COGS CARD */}
         <div className="stat-card" style={{ borderLeft: "4px solid hsl(var(--warning))" }}>
-           <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>Harga Pokok Penjualan (HPP)</span>
+           <span style={{ fontSize: "14px", color: "hsl(var(--text-secondary))", fontWeight: 600 }}>HPP POS Tercatat</span>
            <span className="stat-value" style={{ color: "hsl(var(--warning))", background: "none", WebkitTextFillColor: "hsl(var(--warning))" }}>
               {formatRupiahFull(profitLoss.cogs)}
            </span>
-           <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "8px" }}>Modal keluar</span>
+           <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))", marginTop: "8px" }}>Bersih setelah retur barang kondisi baik</span>
         </div>
 
         {/* PROFIT CARD */}
         <div className="stat-card" style={{ background: "var(--gradient-primary)" }}>
-           <span style={{ fontSize: "14px", color: "white", opacity: 0.9, fontWeight: 600 }}>Laba Bersih (Net Profit)</span>
+           <span style={{ fontSize: "14px", color: "white", opacity: 0.9, fontWeight: 600 }}>Laba Bersih Tercatat</span>
            <span className="stat-value" style={{ color: "white", WebkitTextFillColor: "white", textShadow: "0 2px 4px rgba(0,0,0,0.2)" }}>
               {formatRupiahFull(profitLoss.bottomLine)}
            </span>
@@ -573,11 +745,19 @@ export default function ReportsPage() {
            <h2 style={{ textAlign: "center", marginBottom: "30px", fontSize: "24px", fontWeight: 900 }}>LAPORAN LABA RUGI</h2>
            <div style={{ display: "grid", gap: "20px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
-                 <span style={{ fontWeight: 600 }}>Pendapatan Kotor (Omzet)</span>
+                 <span style={{ fontWeight: 600 }}>Pendapatan POS Tercatat</span>
+                 <span style={{ color: "hsl(var(--success))", fontWeight: 800 }}>{formatRupiahFull(profitLoss.grossSales)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
+                 <span style={{ fontWeight: 600 }}>Retur Penjualan</span>
+                 <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(profitLoss.salesReturns)})</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
+                 <span style={{ fontWeight: 600 }}>Pendapatan Bersih POS</span>
                  <span style={{ color: "hsl(var(--success))", fontWeight: 800 }}>{formatRupiahFull(profitLoss.revenue)}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
-                 <span style={{ fontWeight: 600 }}>Harga Pokok Penjualan (HPP)</span>
+                 <span style={{ fontWeight: 600 }}>Harga Pokok Penjualan POS</span>
                  <span style={{ color: "hsl(var(--error))", fontWeight: 800 }}>({formatRupiahFull(profitLoss.cogs)})</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", borderBottom: "1px solid hsl(var(--border))", paddingBottom: "10px" }}>
@@ -588,6 +768,13 @@ export default function ReportsPage() {
                  <span style={{ fontWeight: 800 }}>LABA BERSIH</span>
                  <span style={{ color: "hsl(var(--primary))", fontWeight: 900 }}>{formatRupiahFull(profitLoss.bottomLine)}</span>
               </div>
+              {profitLoss.supplementalOnlineRevenue > 0 && (
+                <div style={{ fontSize: "12px", color: "hsl(var(--warning))", lineHeight: 1.6 }}>
+                  Pesanan online {profitLoss.supplementalOnlineOrderCount} transaksi senilai{" "}
+                  {formatRupiahFull(profitLoss.supplementalOnlineRevenue)} belum masuk laba rugi inti,
+                  karena sistem online belum menyimpan snapshot HPP dan aliran kas setara POS.
+                </div>
+              )}
            </div>
         </div>
       )}
@@ -599,15 +786,15 @@ export default function ReportsPage() {
            {/* OPERATING */}
            <div style={{ marginBottom: "24px" }}>
              <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--primary))", borderBottom: "2px solid hsl(var(--primary))", marginBottom: "12px" }}>
-               A. AKTIVITAS OPERASI (OPERATING)
+               A. ARUS KAS OPERASI TUNAI
              </h3>
              <div style={{ display: "grid", gap: "10px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Pemasukan Penjualan</span><span style={{ color: "hsl(var(--success))" }}>{formatRupiahFull(cashFlow.masuk)}</span></div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Pengeluaran Belanja Stok</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.belanja)})</span></div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Biaya Operasional</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.operasional)})</span></div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Retur Penjualan</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.retur)})</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Penjualan Tunai</span><span style={{ color: "hsl(var(--success))" }}>{formatRupiahFull(cashFlow.cashSalesInflow)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Pengeluaran Belanja Stok</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.stockPurchases)})</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Biaya Operasional</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.operatingExpenses)})</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Retur Penjualan</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.salesReturns)})</span></div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid hsl(var(--border))", paddingTop: "8px", marginTop: "4px" }}>
-                  <span>Total Arus Kas Operasi</span>
+                  <span>Total Kas Operasi Tunai</span>
                   <span style={{ color: cashFlow.operating >= 0 ? "hsl(var(--success))" : "hsl(var(--error))" }}>{formatRupiahFull(cashFlow.operating)}</span>
                 </div>
              </div>
@@ -619,7 +806,7 @@ export default function ReportsPage() {
                B. AKTIVITAS INVESTASI (INVESTING)
              </h3>
              <div style={{ display: "grid", gap: "10px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Pembelian Aset Tetap</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.pembelianAset)})</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Pembelian Aset Tetap</span><span style={{ color: "hsl(var(--error))" }}>({formatRupiahFull(cashFlow.assetPurchases)})</span></div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid hsl(var(--border))", paddingTop: "8px", marginTop: "4px" }}>
                   <span>Total Arus Kas Investasi</span>
                   <span style={{ color: cashFlow.investing >= 0 ? "hsl(var(--success))" : "hsl(var(--error))" }}>{formatRupiahFull(cashFlow.investing)}</span>
@@ -633,7 +820,13 @@ export default function ReportsPage() {
                C. AKTIVITAS PENDANAAN (FINANCING)
              </h3>
              <div style={{ display: "grid", gap: "10px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modal Awal Pemilik</span><span style={{ color: "hsl(var(--success))" }}>{formatRupiahFull(cashFlow.financing)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Modal Tunai Awal Pemilik</span><span style={{ color: "hsl(var(--success))" }}>{formatRupiahFull(cashFlow.financing)}</span></div>
+                {cashFlow.openingNonCashCapital > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>Modal Non-Tunai Awal (Info)</span>
+                    <span style={{ color: "hsl(var(--text-secondary))" }}>{formatRupiahFull(cashFlow.openingNonCashCapital)}</span>
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid hsl(var(--border))", paddingTop: "8px", marginTop: "4px" }}>
                   <span>Total Arus Kas Pendanaan</span>
                   <span style={{ color: cashFlow.financing >= 0 ? "hsl(var(--success))" : "hsl(var(--error))" }}>{formatRupiahFull(cashFlow.financing)}</span>
@@ -641,10 +834,24 @@ export default function ReportsPage() {
              </div>
            </div>
 
+           <div style={{ marginBottom: "24px" }}>
+             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--warning))", borderBottom: "2px solid hsl(var(--warning))", marginBottom: "12px" }}>
+               D. SALDO NON-TUNAI TERCATAT
+             </h3>
+             <div style={{ display: "grid", gap: "10px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>QRIS / Transfer</span><span>{formatRupiahFull(cashFlow.endingDigitalCash)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Piutang Penjualan Kredit</span><span>{formatRupiahFull(cashFlow.endingReceivables)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, borderTop: "1px solid hsl(var(--border))", paddingTop: "8px", marginTop: "4px" }}>
+                  <span>Likuiditas Tercatat</span>
+                  <span>{formatRupiahFull(cashFlow.endingLiquidity)}</span>
+                </div>
+             </div>
+           </div>
+
            {/* SALDO AKHIR */}
            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "22px", marginTop: "20px", background: "hsl(var(--success)/0.05)", padding: "16px", borderRadius: "12px", border: "2px solid hsl(var(--success)/0.2)" }}>
-              <span style={{ fontWeight: 800 }}>SALDO KAS AKHIR</span>
-              <span style={{ color: "hsl(var(--success))", fontWeight: 900 }}>{formatRupiahFull(cashFlow.saldo)}</span>
+              <span style={{ fontWeight: 800 }}>KAS LACI AKHIR</span>
+              <span style={{ color: "hsl(var(--success))", fontWeight: 900 }}>{formatRupiahFull(cashFlow.endingCash)}</span>
            </div>
         </div>
       )}
@@ -656,20 +863,37 @@ export default function ReportsPage() {
            <div style={{ marginBottom: "30px" }}>
              <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--primary))", marginBottom: "12px", borderBottom: "2px solid hsl(var(--primary))" }}>ASET (KEKAYAAN)</h3>
              <div style={{ display: "grid", gap: "10px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Kas di Tangan / Laci</span><span>{formatRupiahFull(balanceSheet.kasDiLaci)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Kas Laci Tercatat</span><span>{formatRupiahFull(balanceSheet.kasDiLaci)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>Saldo Digital / Bank Tercatat</span><span>{formatRupiahFull(balanceSheet.kasDigital)}</span></div>
+                {balanceSheet.piutangUsaha !== 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span>Piutang Usaha</span><span>{formatRupiahFull(balanceSheet.piutangUsaha)}</span></div>
+                )}
                  <div style={{ display: "flex", justifyContent: "space-between" }}>
                    <span>Persediaan Barang (Nilai Modal)</span>
                    <div style={{ textAlign: "right" }}>
                      <div>{formatRupiahFull(balanceSheet.persediaan)}</div>
+                     <div style={{ fontSize: "10px", color: "hsl(var(--text-muted))", marginTop: "4px", display: "grid", gap: "2px" }}>
+                       <div>Produk jadi: {formatRupiahFull(balanceSheet.persediaanProduk)}</div>
+                       <div>Gudang pusat: {formatRupiahFull(balanceSheet.persediaanProdukGudang)}</div>
+                       {balanceSheet.persediaanProdukTerminal > 0 && (
+                         <div>Terminal POS: {formatRupiahFull(balanceSheet.persediaanProdukTerminal)}</div>
+                       )}
+                       <div>Bahan baku: {formatRupiahFull(balanceSheet.persediaanBahan)}</div>
+                     </div>
                      {balanceSheet.productHppMissing && (
                        <div style={{ fontSize: "10px", color: "hsl(var(--error))", fontWeight: 600 }}>⚠️ Sebagian produk belum ada HPP</div>
                      )}
                      {balanceSheet.materialHppMissing && (
                        <div style={{ fontSize: "10px", color: "hsl(var(--error))", fontWeight: 600 }}>⚠️ Sebagian bahan belum ada HPP</div>
                      )}
+                     {balanceSheet.selisihPersediaan !== 0 && (
+                       <div style={{ fontSize: "10px", color: "hsl(var(--warning))", fontWeight: 600, marginTop: "4px" }}>
+                         Roll-forward persediaan: {formatRupiahFull(balanceSheet.persediaanRollforward)} · selisih {formatRupiahFull(balanceSheet.selisihPersediaan)}
+                       </div>
+                     )}
                    </div>
                  </div>
-                 <div style={{ display: "flex", justifyContent: "space-between" }}><span>Aset Tetap (Peralatan/Mesin)</span><span>{formatRupiahFull(balanceSheet.asetTetap)}</span></div>
+                 <div style={{ display: "flex", justifyContent: "space-between" }}><span>Aset Tetap Bruto (Peralatan/Mesin)</span><span>{formatRupiahFull(balanceSheet.asetTetap)}</span></div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "18px", marginTop: "10px", borderTop: "1px solid hsl(var(--border))", paddingTop: "10px" }}>
                   <span>TOTAL ASET</span><span>{formatRupiahFull(balanceSheet.totalAset)}</span>
                 </div>
@@ -677,28 +901,50 @@ export default function ReportsPage() {
            </div>
 
            <div>
-             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--success))", marginBottom: "12px", borderBottom: "2px solid hsl(var(--success))" }}>EKUITAS (MODAL & LABA)</h3>
+             <h3 style={{ fontSize: "14px", fontWeight: 800, color: "hsl(var(--success))", marginBottom: "12px", borderBottom: "2px solid hsl(var(--success))" }}>LIABILITAS & EKUITAS</h3>
              <div style={{ display: "grid", gap: "10px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Modal Awal (Tunai + Stok + Aset)</span>
-                  <span>{formatRupiahFull(balanceSheet.modalAwal)}</span>
+                  <span>Liabilitas Tercatat</span>
+                  <span>{formatRupiahFull(balanceSheet.liabilitasTercatat)}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Laba Berjalan</span>
-                  <span style={{ color: balanceSheet.labaBerjalan >= 0 ? "hsl(var(--success))" : "hsl(var(--error))", fontWeight: 700 }}>
-                    {formatRupiahFull(balanceSheet.labaBerjalan)}
-                  </span>
-                 {balanceSheet.penyesuaian !== 0 && (
-                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", color: "hsl(var(--text-secondary))", fontStyle: "italic" }}>
-                     <span>Penyesuaian/Lainnya *</span>
-                     <span>{formatRupiahFull(balanceSheet.penyesuaian)}</span>
-                   </div>
-                 )}
-                 </div>
+                  <span>Ekuitas Residu dari Aset Tercatat</span>
+                  <span style={{ fontWeight: 700 }}>{formatRupiahFull(balanceSheet.totalEkuitas)}</span>
+                </div>
                 <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "18px", marginTop: "10px", borderTop: "1px solid hsl(var(--border))", paddingTop: "10px" }}>
                   <span>TOTAL EKUITAS</span><span>{formatRupiahFull(balanceSheet.totalEkuitas)}</span>
                 </div>
              </div>
+           </div>
+
+           <div style={{ marginTop: "24px", display: "grid", gap: "10px", padding: "16px", background: "hsl(var(--bg-elevated))", borderRadius: "12px", border: "1px dashed hsl(var(--border))" }}>
+             <div style={{ fontSize: "13px", fontWeight: 700 }}>Rekonsiliasi Modal</div>
+             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+               <span>Modal Awal Tercatat</span>
+               <span>{formatRupiahFull(balanceSheet.modalAwal)}</span>
+             </div>
+             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px" }}>
+               <span>Laba Berjalan Tercatat</span>
+               <span style={{ color: balanceSheet.labaBerjalan >= 0 ? "hsl(var(--success))" : "hsl(var(--error))", fontWeight: 700 }}>
+                 {formatRupiahFull(balanceSheet.labaBerjalan)}
+               </span>
+             </div>
+             {balanceSheet.selisihRekonsiliasi !== 0 && (
+               <>
+                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", color: "hsl(var(--text-secondary))", fontStyle: "italic" }}>
+                   <span>{reconciliationGapLabel}</span>
+                   <span>{formatRupiahFull(balanceSheet.selisihRekonsiliasi)}</span>
+                 </div>
+                 <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", lineHeight: 1.5 }}>
+                   {reconciliationGapHint}
+                 </div>
+               </>
+             )}
+             {balanceSheet.selisihPersediaan !== 0 && (
+               <div style={{ fontSize: "11px", color: "hsl(var(--text-muted))", lineHeight: 1.5 }}>
+                 {inventoryGapHint}
+               </div>
+             )}
            </div>
 
            <div style={{ marginTop: "40px", padding: "12px", background: "hsl(var(--bg-elevated))", borderRadius: "8px", textAlign: "center", fontSize: "12px", color: "hsl(var(--text-muted))", border: "1px dashed hsl(var(--border))" }}>

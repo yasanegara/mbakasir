@@ -6,6 +6,7 @@ import { getDb, enqueueSyncOp } from "@/lib/db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useBrand } from "@/contexts/BrandContext";
 import { CurrencyInput } from "@/components/ui/CurrencyInput";
+import { getTotalInventoryValue } from "@/lib/accounting";
 import { formatRupiahFull } from "@/lib/utils";
 
 export default function SetupWizardModal() {
@@ -23,12 +24,28 @@ export default function SetupWizardModal() {
   const storeProfile = useLiveQuery(() => 
     tenantId ? getDb().storeProfile.get(tenantId).then(p => p || getDb().storeProfile.get("default")) : getDb().storeProfile.get("default")
   , [tenantId]);
-  const products = useLiveQuery(() => getDb().products.toArray()) || [];
-  const materials = useLiveQuery(() => getDb().rawMaterials.toArray()) || [];
-  const assets = useLiveQuery(() => getDb().assets.toArray()) || [];
+  const products = useLiveQuery(() => (
+    tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : []
+  ), [tenantId]) || [];
+  const productAssignments = useLiveQuery(async () => {
+    if (!tenantId) return [];
+    const tenantProducts = await getDb().products.where("tenantId").equals(tenantId).toArray();
+    const productIds = tenantProducts.map((product) => product.localId);
+    if (productIds.length === 0) return [];
+    return getDb().productAssignments.where("productId").anyOf(productIds).toArray();
+  }, [tenantId]) || [];
+  const materials = useLiveQuery(() => (
+    tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : []
+  ), [tenantId]) || [];
+  const assets = useLiveQuery(() => (
+    tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : []
+  ), [tenantId])?.filter(asset => !asset.archivedAt) || [];
 
-  const inventoryValue = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0) + 
-                         materials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
+  const inventoryValue = getTotalInventoryValue(
+    products,
+    materials,
+    productAssignments
+  );
   
   const assetsValue = assets.reduce((sum, a) => sum + a.purchasePrice, 0);
 
@@ -131,6 +148,11 @@ export default function SetupWizardModal() {
                 <span>Nilai Stok Barang:</span>
                 <span style={{ fontWeight: 700 }}>{formatRupiahFull(inventoryValue)}</span>
               </div>
+              {productAssignments.length > 0 && (
+                <div style={{ marginBottom: "8px", fontSize: "11px", color: "hsl(var(--text-muted))" }}>
+                  *Termasuk stok yang sedang dialokasikan ke terminal POS.
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "13px" }}>
                 <span>Nilai Aset Tetap:</span>
                 <span style={{ fontWeight: 700 }}>{formatRupiahFull(assetsValue)}</span>

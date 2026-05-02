@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChangeEvent, useState, useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import BarcodeScanner from "@/components/common/BarcodeScanner";
@@ -11,6 +12,13 @@ import { useInitialSync } from "@/hooks/useInitialSync";
 import InventoryTab from "@/components/products/InventoryTab";
 import StockOpnameTab from "@/components/products/StockOpnameTab";
 import StockAlertTab from "@/components/products/StockAlertTab";
+import {
+  buildAssignmentsByProduct,
+  buildAssignedStockByProduct,
+  buildTerminalNameById,
+  getProductInventoryValue,
+  getProductTotalStock,
+} from "@/lib/inventory";
 import {
   enqueueSyncOp,
   getDb,
@@ -121,8 +129,17 @@ export default function ProductsPage() {
   const productAssignments = useLiveQuery<LocalProductAssignment[]>(() => {
     if (!tenantId) return [];
     const productIds = products.map(p => p.localId);
+    if (productIds.length === 0) return [];
     return getDb().productAssignments.where("productId").anyOf(productIds).toArray();
   }, [tenantId, products.length]) ?? [];
+
+  const storeProfile = useLiveQuery(async () => {
+    const db = getDb();
+    const pDefault = await db.storeProfile.get("default");
+    if (!tenantId) return pDefault;
+    const pTenant = await db.storeProfile.get(tenantId);
+    return pTenant || pDefault;
+  }, [tenantId]);
 
   const [terminalAssignments, setTerminalAssignments] = useState<{terminalId: string, stock: number}[]>([]);
   const [showSkuScanner, setShowSkuScanner] = useState(false);
@@ -224,11 +241,11 @@ export default function ProductsPage() {
   );
 
   const activeProducts = products.filter((product) => product.isActive).length;
-  const productsWithBoM = products.filter(
-    (product) => (bomCountByProductId[product.localId] || 0) > 0
-  ).length;
 
-  const totalProductValue = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
+  const assignedStockByProduct = buildAssignedStockByProduct(productAssignments);
+  const assignmentsByProduct = buildAssignmentsByProduct(productAssignments);
+  const terminalNameById = buildTerminalNameById(posTerminals);
+  const totalProductValue = getProductInventoryValue(products, productAssignments);
 
   const bomCostRows: BomCostRow[] = form.hasBoM
     ? bomRows
@@ -492,6 +509,27 @@ export default function ProductsPage() {
       return;
     }
 
+    // Validate raw material sufficiency & confirm deduction when creating
+    // a new BoM product with initial stock > 0
+    if (!editingId && form.hasBoM && validBomRows.length > 0 && form.stock > 0) {
+      const insufficientMaterials: string[] = [];
+      for (const row of validBomRows) {
+        const material = rawMaterials.find(m => m.localId === row.rawMaterialId);
+        if (material) {
+          const needed = form.stock * row.quantity;
+          if (material.stock < needed) {
+            insufficientMaterials.push(`${material.name} (perlu ${needed} ${material.unit}, tersedia ${material.stock} ${material.unit})`);
+          }
+        }
+      }
+      if (insufficientMaterials.length > 0) {
+        toast(`Stok bahan baku tidak cukup:\n${insufficientMaterials.join("\n")}`, "error");
+        return;
+      }
+      const confirmMsg = `Stok awal ${form.stock} unit akan mengkonversi bahan baku:\n${bomCostRows.map(r => `• ${r.rawMaterialName}: ${form.stock * r.quantity} ${r.unit}`).join("\n")}\n\nBahan baku di atas akan dikurangi secara otomatis. Lanjutkan?`;
+      if (!confirm(confirmMsg)) return;
+    }
+
     try {
       const db = getDb();
       const localId = editingId || generateUUID();
@@ -534,7 +572,7 @@ export default function ProductsPage() {
 
       await db.transaction(
         "rw",
-        [db.products, db.billOfMaterials, db.syncQueue, db.productAssignments],
+        [db.products, db.billOfMaterials, db.syncQueue, db.productAssignments, db.rawMaterials],
         async () => {
           await db.products.put(productPayload);
           await enqueueSyncOp("products", localId, editingId ? "UPDATE" : "CREATE", productPayload);
@@ -566,6 +604,24 @@ export default function ProductsPage() {
               }
             }
 
+            // When creating a NEW BoM product with an initial stock > 0,
+            // deduct the raw materials proportionally so inventory value
+            // transfers correctly (bahan baku → produk jadi) without inflating
+            // the total persediaan on the balance sheet.
+            if (!editingId && bomEntries.length > 0 && productPayload.stock > 0) {
+              const now = Date.now();
+              for (const bom of bomEntries) {
+                const material = await db.rawMaterials.get(bom.rawMaterialId);
+                if (material) {
+                  const totalDeduction = productPayload.stock * bom.quantity;
+                  const newMatStock = Math.max(0, material.stock - totalDeduction);
+                  const updatedMaterial = { ...material, stock: newMatStock, updatedAt: now, syncStatus: "PENDING" as const };
+                  await db.rawMaterials.put(updatedMaterial);
+                  await enqueueSyncOp("rawMaterials", material.localId, "UPDATE", updatedMaterial);
+                }
+              }
+            }
+
             // Save Assignments (Clean up old ones first if editing)
             if (editingId) {
               const oldAssignments = await db.productAssignments.where("productId").equals(editingId).toArray();
@@ -591,12 +647,15 @@ export default function ProductsPage() {
           }
         );
 
+      const isNewBomWithStock = !editingId && bomEntries.length > 0 && productPayload.stock > 0;
       toast(
         editingId
           ? `Produk ${productPayload.name} berhasil diperbarui`
-          : bomEntries.length > 0
-            ? `Produk ${productPayload.name} ditambahkan beserta BoM`
-            : `Produk ${productPayload.name} ditambahkan`,
+          : isNewBomWithStock
+            ? `Produk ${productPayload.name} ditambahkan. Stok awal ${productPayload.stock} unit dikonversi dari bahan baku.`
+            : bomEntries.length > 0
+              ? `Produk ${productPayload.name} ditambahkan beserta BoM`
+              : `Produk ${productPayload.name} ditambahkan`,
         "success"
       );
       resetCreateForm();
@@ -651,16 +710,16 @@ export default function ProductsPage() {
   return (
     <DashboardLayout title="Manajemen Produk">
       <div style={{ display: "flex", gap: "12px", marginBottom: "24px", overflowX: "auto", paddingBottom: "4px" }}>
-        {[
+        {([
           { id: "products", label: "📦 Semua Produk" },
           { id: "materials", label: "🥫 Bahan Baku" },
-          { id: "opname", label: "📋 Stock Opname" },
+          { id: "opname", label: "📋 Opname & Posisi" },
           { id: "alert", label: "⚠️ Stok Kritis" },
-        ].map((tab) => (
+        ] as const).map((tab) => (
           <button
             key={tab.id}
             className={`btn btn-sm ${activeTab === tab.id ? "btn-primary" : "btn-ghost"}`}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id)}
             style={{ borderRadius: "100px", padding: "8px 20px", whiteSpace: "nowrap" }}
           >
             {tab.label}
@@ -750,6 +809,9 @@ export default function ProductsPage() {
           </div>
 
           <div style={{ display: "flex", gap: "10px" }}>
+            <Link href="/shopping-list" className="btn btn-outline" title="Daftar Belanja & Restock">
+              🛒 Daftar Belanja
+            </Link>
             <button
               className="btn btn-ghost"
               onClick={handleGenerateDummy}
@@ -771,11 +833,24 @@ export default function ProductsPage() {
               🔄 Sinkron Data
             </button>
             <button
-              className={`btn ${showCreateForm ? "btn-ghost" : "btn-primary"}`}
+              className={`btn ${showCreateForm && form.hasBoM && !editingId ? "btn-ghost" : "btn-primary"}`}
+              onClick={() => {
+                resetCreateForm();
+                setForm(prev => ({ ...prev, hasBoM: true }));
+                setShowCreateForm(true);
+              }}
+            >
+              Buat Produk (BoM)
+            </button>
+            <button
+              className={`btn ${showCreateForm && !form.hasBoM ? "btn-ghost" : "btn-primary"}`}
               onClick={() => {
                 if (showCreateForm) resetCreateForm();
                 else setShowCreateForm(true);
               }}
+              disabled={storeProfile?.setupType !== "MIGRATE"}
+              title={storeProfile?.setupType !== "MIGRATE" ? "Gunakan Daftar Belanja untuk menambah stok produk baru jika tidak dalam mode migrasi awal." : "Tambah produk baru beserta stok (khusus masa migrasi)."}
+              style={storeProfile?.setupType !== "MIGRATE" ? { opacity: 0.5, cursor: "not-allowed" } : {}}
             >
               {showCreateForm ? "Tutup Form" : "+ Tambah Produk"}
             </button>
@@ -1558,10 +1633,51 @@ export default function ProductsPage() {
                       <td style={bodyCellStyle}>{formatRupiahFull(product.price)}</td>
                       <td style={bodyCellStyle}>{formatRupiahFull(product.costPrice)}</td>
                       <td style={bodyCellStyle}>
-                        {product.stock}{" "}
-                        <span style={{ fontSize: "12px", color: "hsl(var(--text-muted))" }}>
-                          {product.unit}
-                        </span>
+                        {(() => {
+                          const assignedStock =
+                            assignedStockByProduct.get(product.localId) ?? 0;
+                          const totalStock = getProductTotalStock(
+                            product,
+                            assignedStockByProduct
+                          );
+                          const terminalBreakdown = (
+                            assignmentsByProduct.get(product.localId) ?? []
+                          )
+                            .map((assignment) => {
+                              const terminalName =
+                                terminalNameById.get(assignment.terminalId) ||
+                                "Terminal POS";
+                              return `${terminalName} ${assignment.stock} ${product.unit}`;
+                            })
+                            .join(" · ");
+
+                          return (
+                            <div style={{ display: "grid", gap: "4px" }}>
+                              <div>
+                                <span style={{ fontWeight: 700 }}>{totalStock}</span>{" "}
+                                <span
+                                  style={{
+                                    fontSize: "12px",
+                                    color: "hsl(var(--text-muted))",
+                                  }}
+                                >
+                                  {product.unit}
+                                </span>
+                              </div>
+                              {assignedStock > 0 && (
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    color: "hsl(var(--text-secondary))",
+                                    lineHeight: 1.4,
+                                  }}
+                                >
+                                  Pusat {product.stock} {product.unit} · {terminalBreakdown}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td style={bodyCellStyle}>
                         {bomCount > 0 ? (

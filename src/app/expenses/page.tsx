@@ -3,6 +3,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { getDb, enqueueSyncOp } from "@/lib/db";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { calculateCashFlowSnapshot } from "@/lib/accounting";
 import { formatRupiahFull } from "@/lib/utils";
 import { useState, useMemo } from "react";
 import { v4 as uuidv4 } from "uuid";
@@ -36,42 +37,26 @@ export default function ExpensesPage() {
   ) ?? [];
 
   const sales = useLiveQuery(() => tenantId ? getDb().sales.where("tenantId").equals(tenantId).and(s => s.status === "COMPLETED").toArray() : [], [tenantId]) || [];
-  const rawMaterials = useLiveQuery(() => tenantId ? getDb().rawMaterials.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
-  const products = useLiveQuery(() => tenantId ? getDb().products.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
+  const shoppingPurchases = useLiveQuery(() => tenantId ? getDb().shoppingList.where("tenantId").equals(tenantId).and(item => item.status === "done").toArray() : [], [tenantId]) || [];
   const allAssets = useLiveQuery(() => tenantId ? getDb().assets.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
   const returns = useLiveQuery(() => tenantId ? getDb().salesReturns.where("tenantId").equals(tenantId).toArray() : [], [tenantId]) || [];
-  const saleItems = useLiveQuery(async () => {
-    if (!tenantId) return [];
-    const db = getDb();
-    const saleIds = await db.sales.where("tenantId").equals(tenantId).primaryKeys();
-    return db.saleItems.where("saleLocalId").anyOf(saleIds).toArray();
-  }, [tenantId]) || [];
-  
-  const initialCapital = useLiveQuery(async () => {
+  const storeProfile = useLiveQuery(async () => {
     const pDefault = await getDb().storeProfile.get("default");
-    if (!tenantId) return pDefault?.initialCapital || 0;
+    if (!tenantId) return pDefault;
     const pTenant = await getDb().storeProfile.get(tenantId);
-    return pTenant?.initialCapital || pDefault?.initialCapital || 0;
-  }, [tenantId]) || 0;
+    return pTenant || pDefault;
+  }, [tenantId]);
 
   const currentCash = useMemo(() => {
-    const totalSales = sales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-    const totalReturns = returns.reduce((sum, r) => sum + r.totalAmount, 0);
-    const totalAssetValue = allAssets.reduce((sum, a) => sum + a.purchasePrice, 0);
-    
-    const persediaanProduk = products.reduce((sum, p) => sum + (p.stock * p.costPrice), 0);
-    const persediaanBahan = rawMaterials.reduce((sum, m) => sum + (m.stock * m.costPerUnit), 0);
-    const totalPersediaan = persediaanProduk + persediaanBahan;
-
-    // Hitung COGS dari semua penjualan
-    const saleLocalIds = new Set(sales.map(s => s.localId));
-    const totalCOGS = saleItems
-      .filter(item => saleLocalIds.has(item.saleLocalId))
-      .reduce((sum, item) => sum + (item.quantity * item.costPrice), 0);
-
-    return initialCapital + totalSales - totalExpenses - totalReturns - totalAssetValue - totalPersediaan - totalCOGS;
-  }, [initialCapital, sales, expenses, returns, allAssets, products, rawMaterials, saleItems]);
+    return calculateCashFlowSnapshot({
+      storeProfile,
+      sales,
+      expenses,
+      returns,
+      assets: allAssets,
+      stockPurchases: shoppingPurchases,
+    }).endingCash;
+  }, [allAssets, expenses, returns, sales, shoppingPurchases, storeProfile]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

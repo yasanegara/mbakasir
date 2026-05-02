@@ -8,6 +8,7 @@ import {
   enqueueSyncOp,
   getDb,
   type LocalRawMaterial,
+  type LocalShoppingItem,
 } from "@/lib/db";
 import { formatRupiahFull, generateUUID } from "@/lib/utils";
 
@@ -40,6 +41,14 @@ export default function InventoryTab() {
     if (!user?.tenantId) return [];
     return getDb().billOfMaterials.toArray(); // Simplifikasi: BoM biasanya sedikit
   }, [user?.tenantId]) || [];
+
+  const storeProfile = useLiveQuery(async () => {
+    const db = getDb();
+    const pDefault = await db.storeProfile.get("default");
+    if (!user?.tenantId) return pDefault;
+    const pTenant = await db.storeProfile.get(user.tenantId);
+    return pTenant || pDefault;
+  }, [user?.tenantId]);
 
   const products = useLiveQuery(() => {
     if (!user?.tenantId) return [];
@@ -113,6 +122,7 @@ export default function InventoryTab() {
 
   const handleCreateMaterial = async () => {
     if (!user?.tenantId) return;
+    const tenantId = user.tenantId;
 
     if (!form.name.trim()) {
       toast("Nama bahan baku wajib diisi", "warning");
@@ -129,7 +139,7 @@ export default function InventoryTab() {
       const newMaterial: LocalRawMaterial = {
         id: existingMaterial?.id || localId,
         localId,
-        tenantId: user.tenantId,
+        tenantId,
         name: form.name.trim(),
         unit: form.unit.trim(),
         stock: form.stock,
@@ -139,9 +149,39 @@ export default function InventoryTab() {
         updatedAt,
       };
 
-      await db.transaction("rw", [db.rawMaterials, db.syncQueue], async () => {
+      // Hitung delta stok yang ditambahkan (untuk keperluan akuntansi roll-forward)
+      // Setiap penambahan stok bahan baku dicatat sebagai "pembelian" di shopping list
+      // agar formula expectedInventory di neraca akurat.
+      const prevStock = existingMaterial?.stock ?? 0;
+      const stockDelta = form.stock - prevStock; // positif = penambahan, negatif = pengurangan
+
+      await db.transaction("rw", [db.rawMaterials, db.shoppingList, db.syncQueue], async () => {
         await db.rawMaterials.put(newMaterial);
         await enqueueSyncOp("rawMaterials", localId, editingId ? "UPDATE" : "CREATE", newMaterial);
+
+        // Catat penambahan stok sebagai entri shopping list "done" agar
+        // formula roll-forward persediaan di neraca tetap akurat.
+        if (stockDelta > 0 && form.costPerUnit > 0) {
+          const shoppingId = generateUUID();
+          const shoppingEntry: LocalShoppingItem = {
+            id: shoppingId,
+            tenantId,
+            type: "rawMaterial",
+            status: "done",
+            name: form.name.trim(),
+            unit: form.unit.trim(),
+            qtyToBuy: stockDelta,
+            costPerUnit: form.costPerUnit,
+            costPrice: form.costPerUnit,
+            existingLocalId: localId,
+            isNew: !editingId,
+            completedAt: updatedAt,
+            createdAt: updatedAt,
+            updatedAt,
+          };
+          await db.shoppingList.add(shoppingEntry);
+          await enqueueSyncOp("shoppingList", shoppingId, "CREATE", shoppingEntry);
+        }
       });
 
       toast(editingId ? `Bahan baku diperbarui` : `Bahan baku ditambahkan`, "success");
@@ -153,6 +193,7 @@ export default function InventoryTab() {
 
   const handleGenerateDummy = async () => {
     if (!user?.tenantId) return;
+    const tenantId = user.tenantId;
     if (!confirm("Generate 5 bahan baku dummy untuk testing?")) return;
     
     const dummyData = [
@@ -165,23 +206,47 @@ export default function InventoryTab() {
 
     try {
       const db = getDb();
-      for (const item of dummyData) {
-        const localId = generateUUID();
-        const material: LocalRawMaterial = {
-          id: localId,
-          localId,
-          tenantId: user.tenantId,
-          name: item.name,
-          unit: item.unit,
-          stock: item.stock,
-          costPerUnit: item.cost,
-          minStock: item.min,
-          syncStatus: "PENDING",
-          updatedAt: Date.now()
-        };
-        await db.rawMaterials.add(material);
-        await enqueueSyncOp("rawMaterials", localId, "CREATE", material);
-      }
+      const now = Date.now();
+      await db.transaction("rw", [db.rawMaterials, db.shoppingList, db.syncQueue], async () => {
+        for (const item of dummyData) {
+          const localId = generateUUID();
+          const material: LocalRawMaterial = {
+            id: localId,
+            localId,
+            tenantId,
+            name: item.name,
+            unit: item.unit,
+            stock: item.stock,
+            costPerUnit: item.cost,
+            minStock: item.min,
+            syncStatus: "PENDING",
+            updatedAt: now,
+          };
+          await db.rawMaterials.add(material);
+          await enqueueSyncOp("rawMaterials", localId, "CREATE", material);
+
+          // Catat sebagai pembelian di shopping list agar terdeteksi di neraca
+          const shoppingId = generateUUID();
+          const shoppingEntry: LocalShoppingItem = {
+            id: shoppingId,
+            tenantId,
+            type: "rawMaterial",
+            status: "done",
+            name: item.name,
+            unit: item.unit,
+            qtyToBuy: item.stock,
+            costPerUnit: item.cost,
+            costPrice: item.cost,
+            existingLocalId: localId,
+            isNew: true,
+            completedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await db.shoppingList.add(shoppingEntry);
+          await enqueueSyncOp("shoppingList", shoppingId, "CREATE", shoppingEntry);
+        }
+      });
       toast("5 Bahan baku dummy berhasil ditambahkan!", "success");
     } catch {
       toast("Gagal generate bahan baku dummy", "error");
@@ -221,7 +286,13 @@ export default function InventoryTab() {
           <button className="btn btn-ghost" onClick={handleGenerateDummy} title="Generate Bahan Contoh">
             🪄 Dummy Bahan
           </button>
-          <button className={`btn ${showCreateForm ? "btn-ghost" : "btn-primary"}`} onClick={() => setShowCreateForm(!showCreateForm)}>
+          <button 
+            className={`btn ${showCreateForm ? "btn-ghost" : "btn-primary"}`} 
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            disabled={storeProfile?.setupType !== "MIGRATE"}
+            title={storeProfile?.setupType !== "MIGRATE" ? "Gunakan Daftar Belanja untuk merestock bahan baku jika tidak dalam mode migrasi awal." : "Tambah bahan baku awal (khusus masa migrasi)."}
+            style={storeProfile?.setupType !== "MIGRATE" ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+          >
             {showCreateForm ? "Tutup Form" : "+ Tambah Bahan"}
           </button>
         </div>

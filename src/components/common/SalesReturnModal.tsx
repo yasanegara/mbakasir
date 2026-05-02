@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { getDb, enqueueSyncOp, type LocalSale, type LocalSaleItem, type LocalProduct } from "@/lib/db";
+import { getDb, enqueueSyncOp, type LocalSale, type LocalSaleItem } from "@/lib/db";
 import { formatRupiahFull } from "@/lib/utils";
 import { useToast } from "@/contexts/AppProviders";
 import { v4 as uuidv4 } from "uuid";
@@ -100,7 +100,7 @@ export default function SalesReturnModal({ sale, items, currentCash, onClose, on
           condition: i.condition,
         }));
 
-      await db.transaction("rw", [db.salesReturns, db.salesReturnItems, db.products, db.syncQueue], async () => {
+      await db.transaction("rw", [db.salesReturns, db.salesReturnItems, db.products, db.productAssignments, db.syncQueue], async () => {
         // 1. Save return record
         await db.salesReturns.add(returnRecord);
         await enqueueSyncOp("salesReturns", returnLocalId, "CREATE", returnRecord);
@@ -111,16 +111,36 @@ export default function SalesReturnModal({ sale, items, currentCash, onClose, on
           // Note: sync for returnItems usually handled via parent return record or separate ops
           
           if (rItem.condition === "GOOD") {
-            const product = await db.products.get(rItem.productId);
-            if (product) {
-              const updatedProduct = {
-                ...product,
-                stock: product.stock + rItem.quantity,
-                updatedAt: Date.now(),
-                syncStatus: "PENDING" as const,
+            const assignment = sale.terminalId
+              ? await db.productAssignments
+                  .where({ productId: rItem.productId, terminalId: sale.terminalId })
+                  .first()
+              : undefined;
+
+            if (assignment) {
+              const updatedAssignment = {
+                ...assignment,
+                stock: assignment.stock + rItem.quantity,
               };
-              await db.products.put(updatedProduct);
-              await enqueueSyncOp("products", product.localId, "UPDATE", updatedProduct);
+              await db.productAssignments.put(updatedAssignment);
+              await enqueueSyncOp(
+                "productAssignments",
+                assignment.id,
+                "UPDATE",
+                updatedAssignment
+              );
+            } else {
+              const product = await db.products.get(rItem.productId);
+              if (product) {
+                const updatedProduct = {
+                  ...product,
+                  stock: product.stock + rItem.quantity,
+                  updatedAt: Date.now(),
+                  syncStatus: "PENDING" as const,
+                };
+                await db.products.put(updatedProduct);
+                await enqueueSyncOp("products", product.localId, "UPDATE", updatedProduct);
+              }
             }
           }
         }
