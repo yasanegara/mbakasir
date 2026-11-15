@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import BrandBadge from "@/components/brand/BrandBadge";
 import TokenMark from "@/components/ui/TokenMark";
 import { useAuth, useTheme } from "@/contexts/AppProviders";
@@ -159,6 +159,7 @@ export default function Sidebar({
   onClose,
   onToggleCollapse,
 }: SidebarProps) {
+  const router = useRouter();
   const pathname = usePathname();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
@@ -188,6 +189,20 @@ export default function Sidebar({
     }
     return hasRole;
   });
+
+  // Prefetch semua rute di background saat browser idle agar perpindahan halaman instan (<1 detik)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const idleCallback =
+      (window as any).requestIdleCallback ||
+      ((cb: () => void) => setTimeout(cb, 1000));
+    idleCallback(() => {
+      visibleNav.forEach((item) => {
+        router.prefetch(item.href);
+      });
+      router.prefetch("/settings");
+    });
+  }, [visibleNav, router]);
 
   const settingsLabel = user?.role === "CASHIER" ? "PIN & Password" : "Pengaturan";
   const showFooterSettings = true;
@@ -337,7 +352,10 @@ export default function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 className={`nav-item${isActive ? " active" : ""}${isPending ? " pending" : ""}`}
+                onMouseEnter={() => router.prefetch(item.href)}
+                onTouchStart={() => router.prefetch(item.href)}
                 onClick={() => {
                   if (pathname !== item.href) {
                     setPendingHref(item.href);
@@ -415,6 +433,9 @@ export default function Sidebar({
           {showFooterSettings && (
             <Link
               href="/settings"
+              prefetch={true}
+              onMouseEnter={() => router.prefetch("/settings")}
+              onTouchStart={() => router.prefetch("/settings")}
               className={`nav-item${pathname === "/settings" ? " active" : ""}${pendingHref === "/settings" && pathname !== "/settings" ? " pending" : ""}`}
               onClick={() => {
                 if (pathname !== "/settings") setPendingHref("/settings");
