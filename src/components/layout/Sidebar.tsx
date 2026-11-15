@@ -160,6 +160,12 @@ export default function Sidebar({
   onToggleCollapse,
 }: SidebarProps) {
   const pathname = usePathname();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
   const { user, logout } = useAuth();
   const { theme, setTheme, mode, toggleMode } = useTheme();
   const brand = useBrand();
@@ -325,17 +331,27 @@ export default function Sidebar({
             const isActive =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const isPending = pendingHref === item.href && !isActive;
+
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`nav-item${isActive ? " active" : ""}`}
-                onClick={onClose}
+                className={`nav-item${isActive ? " active" : ""}${isPending ? " pending" : ""}`}
+                onClick={() => {
+                  if (pathname !== item.href) {
+                    setPendingHref(item.href);
+                  }
+                  onClose();
+                }}
                 title={isCollapsed ? item.label : undefined}
                 style={isCollapsed ? { justifyContent: "center", padding: "10px" } : {}}
               >
                 {item.icon}
                 {!isCollapsed && <span>{item.label}</span>}
+                {isPending && !isCollapsed && (
+                  <span className="nav-spinner" style={{ marginLeft: "auto" }} />
+                )}
               </Link>
             );
           })}
@@ -399,12 +415,18 @@ export default function Sidebar({
           {showFooterSettings && (
             <Link
               href="/settings"
-              className={`nav-item${pathname === "/settings" ? " active" : ""}`}
+              className={`nav-item${pathname === "/settings" ? " active" : ""}${pendingHref === "/settings" && pathname !== "/settings" ? " pending" : ""}`}
+              onClick={() => {
+                if (pathname !== "/settings") setPendingHref("/settings");
+              }}
               title={isCollapsed ? settingsLabel : undefined}
               style={isCollapsed ? { justifyContent: "center", padding: "10px" } : {}}
             >
               {Icon.settings}
               {!isCollapsed && <span>{settingsLabel}</span>}
+              {pendingHref === "/settings" && pathname !== "/settings" && !isCollapsed && (
+                <span className="nav-spinner" style={{ marginLeft: "auto" }} />
+              )}
             </Link>
           )}
 

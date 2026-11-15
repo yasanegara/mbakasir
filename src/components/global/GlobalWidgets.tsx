@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useBrand } from "@/contexts/BrandContext";
 import TokenMark from "@/components/ui/TokenMark";
+import NavigationProgressBar from "@/components/common/NavigationProgressBar";
 
 export default function GlobalWidgets() {
   const brand = useBrand();
@@ -77,6 +78,7 @@ export default function GlobalWidgets() {
 
   return (
     <>
+      <NavigationProgressBar />
       {/* PWA Install Banner */}
       {showInstallBanner && (
         <div className="fixed bottom-24 left-4 right-4 md:left-auto md:right-8 md:bottom-24 z-50 animate-slide-up max-w-sm">
